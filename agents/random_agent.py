@@ -7,14 +7,15 @@ default_settings = {
                     "time_to_training" : 100,
                     }
 
-class test_agent(tetris_agent):
-    def __init__(self, id=0, sandbox=None, training=False, settings=None):
+class random_agent(tetris_agent):
+    def __init__(self, id=0, session=None, sandbox=None, training=False, settings=None):
         self.log = logging.getLogger("agent")
         self.log.debug("Test agent created!")
         self.id = id
         self.sandbox = sandbox
         self.training = training
         self.settings = default_settings.copy()
+        self.session = session
         if settings is not None:
             for x in settings:
                 self.settings[x] = settings[x]
@@ -28,7 +29,7 @@ class test_agent(tetris_agent):
     # Agent interface fcns
     # # #
     def get_action(self, state, training=True):
-        self.sandbox.set(state.backend_state)
+        self.sandbox.set(state)
         a_list = self.sandbox.get_actions(player=self.id)
         a_idx = random.randrange(len(a_list))
         return a_idx, a_list[a_idx]

@@ -1,4 +1,7 @@
-import sys, pygame as pg, numpy as np
+import sys
+import pygame as pg
+import numpy as np
+import time
 pg.init()
 
 size = width, height = 860, 440

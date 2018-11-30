@@ -26,6 +26,9 @@ class state:
         else:
             return [self.state_processor(self.backend_state.states,i) for i in idx]
 
+    def __len__(self):
+        return len(self.backend_state.states)
+
     def __iter__(self):
          self.current = -1
          return self

@@ -75,14 +75,14 @@ class tetris_environment:
         anchor = self.backend.copy()
         for a in actions:
             self.backend.set(anchor)
-            self.perform_action(a, player=player)
-            ret.append(self.copy())
+            self.perform_action(a, player=player, render=False)
+            ret.append(state(self.backend, self.state_processor))
         self.backend.set(anchor)
         if self.settings["render_simulation"]:
             draw_tetris.drawAllFields([r.backend.states[0].field for r in ret[1:5]])
         return ret
 
-    def perform_action(self, action, player=None):
+    def perform_action(self, action, player=None, render=None):
         self.log.debug("executing action {} for player {}".format(action, player))
         if player is None:
             a = action
@@ -90,7 +90,7 @@ class tetris_environment:
             a = [[0]]*self.settings["n_players"]
             a[player] = action
         done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        if self.settings["render"]:
+        if render:
             self.render()
         return done
 
@@ -112,6 +112,8 @@ class tetris_environment:
             self.backend.set(e)
         elif isinstance(e,tetris_environment):
             self.backend.set(e.backend)
+        elif isinstance(e,state):
+            self.backend.set(e.backend_state)
         else:
             self.log.error("tetris_environment.set was called with an unrecognized argument!")
 
