@@ -35,8 +35,7 @@ def run_stuff(controller, option=None, argument=None, manual=True):
         while option not in ["train", "test", "save_net", "save_all", "save_mem", "load"]:
             option = input("test, train, save_[mem|net|all] or load? ")
         return option
-    # try:
-    if True:
+    try:
         if option is None:
             option = menu()
         elif option == "train":
