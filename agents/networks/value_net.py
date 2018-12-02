@@ -2,9 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 default_settings = {
-                    "value_head_n_layers" : 5,
-                    "value_head_hidden_size" : 1024,
-                    "lr" : 0.00001,
+                    "value_head_n_layers" : 6,
+                    "value_head_hidden_size" : 768,
+                    "lr" : 0.000005,
                     }
 
 class value_net:
@@ -24,6 +24,7 @@ class value_net:
             self.input_states_tf = tf.placeholder(tf.float32, (None,)+self.state_size, name='input_state')
             self.target_values_tf = tf.placeholder(tf.float32, (None,1), name='target_value')
             self.output_values_tf, self.output_probabilities_tf = self.create_value_net(self.input_states_tf)
+            self.loss_weights_tf = tf.placeholder(tf.float32, (None,1), name='loss_weights')
             self.training_ops = self.create_training_ops()
             self.trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.scope_name)
             self.all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scope_name)
@@ -43,14 +44,17 @@ class value_net:
         return_values = self.session.run(run_list, feed_dict=feed_dict)
         return return_values
 
-    def train(self, input_states, target_values):
+    def train(self, input_states, target_values, weights=None):
+        if weights is None:
+            weights = np.ones((input_states.shape[0],1))
         n_states = len(input_states)
         run_list = [
                     self.training_ops,
                     ]
         feed_dict = {
                         self.input_states_tf : input_states,
-                        self.target_values_tf : target_values
+                        self.target_values_tf : target_values,
+                        self.loss_weights_tf : weights,
                     }
         self.session.run(run_list, feed_dict=feed_dict)
 
@@ -78,11 +82,12 @@ class value_net:
     def create_value_net(self, x):
         with tf.variable_scope("value_net") as vs:
             values_tf = self.create_value_head(x)
-            output_probabilities_tf = tf.nn.softmax( tf.multiply(values_tf, self.softmax_temperature_tf), axis=0 )
+            probabilities_tf = tf.nn.softmax( tf.multiply(values_tf, self.softmax_temperature_tf), axis=0 )
+            output_probabilities_tf = tf.div(probabilities_tf, tf.reduce_sum(probabilities_tf))
         return values_tf, output_probabilities_tf
 
     def create_training_ops(self):
-        value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.output_values_tf)
+        value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.output_values_tf, weights=self.loss_weights_tf)
         training_ops = tf.train.AdamOptimizer(learning_rate=self.settings['lr']).minimize(value_loss_tf)
         return training_ops
 

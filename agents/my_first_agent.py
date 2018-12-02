@@ -1,6 +1,7 @@
 import logging
 import random
 import pickle
+import random
 import numpy as np
 from collections import deque
 from agents.networks.value_net import value_net
@@ -8,12 +9,20 @@ from agents.tetris_agent import tetris_agent
 
 default_settings = {
                     "option" : "entry",
-                    "time_to_training" : 100,
+                    "minibatch_size" : 32,
+                    "time_to_training" : 10**2,
                     "time_to_reference_update" : 10,
-                    "experience_replay_size" : 10000,
-                    "n_samples_each_update" : 1000,
+                    "experience_replay_size" : 10**5,
+                    "n_samples_each_update" : 10**3,
                     "n_train_epochs_per_update" : 5,
                     "initial_action_prob_temp" : 1.0,
+                    "target_tau_learning_rate" : 0.19,
+                    "tau_learning_rate" : 0.02,
+                    "tau_tolerance" : 0.4,
+                    "temp_increase_factor" : 1.02,
+                    "temp_decrease_factor" : 0.998,
+                    "dithering_scheme" : "adaptive_epsilon",
+                    "gamma" : 1.0,
                     }
 
 class my_agent(tetris_agent):
@@ -32,31 +41,47 @@ class my_agent(tetris_agent):
         self.time_to_training = self.settings['time_to_training']
         self.time_to_reference_update = 0#self.settings['time_to_reference_update']
 
-        self.action_prob_temperature = self.settings["initial_action_prob_temp"]
         self.state_size = self.state_to_vector(self.sandbox.get_state()).shape[1:]
         self.experience_replay = deque(maxlen=self.settings["experience_replay_size"])
         self.model = value_net(self.id, "main", self.state_size, session, settings=self.settings)
         self.reference_model = value_net(self.id, "reference", self.state_size, session, settings=self.settings)
-        self.round_stats = {"r":[], "value":[],"prob":[]}
+        self.round_stats = {"r":[], "value":[],"prob":[], "tau" : 0}
+
+        self.target_trajectory_length = 10
+        self.avg_trajectory_length = 5 #tau
+        self.action_prob_temperature = self.settings["initial_action_prob_temp"]
     # # # # #
     # Agent interface fcns
     # # #
-    def get_action(self, state, training=False):
+    def get_action(self, state, training=False, verbose=False):
         #Get hypothetical future states and turn them into vectors
         self.sandbox.set(state)
         actions = self.sandbox.get_actions(player=self.id)
         future_states = self.sandbox.simulate_actions(actions, self.id)
-        values, probabilities = self.run_model(self.model, future_states, self.action_prob_temperature)
+        values, probabilities = self.run_model(self.model, future_states, temperature=self.action_prob_temperature)
         #Choose action
+        p=probabilities.reshape((-1))/probabilities.sum() #Sometimes rounding breaks down...
         if training:
-            p=probabilities.reshape((-1))/probabilities.sum() #Sometimes rounding breaks down...
-            a_idx = np.random.choice(np.arange(p.size), p=p)
+            if self.settings["dithering_scheme"] == "boltzmann":
+                a_idx = np.random.choice(np.arange(p.size), p=p)
+            if self.settings["dithering_scheme"] == "adaptive_epsilon":
+                if random.random() < self.avg_trajectory_length**(-1):
+                    a_idx = np.random.choice(np.arange(p.size))
+                else:
+                    a_idx = np.argmax(values.reshape((-1)))
         else:
-            a_idx = np.argmax(probabilities.reshape((-1)))
+            a_idx = np.argmax(values.reshape((-1)))
+        action = actions[a_idx]
         #store some stats
         self.round_stats["value"].append(values[a_idx,0])
         self.round_stats["prob"].append(probabilities[a_idx,0])
-        return a_idx, actions[a_idx]
+        self.round_stats["tau"] += 1
+        #Print some stuff
+        str = "agent{} chose action{}:{}\nprobs:{}\nvals:{}\n---".format(self.id,a_idx,action,np.around(p,decimals=2),np.around(values[:,0],decimals=2))
+        if verbose:
+            print(str)
+        self.log.debug(str)
+        return a_idx, action
 
     def run_model(self, net, states, temperature=1.0):
         if isinstance(states, np.ndarray):
@@ -74,11 +99,19 @@ class my_agent(tetris_agent):
         self.round_stats["r"].append(r[0])
         self.log.debug("agent[{}] stores experience {}".format(self.id, info))
 
-    def ready_for_new_round(self):
-        print("Agent{} round-stats!".format(self.id))
-        for x in self.round_stats:
-            print(x, ":" ,np.around(self.round_stats[x], decimals=2))
-        self.round_stats = {"r":[], "value":[],"prob":[]}
+    def ready_for_new_round(self,training=False):
+        # print("Agent{} round-stats!".format(self.id))
+        # for x in self.round_stats:
+        #     print(x, ":" ,np.around(self.round_stats[x], decimals=2))
+        if training:
+            #Update tau!
+            a = self.settings["tau_learning_rate"]
+            self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*self.round_stats["tau"]
+        else:
+            a = self.settings["target_tau_learning_rate"]
+            self.target_trajectory_length = (1-a) * self.target_trajectory_length + a*self.round_stats["tau"]
+        #Empty stats
+        self.round_stats = {"r":[], "value":[],"prob":[], "tau" : 0}
 
     def is_ready_for_training(self):
         return (self.time_to_training <= 0)
@@ -101,12 +134,13 @@ class my_agent(tetris_agent):
         state_vec = self.states_to_vectors(states)
         done_vec = np.concatenate(dones)[:,np.newaxis]
         reward_vec = np.concatenate(rewards)[:,np.newaxis]
-        next_value_vec, _ = self.run_model(self.reference_model, next_states)
-        target_value_vec = reward_vec + (1-done_vec.astype(np.int)) * next_value_vec
-        minibatch_size = 32
+        next_value_vec, _ = self.run_model(self.reference_model, next_states, temperature=self.action_prob_temperature)
+        target_value_vec = reward_vec + (1-done_vec.astype(np.int)) *  next_value_vec
+        minibatch_size = self.settings["minibatch_size"]
         for t in range(self.settings["n_train_epochs_per_update"]):
+            perm = np.random.permutation(self.settings["n_train_epochs_per_update"])
             for i in range(0,self.settings["n_samples_each_update"],minibatch_size):
-                self.model.train(state_vec[i:i+minibatch_size],target_value_vec[i:i+minibatch_size])
+                self.model.train( state_vec[perm[i:i+minibatch_size]], target_value_vec[perm[i:i+minibatch_size]] )
         ''' check if / update reference net'''
         if self.time_to_reference_update == 0:
             print("Updating agent{} reference model!".format(self.id))
@@ -115,11 +149,28 @@ class my_agent(tetris_agent):
             self.time_to_reference_update = self.settings["time_to_reference_update"]
         else:
             self.time_to_reference_update -= 1
+        #Update temperature!
+        if 1-self.settings["tau_tolerance"] > self.avg_trajectory_length / self.target_trajectory_length:
+            self.action_prob_temperature *= self.settings["temp_increase_factor"]
+        if 1+self.settings["tau_tolerance"] < self.avg_trajectory_length / self.target_trajectory_length:
+            self.action_prob_temperature *= self.settings["temp_decrease_factor"]
+
+        print("---")
+        # print("TEMP:{}".format(self.action_prob_temperature))
+        print("TAU:{}".format(self.avg_trajectory_length))
+        # print("TARGET_TAU:{}".format(self.target_trajectory_length))
+        print("EPSILON:{}".format(1/self.avg_trajectory_length))
+        print("---")
+
+        #Reset delay
         self.time_to_training = self.settings["time_to_training"]
 
     # # # # #
     # Training fcns
     # # #
+    def init_training(self):
+        self.ready_for_new_round(training=False)
+
     def get_next_states(self, state):
         self.sandbox.set(state)
         return self.sandbox.simulate_all_actions(self.id)
@@ -158,9 +209,11 @@ class my_agent(tetris_agent):
         with open(file, 'rb') as f:
             self.experience_replay = pickle.load(f)
 
-    def save_all(self,path):
-        self.save_weights(path+"/weights")
-        self.save_memory(path+"/mem")
+    def save(self,path, option="all"):
+        if option in ["all", "weights"]:
+            self.save_weights(path+"/weights")
+        if option in ["all", "mem"]:
+            self.save_memory(path+"/mem")
 
     def load_all(self,path):
         self.load_weights(path+"/weights")

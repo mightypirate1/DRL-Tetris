@@ -1,4 +1,5 @@
 import logging
+import time
 from environment.game_backend.modules import tetris_env
 import environment.aux.state_processors as state_processors
 import environment.aux.draw_tetris as draw_tetris
@@ -42,6 +43,8 @@ class tetris_environment:
             self.backend.reset()
         else:
             self.backend = init_env.copy()
+        self.done = False
+
         #Say hi!
         self.log.info("Created tetris_environment!")
         self.log.info(self)
@@ -89,10 +92,19 @@ class tetris_environment:
         else:
             a = [[0]]*self.settings["n_players"]
             a[player] = action
-        done = self.backend.action(a,self.settings["time_elapsed_each_action"])
+        self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
         if render:
             self.render()
-        return done
+        return self.done
+
+    def get_winner(self):
+        if not self.done:
+            return None
+        for i in range(self.settings["n_players"]):
+            if not self.backend.states[i].dead:
+                return i
+        self.log.warning("get_winner: env returned done=True, no one was alive to win game. I returned winner=666 in the hopes that this will be noticed...")
+        return 666 #This should never happen.
 
     def simulate_all_actions(self, player):
         actions = self.get_actions(player=player)

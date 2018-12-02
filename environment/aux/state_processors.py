@@ -22,15 +22,19 @@ This is just here for customizability, you can probably leave it as is!
 #x is type State as defined by the c++/python interface.
 def state_dict(x, player, *parameters):
     col_code = { 1 : 5, 2 : 4, 3 : 1, 4 : 0, 5 : 2, 6 : 6, 7 : 3} #The engine codes pieces differently in different places....
+
+    # piece_set = parameters[0][0] #For the compact representation
+    piece_set = [0, 1, 2, 3, 4, 5, 6, 7]
+
     ret =   {
                 "field" : (np.array(x[player].field)>0).astype(np.uint8),
-		        "piece" : np.array([int(p==col_code[x[player].piece[1][1]]) for p in parameters[0][0]]).astype(np.uint8),
-		        # "x" : x[player].x.copy(),
-		        # "y" : x[player].y.copy(),
+		        "piece" : np.array([int(p==col_code[x[player].piece[1][1]]) for p in piece_set]).astype(np.uint8),
+		        "x" : x[player].x.copy(),
+		        "y" : x[player].y.copy(),
 		        "incoming_lines" : np.array(x[player].inc_lines),
 		        "combo_time" : np.array(x[player].combo_time) / 10000,
 		        "combo_count" : np.array(x[player].combo_count),
-		        "nextpiece" : np.array([int(p==x[player].nextpiece) for p in parameters[0][0]]),
+		        "nextpiece" : np.array([int(p==x[player].nextpiece) for p in piece_set]),
 		        "reward" : np.array(x[player].reward),
 		        "dead" : np.array(x[player].dead),
             }
@@ -55,7 +59,7 @@ def raw(x, player, *parameters):
 
 ''' Register state_processor by entring it to the dictionary below '''
 #Use this dictionary to register your state_processor so that it is accessible through its name.
-'''Entris have the form: "<name>" : (<function_pointer>, [<s1>, <s2>, ... , <sn>]) '''
+'''Entries have the form: "<name>" : (<function_pointer>, [<s1>, <s2>, ... , <sn>]) '''
 # where each <si> is a dictionary key to the settings dictionary.
 # The <si> are used to request parameters from the environment...
 # NOTE: The parameters are set up when the environment is created

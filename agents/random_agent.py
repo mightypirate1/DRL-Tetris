@@ -53,6 +53,9 @@ class random_agent(tetris_agent):
         self.time_to_training = self.settings["time_to_training"]
         print("agent[{}] doing training".format(self.id))
 
+    def init_training(self):
+        pass
+
     # # # # #
     # Training fcns
     # # #
