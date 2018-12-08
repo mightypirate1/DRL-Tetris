@@ -110,5 +110,5 @@ models/*
 !models/.gitkeep
 logs/*
 results/*
-!models/.gitkeep
+!results/.gitkeep
 *.pkl
