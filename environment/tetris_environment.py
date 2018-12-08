@@ -18,6 +18,7 @@ default_settings = {
                         "action_type" : "place_block",  #This determines if an action represents pressing a key or placing a block. Allowd values is "press_key" and "place_block"
                         "render" : True,                 #Gfx on?,
                         "render_simulation" : False,    #This renders the outcomes of the first 4 non-empty action sequences when simulating.
+                        "bar_null_moves" : False,
                     }
 
 class tetris_environment:
@@ -65,9 +66,9 @@ class tetris_environment:
             return available_actions if player is not None else [available_actions]*self.settings["n_players"]
         elif self.settings["action_type"] is "place_block":
             if player is None:
-                return [action_list(self.backend.masks[p].action) for p in range(self.settings["n_players"])]
+                return [action_list(self.backend.masks[p].action, remove_null=self.settings["bar_null_moves"]) for p in range(self.settings["n_players"])]
             else:
-                return action_list(self.backend.masks[player].action)
+                return action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
         else:
             self.log.warning("get_actions called with action_type={}. This may be fatal. Expected action_type \"press_key\" or \"place_block\"".format(self.settings["action_type"]))
             return None

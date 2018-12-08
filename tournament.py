@@ -1,3 +1,4 @@
+import pickle
 import os
 import tensorflow as tf
 import numpy as np
@@ -25,7 +26,7 @@ settings = {
             "n_players" : 2,
             "run-id" : "my_first_experiment",
             "action_prob_temperature" : 3.0,
-            "lr" : 5*10**(-7),
+            "lr" : 5*10**(-4),
             "bar_null_moves" : False, #True,
             }
 
@@ -49,7 +50,7 @@ def run_stuff(controller, option=None, argument=None, manual=True):
         elif option == "test":
             if argument is None:
                 argument = 10000
-            controller.test(n_steps=argument, wait=manual)
+            return controller.test(n_steps=argument, wait=manual)
         elif option in ["save_net", "save_mem", "save_all", "save"]:
             if argument is None:
                 id = int(input("what agent? (int) "))
@@ -98,41 +99,39 @@ with tf.Session() as session:
     # # #
     # # # #
     # # # # #
-    This line of code can be uncommented to go into manual mode. Then you get a
-    menu asking what to do. You can perhaps load a couple of models you stored,
-    and watch them play!
+    Code below plays all agents against each other and store the scores!
     '''
-    # run_stuff(controller)
+    folders = [f.path.split("/")[1] for f in os.scandir("models") if f.is_dir() ]
+    _models = [f.split("_")[0] for f in folders]
+    _models = ["obi", "poo", "q", "rusty", "ike", "joe"]
+    only_last_version = True
+    models = {}
+    results = {}
+    for m in _models:
+        models[m] = [f.split("_")[1] for f in folders if m in f]
+        models[m].sort(key=lambda y:int(y),reverse=True)
+        if only_last_version:
+            models[m] = [models[m][0]]
 
+    print("Agents entering competition:")
+    for m in models:
+        print("{} : {}".format(m,models[m]))
 
-    '''
-    # # #
-    # # # #
-    # # # # #
-    This is a sample script that you can use so you don't have to go through the
-    menus each time...
-    '''
-    # # run_stuff(controller, option="load_net", argument=(0,"ape_003"), manual=False)
-    # run_stuff(controller, option="load_net", argument=(0,"coke_003"), manual=False)
-    # run_stuff(controller, option="load_net", argument=(1,"doe_003"), manual=False)
-    # # run_stuff(controller, option="train", argument=10, manual=False)
-    # run_stuff(controller, option="test", argument=10000, manual=True)
-    # exit()
-
-    '''
-    # # #
-    # # # #
-    # # # # #
-    Code below trains the agents "ape" and "bacon". Optional showing off of
-    learned skills, and saving of their models and memory in versioned folders.
-    '''
-    name0, name1 = "sock", "toe"
-    for i in range(15):
-        print("=======train=======")
-        run_stuff(controller, option="train", argument=500000, manual=False)
-        # print("=======test========")
-        # run_stuff(controller, option="test", argument=1000, manual=False)
-        print("=======save========")
-        save_mode = "save_net" if t%10>0 else "save_all"
-        run_stuff(controller, option=save_mode, argument=(0,"{}_{}".format(name0, str(i).zfill(3))), manual=False)
-        run_stuff(controller, option=save_mode, argument=(1,"{}_{}".format(name1, str(i).zfill(3))), manual=False)
+    #Test everyone vs everyone!
+    for m1 in models:
+        for n1 in models[m1]:
+            #Load the 1st agent...
+            a1 = m1+"_"+n1
+            run_stuff(controller, option="load_net", argument=(0,a1), manual=False)
+            for m2 in [m for m in models if m > m1]:
+                for n2 in models[m2]:
+                    #Load the 2nd agent...
+                    a2 = m2+"_"+n2
+                    run_stuff(controller, option="load_net", argument=(1,a2), manual=False)
+                    #
+                    print("{} vs {}!".format(a1,a2))
+                    stats = run_stuff(controller, option="test", argument=3000, manual=False)
+                    results[a1+"/"+a2] = {a1:sum(stats.scores[controller.agent[0]]),a2:sum(stats.scores[controller.agent[1]])}
+                    print("results: {}".format(results[a1+"/"+a2]))
+                    with open("results/tournament_results.pkl", 'wb') as f:
+                        pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)

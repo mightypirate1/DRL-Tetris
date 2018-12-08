@@ -3,7 +3,8 @@ import random
 import time
 import tensorflow as tf
 from environment.tetris_environment import tetris_environment
-from agents.my_first_agent import my_agent
+from agents.prioritizedreplay_agent.prioritizedreplay_agent import prioritizedreplay_agent
+from agents.my_first_agent.my_first_agent import my_agent
 
 # # # # #
 # Configuration:
@@ -12,10 +13,8 @@ from agents.my_first_agent import my_agent
 default_settings = {
                     "n_players" : 2,
                     "env" : tetris_environment,
-                    "agent" : my_agent,
-                    "max_actions" : 50,
+                    "agent" : prioritizedreplay_agent,
                     "gamma" : 0.99,
-                    "session" : tf.Session(),
                     "render" : True,
                     "max_round_time" : None,
                     "time_elapsed_each_action" : 100,
@@ -101,7 +100,9 @@ class game_controller:
                 self.agent[current_player].store_experience(experience)
             #Reset sometimes
             if self.time_out(t) or player_done[current_player]: #(this happens when the game is over, and every agent has noticed)
-                session_stats.report_winner(self.agent[self.env.get_winner()])
+                winner = self.env.get_winner()
+                if winner not in [None, 666]: #FAI-LPROOF AGAINST BACKEND-BUG!
+                    session_stats.report_winner(self.agent[winner])
                 for a in self.agent:
                     a.ready_for_new_round(training=True)
                 self.env.reset() #first reset env, then all relevant trainer-variables
@@ -126,7 +127,7 @@ class game_controller:
             current_player = (current_player+1)%self.settings['n_players']
 
 
-    def test(self, n_steps=0, wait=True, pause=False):
+    def test(self, n_steps=0, wait=True, pause=False, quiet=True):
         def reset_tester_variables():
             #Returns a bunch of constants to make code tidier below...
             return random.randrange(self.settings['n_players']), False
@@ -152,10 +153,13 @@ class game_controller:
             done = self.env.perform_action(action, player=current_player, render=self.settings["render"])
             next_state = self.env.get_state()
             if done:
-                session_stats.report_winner(self.agent[self.env.get_winner()])
-                print("agent{} won!!!".format(self.env.get_winner()))
-                session_stats.print_winrate(exp=False)
-                session_stats.print_winrate(exp=True)
+                winner = self.env.get_winner()
+                if winner not in [None, 666]: #FAI-LPROOF AGAINST BACKEND-BUG!
+                    session_stats.report_winner(self.agent[winner])
+                if not quiet:
+                    print("agent{} won!!!".format(self.env.get_winner()))
+                    session_stats.print_winrate(exp=False)
+                    session_stats.print_winrate(exp=True)
                 if pause:
                     input("Enter to start new round!")
             #Wait so the humans can keep up!
@@ -163,6 +167,7 @@ class game_controller:
                 time.sleep(self.settings["time_elapsed_each_action"]/1000)
             #Change active agent (take turns!)
             current_player = (current_player+1)%self.settings['n_players']
+        return session_stats
     def restore(self):
         ''' TODO! '''
         pass

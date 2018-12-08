@@ -3,29 +3,51 @@ import random
 import pickle
 import random
 import numpy as np
-from collections import deque
+import bisect
 from agents.networks.value_net import value_net
 from agents.tetris_agent import tetris_agent
+from agents.prioritizedreplay_agent.prioritized_experience_replay import prioritized_experience_replay
 
 default_settings = {
                     "option" : "entry",
                     "minibatch_size" : 32,
-                    "time_to_training" : 10**2,
-                    "time_to_reference_update" : 10,
+                    "time_to_training" : 10**3,
+                    "time_to_reference_update" : 5,
                     "experience_replay_size" : 10**5,
-                    "n_samples_each_update" : 10**3,
+                    "n_samples_each_update" : 10**2,
                     "n_train_epochs_per_update" : 5,
                     "initial_action_prob_temp" : 1.0,
-                    "target_tau_learning_rate" : 0.19,
-                    "tau_learning_rate" : 0.02,
+                    "tau_learning_rate" : 0.01,
                     "tau_tolerance" : 0.4,
                     "temp_increase_factor" : 1.02,
                     "temp_decrease_factor" : 0.998,
                     "dithering_scheme" : "adaptive_epsilon",
+                    "adaptive_epsilon" : 1.0,
                     "gamma" : 1.0,
+                    "ALTERNATE_MODELS_INSTEAD_OF_MOVING_REFERENCEMODEL" : True,
+                    "prioritized_replay_alpha_init" : 0.7,
+                    "prioritized_replay_beta_init" : 0.5, #0.5, used in paper, then linear increase to 1...
                     }
 
-class my_agent(tetris_agent):
+class prioritizedreplay_agent(tetris_agent):
+    class experience(tuple): #This is to be able to do quick surprise_factor comparison on experiences
+        def __lt__(self,x):
+            if isinstance(x, my_agent.experience):
+                return self[-1] < x[-1] #Last element in an experience is the surprise_factor
+            return self[-1] < x
+        def __le__(self,x):
+            if isinstance(x, my_agent.experience):
+                return self[-1] <= x[-1] #Last element in an experience is the surprise_factor
+            return self[-1] <= x
+        def __gt__(self,x):
+            if isinstance(x, my_agent.experience):
+                return self[-1] > x[-1] #Last element in an experience is the surprise_factor
+            return self[-1] > x
+        def __ge__(self,x):
+            if isinstance(x, my_agent.experience):
+                return self[-1] >= x[-1] #Last element in an experience is the surprise_factor
+            return self[-1] >= x
+
     def __init__(self, id=0, session=None, sandbox=None, settings=None):
         self.log = logging.getLogger("agent")
         self.log.debug("Test agent created!")
@@ -42,41 +64,52 @@ class my_agent(tetris_agent):
         self.time_to_reference_update = 0#self.settings['time_to_reference_update']
 
         self.state_size = self.state_to_vector(self.sandbox.get_state()).shape[1:]
-        self.experience_replay = deque(maxlen=self.settings["experience_replay_size"])
+        self.experience_replay = prioritized_experience_replay(self.settings["experience_replay_size"])
+        self.current_trajectory = []
+
         self.model = value_net(self.id, "main", self.state_size, session, settings=self.settings)
         self.reference_model = value_net(self.id, "reference", self.state_size, session, settings=self.settings)
         self.round_stats = {"r":[], "value":[],"prob":[], "tau" : 0}
 
-        self.target_trajectory_length = 10
         self.avg_trajectory_length = 5 #tau
         self.action_prob_temperature = self.settings["initial_action_prob_temp"]
+        self.prioritized_replay_alpha = self.settings["prioritized_replay_alpha_init"]
+        self.prioritized_replay_beta = self.settings["prioritized_replay_beta_init"]
     # # # # #
     # Agent interface fcns
     # # #
     def get_action(self, state, training=False, verbose=False):
-        #Get hypothetical future states and turn them into vectors
+        #Get hypothetical future states and turn them into vectors!
         self.sandbox.set(state)
         actions = self.sandbox.get_actions(player=self.id)
         future_states = self.sandbox.simulate_actions(actions, self.id)
-        values, probabilities = self.run_model(self.model, future_states, temperature=self.action_prob_temperature)
-        #Choose action
+        #Get temperature, just in case that is our dithering scheme...
+        if self.settings["dithering_scheme"] == "boltzmann_tau":
+            time = 1+len(self.current_trajectory)
+            temperature = self.action_prob_temperature * time
+        else:
+            temperature = self.action_prob_temperature
+        #Run model!
+        values, probabilities = self.run_model(self.model, future_states, temperature=temperature)
+        #Choose action!
         p=probabilities.reshape((-1))/probabilities.sum() #Sometimes rounding breaks down...
         if training:
-            if self.settings["dithering_scheme"] == "boltzmann":
+            if "boltzmann" in self.settings["dithering_scheme"]:
                 a_idx = np.random.choice(np.arange(p.size), p=p)
             if self.settings["dithering_scheme"] == "adaptive_epsilon":
-                if random.random() < self.avg_trajectory_length**(-1):
+                dice = random.random()
+                if dice < self.settings["adaptive_epsilon"]*self.avg_trajectory_length**(-1):
                     a_idx = np.random.choice(np.arange(p.size))
                 else:
                     a_idx = np.argmax(values.reshape((-1)))
         else:
             a_idx = np.argmax(values.reshape((-1)))
         action = actions[a_idx]
-        #store some stats
+        #Store some stats...
         self.round_stats["value"].append(values[a_idx,0])
         self.round_stats["prob"].append(probabilities[a_idx,0])
         self.round_stats["tau"] += 1
-        #Print some stuff
+        #Print some stuff...
         str = "agent{} chose action{}:{}\nprobs:{}\nvals:{}\n---".format(self.id,a_idx,action,np.around(p,decimals=2),np.around(values[:,0],decimals=2))
         if verbose:
             print(str)
@@ -94,72 +127,87 @@ class my_agent(tetris_agent):
         #unpack the experience, and get the reward that is hidden in s'
         s,a,s_prime, done, info = experience
         r = s_prime[self.id]["reward"]
-        self.experience_replay.append( (s,a,r,s_prime,[done]) )
-        self.time_to_training -= 1
+        self.current_trajectory.append( (s,a,r,s_prime,[done]) )
         self.round_stats["r"].append(r[0])
-        self.log.debug("agent[{}] stores experience {}".format(self.id, info))
+        self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, info))
 
     def ready_for_new_round(self,training=False):
-        # print("Agent{} round-stats!".format(self.id))
-        # for x in self.round_stats:
-        #     print(x, ":" ,np.around(self.round_stats[x], decimals=2))
+        if len(self.current_trajectory) == 0:
+            return
         if training:
             #Update tau!
             a = self.settings["tau_learning_rate"]
-            self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*self.round_stats["tau"]
-        else:
-            a = self.settings["target_tau_learning_rate"]
-            self.target_trajectory_length = (1-a) * self.target_trajectory_length + a*self.round_stats["tau"]
+            self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*len(self.current_trajectory)
+            #Process the trajectory to calculate the TD-error of the value-predictions of each transition
+            states_visited, rs = [], []
+            for s,a,r,s_prime,done in self.current_trajectory:
+                states_visited.append(s)
+                rs.append(r)
+            states_visited.append(self.current_trajectory[-1][3]) #add the last s' too!
+            #states_visited should now be all states we visited
+            values, _ = self.run_model(self.model, states_visited)
+            td_errors = np.array(rs) + self.settings["gamma"] * values[1:] - values[:-1] #for each i, td[i]=r[i]+gamma*V(s'[i])-V(s[i])
+            surprise_factors = np.abs(td_errors)
+            self.experience_replay.add_samples(self.current_trajectory, surprise_factors)
+            self.time_to_training -= len(self.current_trajectory)
+            self.current_trajectory.clear()
         #Empty stats
         self.round_stats = {"r":[], "value":[],"prob":[], "tau" : 0}
 
     def is_ready_for_training(self):
-        return (self.time_to_training <= 0)
+        return (self.time_to_training <= 0) and (len(self.experience_replay) > self.settings["n_samples_each_update"])
 
     def do_training(self):
         self.log.debug("agent[{}] doing training".format(self.id))
         print("agent{} training...".format(self.id))
         ''' random sample from experience_replay '''
-        n = len(self.experience_replay)
-        all_indices = np.arange(n)
-        p = all_indices/all_indices.sum()
-        indices = np.random.choice(all_indices, size=self.settings["n_samples_each_update"], p=p).tolist()
+        samples, _, time_stamps, is_weights, return_idxs =\
+                self.experience_replay.get_random_sample(
+                                                         self.settings["n_samples_each_update"],
+                                                         alpha=self.prioritized_replay_alpha,
+                                                         beta=self.prioritized_replay_beta,
+                                                         )
         ''' calculate target values'''
-        states = [None] * self.settings["n_samples_each_update"]
-        rewards = [None] * self.settings["n_samples_each_update"]
-        dones = [None] * self.settings["n_samples_each_update"]
-        next_states = [None] * self.settings["n_samples_each_update"]
-        for i,j in enumerate(indices):
-            states[i], _, rewards[i], next_states[i], dones[i] = self.experience_replay[j]
+        #Unpack data (This feels inefficient... think thins through some day)
+        states, actions, rewards, next_states, dones = [[None]*self.settings["n_samples_each_update"] for x in range(5)]
+        for i,s in enumerate(samples):
+            states[i], actions[i], rewards[i], next_states[i], dones[i] = s
+        #Get data into numpy-arrays...
         state_vec = self.states_to_vectors(states)
         done_vec = np.concatenate(dones)[:,np.newaxis]
         reward_vec = np.concatenate(rewards)[:,np.newaxis]
-        next_value_vec, _ = self.run_model(self.reference_model, next_states, temperature=self.action_prob_temperature)
-        target_value_vec = reward_vec + (1-done_vec.astype(np.int)) *  next_value_vec
+        next_value_vec_ref, _ = self.run_model(self.reference_model, next_states)
+        target_value_vec = reward_vec + (1-done_vec.astype(np.int)) * self.settings["gamma"] * next_value_vec_ref #If surprises are negative, that cancels out here!
+        is_weights = np.array(is_weights)
         minibatch_size = self.settings["minibatch_size"]
+        #TRAIN!
         for t in range(self.settings["n_train_epochs_per_update"]):
             perm = np.random.permutation(self.settings["n_train_epochs_per_update"])
             for i in range(0,self.settings["n_samples_each_update"],minibatch_size):
-                self.model.train( state_vec[perm[i:i+minibatch_size]], target_value_vec[perm[i:i+minibatch_size]] )
+                self.model.train(state_vec[perm[i:i+minibatch_size]],target_value_vec[perm[i:i+minibatch_size]], weights=is_weights[perm[i:i+minibatch_size]])
         ''' check if / update reference net'''
         if self.time_to_reference_update == 0:
             print("Updating agent{} reference model!".format(self.id))
-            weights = self.model.get_weights(self.model.trainable_vars)
-            self.reference_model.set_weights(self.reference_model.trainable_vars, weights)
+            if self.settings["ALTERNATE_MODELS_INSTEAD_OF_MOVING_REFERENCEMODEL"]:
+                tmp = self.reference_model
+                self.reference_model = self.model
+                self.model = tmp
+            else:
+                weights = self.model.get_weights(self.model.trainable_vars)
+                self.reference_model.set_weights(self.reference_model.trainable_vars,weights)
             self.time_to_reference_update = self.settings["time_to_reference_update"]
         else:
             self.time_to_reference_update -= 1
-        #Update temperature!
-        if 1-self.settings["tau_tolerance"] > self.avg_trajectory_length / self.target_trajectory_length:
-            self.action_prob_temperature *= self.settings["temp_increase_factor"]
-        if 1+self.settings["tau_tolerance"] < self.avg_trajectory_length / self.target_trajectory_length:
-            self.action_prob_temperature *= self.settings["temp_decrease_factor"]
+        #Get new surprise values for the samples, then store them back into experience replay!
+        value_vec, _ = self.run_model(self.model, state_vec)
+        # next_value_vec, _ = self.run_model(self.model, next_states)
+        td_errors = (reward_vec + self.settings["gamma"] * next_value_vec_ref - value_vec).reshape(-1).tolist()
+        self.experience_replay.add_samples( samples, td_errors, filter=return_idxs, time_stamps=time_stamps)
+        '''---'''
 
         print("---")
-        # print("TEMP:{}".format(self.action_prob_temperature))
         print("TAU:{}".format(self.avg_trajectory_length))
-        # print("TARGET_TAU:{}".format(self.target_trajectory_length))
-        print("EPSILON:{}".format(1/self.avg_trajectory_length))
+        print("EPSILON:{}".format(self.settings["adaptive_epsilon"]/self.avg_trajectory_length))
         print("---")
 
         #Reset delay
@@ -169,7 +217,7 @@ class my_agent(tetris_agent):
     # Training fcns
     # # #
     def init_training(self):
-        self.ready_for_new_round(training=False)
+        self.current_trajectory = []
 
     def get_next_states(self, state):
         self.sandbox.set(state)
@@ -200,8 +248,8 @@ class my_agent(tetris_agent):
             #Turns out PythonHandle-objects (corner-stone of the tetris-env is not picklable)...
             #Because of that we convert all states to np-arrays and store those instead. (presumed to be less compact)
             for e in self.experience_replay:
-                s, a, r, s_prime, done = e
-                tmp.append( (self.state_to_vector(s), a, r, self.state_to_vector(s_prime), done) )
+                s, a, r, s_prime, done, surprise = e
+                tmp.append( (self.state_to_vector(s), a, r, self.state_to_vector(s_prime), done, surprise) )
         with open(file, 'wb') as f:
             pickle.dump(tmp, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -215,10 +263,14 @@ class my_agent(tetris_agent):
         if option in ["all", "mem"]:
             self.save_memory(path+"/mem")
 
-    def load_all(self,path):
+    def load(self,path, option="all"):
+        if option in ["all", "weights"]:
+            self.load_weights(path+"/weights")
+            print("agent{} loaded weights from {}".format(self.id, path))
+        if option in ["all", "mem"]:
+            self.load_memory(path+"/mem")
+            print("agent{} loaded memory from {}".format(self.id, path))
         self.load_weights(path+"/weights")
-        print("agent{} loaded weights from {}".format(self.id, path))
-        self.load_memory(path+"/mem")
 
     # # # # #
     # Helper fcns

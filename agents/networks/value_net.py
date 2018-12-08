@@ -2,9 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 default_settings = {
-                    "value_head_n_layers" : 6,
-                    "value_head_hidden_size" : 768,
-                    "lr" : 0.000005,
+                    "value_head_n_hidden" : 5,
+                    "value_head_hidden_size" : 512,
+                    "lr" : 5*10**-5,
                     }
 
 class value_net:
@@ -29,6 +29,7 @@ class value_net:
             self.trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.scope_name)
             self.all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scope_name)
             self.init_ops = tf.variables_initializer(self.trainable_vars)
+            self.assign_placeholder_dict = self.create_weight_setting_ops()
         #Run init-op
         self.session.run(self.init_ops)
 
@@ -60,7 +61,7 @@ class value_net:
 
     def create_value_head(self,x):
         with tf.variable_scope("value_head", reuse=tf.AUTO_REUSE) as vs:
-            for n in range(self.settings['value_head_n_layers'] - 1):
+            for n in range(self.settings['value_head_n_hidden']):
                 x = tf.layers.dense(
                                     x,
                                     self.settings['value_head_hidden_size'],
@@ -72,7 +73,7 @@ class value_net:
             x = tf.layers.dense(
                                 x,
                                 1,
-                                name='layer{}'.format(self.settings['value_head_n_layers']),
+                                name='layer{}'.format(self.settings['value_head_n_hidden']+1),
                                 activation=tf.nn.tanh,
                                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                 bias_initializer=tf.contrib.layers.xavier_initializer(),
@@ -91,6 +92,18 @@ class value_net:
         training_ops = tf.train.AdamOptimizer(learning_rate=self.settings['lr']).minimize(value_loss_tf)
         return training_ops
 
+    def create_weight_setting_ops(self):
+        assign_placeholder_dict = {}
+        for var in self.all_vars:
+            shape, dtype = var.shape, var.dtype
+            assign_val_placeholder_tf = tf.placeholder(shape=shape, dtype=dtype)
+            assign_op_tf = var.assign(assign_val_placeholder_tf)
+            assign_placeholder_dict[var] = {
+                                                "assign_op" : assign_op_tf,
+                                                "assign_val_placeholder" : assign_val_placeholder_tf,
+                                            }
+        return assign_placeholder_dict
+
     def get_weights(self, collection):
         output = self.session.run(collection)
         ret = {}
@@ -101,7 +114,10 @@ class value_net:
     def set_weights(self, collection, input):
         weight_dict, old_scope_name = input
         run_list = []
+        feed_dict = {}
         for var in collection:
             old_var_name = var.name.replace(self.scope_name, old_scope_name)
-            run_list.append(var.assign(weight_dict[old_var_name]))
-        self.session.run(run_list)
+            # run_list.append(var.assign(weight_dict[old_var_name]))
+            run_list.append(self.assign_placeholder_dict[var]['assign_op'])
+            feed_dict[self.assign_placeholder_dict[var]['assign_val_placeholder']] = weight_dict[old_var_name]
+        self.session.run(run_list, feed_dict=feed_dict)

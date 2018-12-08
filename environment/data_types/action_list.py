@@ -1,6 +1,7 @@
 class action_list(list):
-    def __init__(self, container=None):
-        if container is None:
+    def __init__(self, container=None, remove_null=False):
+        self.remove_null = remove_null
+        if container is None or len(container) == 0:
             container = [[0]]
         if [0] not in container:
             self.container = [[0]]
@@ -8,12 +9,15 @@ class action_list(list):
             self.container = []
         for x in container:
             assert type(x) is list, "attempted to create action list with non-list type actions (type={}). An actions list is of the form [s_1,...,s_n] where each s_i is a list of actions [a_1,...,a_m], and each a_j an integer.".format(type(x))
-            self.container.append(x)
-    def __add__(self,n):
-        for x in n.container:
             if x not in self.container:
                 self.container.append(x)
-        return self
+        if self.remove_null:
+            self.remove_nulls()
+    def remove_nulls(self):
+        while len(self.container) > 0 and [0] in self.container:
+            self.container.remove([0])
+    def __add__(self,n):
+        return action_list(n.container+self.container, remove_null=(n.remove_null or self.remove_null))
     def __str__(self):
         return str(self.container)
     def __repr__(self):
