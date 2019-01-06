@@ -21,7 +21,7 @@ PythonHandle PythonHandle::init(int number_of_players, std::array<int, 2> field_
 }
 
 PythonHandle PythonHandle::copy() {
-	PythonHandle new_handle = init(players.size(), {FIELD_HEIGHT, FIELD_WIDTH}, 0);
+	PythonHandle new_handle = init(players.size(), {FIELD_HEIGHT, FIELD_WIDTH});
 	new_handle = *this;
 	return new_handle;
 }
@@ -49,10 +49,6 @@ void PythonHandle::reset() {
 	if (alive_count > 1)
 		last_winner = -1;
 	seed();
-
-	if (use_mask)
-		for (unsigned i=0; i<players.size(); ++i)
-			masks[i] = players[i].getMask(use_mask);
 }
 
 void PythonHandle::seed() {
@@ -169,5 +165,5 @@ bool PythonHandle::make_actions(std::vector<std::vector<int>> actions, int time_
 }
 
 void PythonHandle::get_actions(int p) {
-	mask[p] = players[p].getMask(2);
+	masks[p] = players[p].getMask(2);
 }
