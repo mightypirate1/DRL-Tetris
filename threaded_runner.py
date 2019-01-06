@@ -3,13 +3,14 @@ import time
 import numpy as np
 
 class trainer_thread(threading.Thread):
-    def __init__(self,trainer, runner_threads, train_epochs):
+    def __init__(self,trainer, runner_threads, train_epochs, patience=0.1):
         threading.Thread.__init__(self, target=self, args=())
         self.trainer = trainer
         self.runner_threads = runner_threads
         self.train_epochs = train_epochs
         self.running = False
-    def __call__(self, *x,**kx):
+        self.patience = patience
+    def __call__(self, *x, **kx):
         self.run()
     def run(self):
         self.running = True
@@ -31,23 +32,23 @@ class trainer_thread(threading.Thread):
 
     def join(self):
         while self.running:
-            pass
+            time.sleep(self.patience)
 
 class runner_thread(threading.Thread):
-    def __init__(self, id, env, n_steps, agent):
+    def __init__(self, id, env, n_steps, agent, patience=0.1):
         threading.Thread.__init__(self, target=self, args=())
         self.id = id
         self.env = env
         self.n_steps = n_steps
         self.agent = agent
         self.running = False
+        self.patience = patience
         self.current_player = 1
     def __call__(self):
         self.run()
     def join(self):
         while self.running:
-            pass
-
+            time.sleep(self.patience)
     def run(self):
         self.running = True
         s = self.env.get_state()
@@ -63,15 +64,17 @@ class runner_thread(threading.Thread):
         self.running = False
 
 class threaded_runner:
-    def __init__(self, envs=None, n_steps=0, runners=None, trainer=None, train_epochs=3):
+    def __init__(self, envs=None, n_steps=0, runners=None, trainer=None, train_epochs=3, patience=[0.1,0.1]):
         self.threads = []
         runner_threads = []
+        if type(patience) is list: runner_patience, trainer_patience = patience
+        else: runner_patience = trainer_patience = patience
         for i,ae in enumerate(zip(runners,envs)):
             a,e = ae
-            thread = runner_thread(i, e, n_steps, a)
+            thread = runner_thread(i, e, n_steps, a, patience=runner_patience)
             self.threads.append(thread)
             runner_threads.append(thread)
-        self.threads.append(trainer_thread(trainer,runner_threads, train_epochs))
+        self.threads.append(trainer_thread(trainer,runner_threads, train_epochs, patience=trainer_patience))
 
     def target(self, agent):
         for thread in self.threads:
