@@ -11,17 +11,15 @@ n_envs  = 64
 docoptstring = \
 '''Speedcheck!
 Usage:
-  Speedcheck.py [--n N] [--steps S]  [--disable_rendering]
-
-Options:
-    --n N      N envs. [default: 16]
-    --steps S  Run S environments steps in total. [default: 1000]
-    --render   Rendering on.
+  Speedcheck.py [--n N] [--steps S]  [--no_rendering]
 '''
 settings = docopt.docopt(docoptstring)
 t_steps = int(settings["--steps"])
 n_envs = int(settings["--n"])
-render = not settings["--disable_rendering"]
+render = not settings["--no_rendering"]
+print("Speedcheck:")
+for x in settings:
+    print("\t{} : {}".format(x,settings[x]))
 
 with tf.Session() as session:
     envs = tetris_environment_vector(n_envs, tetris_environment, rendering=render)
