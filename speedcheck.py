@@ -12,6 +12,10 @@ docoptstring = \
 '''Speedcheck!
 Usage:
   Speedcheck.py [--n N] [--steps S]  [--no_rendering]
+
+Options:
+    --n N      N envs. [default: 16]
+    --steps S  Run S environments steps in total. [default: 1000]
 '''
 settings = docopt.docopt(docoptstring)
 t_steps = int(settings["--steps"])
