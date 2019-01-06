@@ -73,7 +73,7 @@ with tf.Session() as session:
     current_player = 1
     s = envs[0].get_state()
     print("Go!")
-    for t in range(total_steps):
+    for t in range(total_steps // n_envs_per_thread):
         current_player = 1 - current_player
         _,a = agent.get_action(s, player=current_player)
         ds = envs[0].perform_action(a)
@@ -82,7 +82,7 @@ with tf.Session() as session:
             if d: envs[0].reset(env=[i])
         if render:
             envs[0].render(env=0)
-        print("Step {}".format((t+1)*n_envs))
+        print("Step {}".format((t+1)*n_envs_per_thread))
     T_serial_stop = time()
     print("Serial done")
     #Done!
