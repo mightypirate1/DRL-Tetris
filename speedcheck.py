@@ -51,6 +51,7 @@ with tf.Session() as session:
             if d: envs.reset(env=[i])
         if render:
             envs.render(env=0)
+        print("Step {}".format((t+1)*n_envs))
     delta_t = time.time() - t0
     print("{} steps in {} secs. ({} steps/sec)".format(t_steps, delta_t, t_steps/delta_t))
 
