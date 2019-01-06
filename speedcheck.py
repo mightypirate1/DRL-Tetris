@@ -2,14 +2,29 @@ from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent.vector_agent import vector_agent
 import tensorflow as tf
+import docopt
 import time
 
 t_steps = 1000
 n_envs  = 64
-envs = tetris_environment_vector(n_envs, tetris_environment)
-s = envs.get_state()
-with tf.Session() as session:
 
+docoptstring = \
+'''Speedcheck!
+Usage:
+  Speedcheck.py [--n N] [--steps S]  [--disable_rendering]
+
+Options:
+    --n N      N envs. [default: 16]
+    --steps S  Run S environments steps in total. [default: 1000]
+    --render   Rendering on.
+'''
+settings = docopt.docopt(docoptstring)
+t_steps = int(settings["--steps"])
+n_envs = int(settings["--n"])
+render = not settings["--disable_rendering"]
+
+with tf.Session() as session:
+    envs = tetris_environment_vector(n_envs, tetris_environment, rendering=render)
     agent = vector_agent(
                          n_envs,
                          session=session,
@@ -17,15 +32,16 @@ with tf.Session() as session:
                         )
     t0 = time.time()
     current_player = 1
+    s = envs.get_state()
     for t in range(t_steps // n_envs):
         current_player = 1 - current_player
-        # a = envs.get_random_action()
         _,a = agent.get_action(s, player=current_player)
         ds = envs.perform_action(a)
         s = envs.get_state()
         for i,d in enumerate(ds):
             if d: envs.reset(env=[i])
-        envs.render(env=(t%2))
+        if render:
+            envs.render(env=0)
     delta_t = time.time() - t0
     print("{} steps in {} secs. ({} steps/sec)".format(t_steps, delta_t, t_steps/delta_t))
 

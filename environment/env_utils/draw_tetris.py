@@ -60,7 +60,7 @@ def pollEvents():
 
 def drawAllFields(fields):
     ret = pollEvents()
-    
+
     x = 0
     y = 0
     height, width = fields[0].shape

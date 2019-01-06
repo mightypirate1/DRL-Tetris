@@ -8,7 +8,7 @@ from environment.data_types.state import state
 import aux.settings
 
 class tetris_environment_vector:
-    def __init__(self, n_envs, env_type, init_envs=None, settings={}):
+    def __init__(self, n_envs, env_type, rendering=True, init_envs=None, settings={}):
         if type(init_envs) is not list: init_envs = [init_envs for _ in range(n_envs)]
         #Set up settings
         self.settings = aux.settings.default_settings.copy()
@@ -16,7 +16,7 @@ class tetris_environment_vector:
             for x in settings:
                 self.settings[x] = settings[x]
         self.n_envs = n_envs
-        self.envs = [env_type(id=i, settings=settings, init_env=e) for i,e in enumerate(init_envs)]
+        self.envs = [env_type(id=i, rendering=rendering, settings=settings, init_env=e) for i,e in enumerate(init_envs)]
 
     # def __getattr__(self, attr):
     #     class wrapper:

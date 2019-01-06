@@ -9,12 +9,13 @@ from environment.data_types.state import state
 import aux
 
 class tetris_environment:
-    def __init__(self, id=None, settings=None, init_env=None):
+    def __init__(self, id=None, rendering=True, settings=None, init_env=None, renderer=None):
         #Set up logging
         self.log = logging.getLogger("environment")
         #Set up settings
         self.settings = aux.settings.default_settings.copy()
         self.id = id
+        self.rendering = rendering
         if settings is not None:
             for x in settings:
                 self.settings[x] = settings[x]
@@ -138,6 +139,8 @@ class tetris_environment:
     # Helper functions
     # # #
     def render(self):
+        if not self.rendering:
+            return
         draw_tetris.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
         #Pausing capability
         if draw_tetris.pollEvents():
