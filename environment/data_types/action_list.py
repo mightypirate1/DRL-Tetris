@@ -23,6 +23,9 @@ class action_list(list):
     def __repr__(self):
         return self.__str__()
     def __getitem__(self, key):
+        if key > len(self.container):
+            print("I HOPE THAT ACTION WAS NOT NECESSARY......")
+            return [0]
         return self.container[key]
     def __len__(self):
         return len(self.container)
