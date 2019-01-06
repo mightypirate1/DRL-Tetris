@@ -6,6 +6,7 @@ PythonHandle PythonHandle::init(int number_of_players, std::array<int, 2> field_
 	FIELD_HEIGHT = field_size[0];
 	FIELD_WIDTH = field_size[1];
 	ph.players.resize(number_of_players);
+	ph.masks.resize(number_of_players);
 	ph.states.reserve(number_of_players);
 
 	if (number_of_players > 1)
