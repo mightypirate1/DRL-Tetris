@@ -17,24 +17,31 @@ Options:
     --n N      N envs. [default: 16]
     --steps S  Run S environments steps in total. [default: 1000]
 '''
-settings = docopt.docopt(docoptstring)
-t_steps = int(settings["--steps"])
-n_envs = int(settings["--n"])
-render = not settings["--no_rendering"]
+docoptsettings = docopt.docopt(docoptstring)
+t_steps = int(docoptsettings["--steps"])
+n_envs = int(docoptsettings["--n"])
+render = not docoptsettings["--no_rendering"]
+
+settings = {
+            "render" : render,
+           }
+
 print("Speedcheck:")
-for x in settings:
-    print("\t{} : {}".format(x,settings[x]))
+for x in docoptsettings:
+    print("\t{} : {}".format(x,docoptsettings[x]))
 
 with tf.Session() as session:
-    envs = tetris_environment_vector(n_envs, tetris_environment, rendering=render)
+    envs = tetris_environment_vector(n_envs, tetris_environment, settings=settings)
     agent = vector_agent(
                          n_envs,
                          session=session,
-                         sandbox=tetris_environment()
+                         sandbox=tetris_environment(settings=settings),
+                         settings=settings,
                         )
     t0 = time.time()
     current_player = 1
     s = envs.get_state()
+    print("Go!")
     for t in range(t_steps // n_envs):
         current_player = 1 - current_player
         _,a = agent.get_action(s, player=current_player)

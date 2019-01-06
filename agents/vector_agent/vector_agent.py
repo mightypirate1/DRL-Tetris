@@ -106,18 +106,18 @@ class vector_agent(tetris_agent):
                     action_idxs[e][p] = 0
                 else:
                     #Choose action!
+                    my_values = values[idx_dict[p][e]]
                     if training:
                         if "boltzmann" in self.settings["dithering_scheme"]:
                             assert False, "use adaptive_epsilon as your dithering scheme with this agent!"
                         if self.settings["dithering_scheme"] == "adaptive_epsilon":
-                            my_values = values[idx_dict[p]]
                             dice = random.random()
                             if dice < self.settings["epsilon"].get_value(self.n_train_steps) * self.avg_trajectory_length**(-1):
                                 a_idx = np.random.choice(np.arange(my_values.size))
                             else:
                                 a_idx = np.argmax(my_values.reshape((-1)))
                     else:
-                        a_idx = np.argmax(values.reshape((-1)))
+                        a_idx = np.argmax(my_values.reshape((-1)))
                     actions[e][p] = all_actions[e][p][a_idx]
                     action_idxs[e][p] = a_idx
 

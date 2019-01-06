@@ -3,19 +3,17 @@ import time
 import numpy as np
 from environment.game_backend.modules import tetris_env
 import environment.env_utils.state_processors as state_processors
-import environment.env_utils.draw_tetris as draw_tetris
 from environment.data_types.action_list import action_list
 from environment.data_types.state import state
 import aux
 
 class tetris_environment:
-    def __init__(self, id=None, rendering=True, settings=None, init_env=None, renderer=None):
+    def __init__(self, id=None, settings=None, init_env=None, renderer=None):
         #Set up logging
         self.log = logging.getLogger("environment")
         #Set up settings
         self.settings = aux.settings.default_settings.copy()
         self.id = id
-        self.rendering = rendering
         if settings is not None:
             for x in settings:
                 self.settings[x] = settings[x]
@@ -139,7 +137,7 @@ class tetris_environment:
     # Helper functions
     # # #
     def render(self):
-        if not self.rendering:
+        if not self.settings["render"]:
             return
         draw_tetris.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
         #Pausing capability
@@ -161,6 +159,7 @@ class tetris_environment:
         else:
             self.state_processor = state_processors.state_processor(self.settings["state_processor"])
         if self.settings["render"]:
+            assert False, self.settings["render"]
             import environment.env_utils.draw_tetris
         return True
 
