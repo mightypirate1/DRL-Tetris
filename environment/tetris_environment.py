@@ -1,32 +1,20 @@
 import logging
 import time
+import numpy as np
 from environment.game_backend.modules import tetris_env
-import environment.aux.state_processors as state_processors
-import environment.aux.draw_tetris as draw_tetris
+import environment.env_utils.state_processors as state_processors
+import environment.env_utils.draw_tetris as draw_tetris
 from environment.data_types.action_list import action_list
 from environment.data_types.state import state
-#Aliasing for pieces, so they are easier to specify :)
-(l,j,s,z,i,t,o) = (0,1,2,3,4,5,6)
-
-default_settings = {
-                        "n_players" : 2,
-                        "pieces" : [l,j,s,z,i,t,o],
-                        "game_size" : [22,10],
-                        "mask" : 2,
-                        "time_elapsed_each_action" : 100,
-                        "state_processor" : "state_dict",        #This is a function that is applied to the state before returning it.
-                        "action_type" : "place_block",  #This determines if an action represents pressing a key or placing a block. Allowd values is "press_key" and "place_block"
-                        "render" : True,                 #Gfx on?,
-                        "render_simulation" : False,    #This renders the outcomes of the first 4 non-empty action sequences when simulating.
-                        "bar_null_moves" : False,
-                    }
+import aux
 
 class tetris_environment:
-    def __init__(self, settings=None, init_env=None):
+    def __init__(self, id=None, settings=None, init_env=None):
         #Set up logging
         self.log = logging.getLogger("environment")
         #Set up settings
-        self.settings = default_settings.copy()
+        self.settings = aux.settings.default_settings.copy()
+        self.id = id
         if settings is not None:
             for x in settings:
                 self.settings[x] = settings[x]
@@ -73,6 +61,20 @@ class tetris_environment:
             self.log.warning("get_actions called with action_type={}. This may be fatal. Expected action_type \"press_key\" or \"place_block\"".format(self.settings["action_type"]))
             return None
 
+    def get_random_action(self, player=None):
+        if player is None: p_list = [p for p in range(self.settings["n_players"])]
+        else : p_list = player
+        if type(p_list) is not list: p_list = [p_list]
+        ret = []
+        actions = self.get_actions()
+        for i in range(self.settings["n_players"]):
+            if i in p_list:
+                idx = np.random.choice(np.arange(len(actions[i])))
+                ret.append(actions[i][idx])
+            else:
+                ret.append([0])
+        return ret
+
     def simulate_actions(self,actions, player=None):
         self.log.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))
         ret = []
@@ -88,12 +90,14 @@ class tetris_environment:
 
     def perform_action(self, action, player=None, render=None):
         self.log.debug("executing action {} for player {}".format(action, player))
+        # print(action,player,render);exit()
         if player is None:
             a = action
         else:
             a = [[0]]*self.settings["n_players"]
             a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
+        # print(a, type(a));exit()
         if render:
             self.render()
         return self.done
@@ -154,7 +158,7 @@ class tetris_environment:
         else:
             self.state_processor = state_processors.state_processor(self.settings["state_processor"])
         if self.settings["render"]:
-            import environment.aux.draw_tetris
+            import environment.env_utils.draw_tetris
         return True
 
     def __str__(self):

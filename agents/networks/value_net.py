@@ -1,17 +1,16 @@
 import tensorflow as tf
 import numpy as np
-
-default_settings = {
-                    "value_head_n_hidden" : 5,
-                    "value_head_hidden_size" : 512,
-                    "lr" : 5*10**-5,
-                    }
-
+import aux
 class value_net:
-    def __init__(self, agent_id, name, state_size, sess, settings=None):
-        self.settings = default_settings
+    def __init__(self, agent_id, name, state_size, sess, settings=None, output_activation=tf.nn.tanh, reuse_nets=False):
+        self.settings = aux.settings.default_settings.copy()
         self.session = sess
         self.name = name
+        self.output_activation = output_activation
+        if output_activation == "elu_plus1":
+            def ep1(x):
+                return tf.nn.elu(x)+1
+            self.output_activation = ep1
         self.scope_name = "agent{}_{}".format(agent_id,name)
         if settings is not None:
             for x in settings:
@@ -19,11 +18,13 @@ class value_net:
         self.state_size = state_size
         self.dummy_state = np.zeros((1,)+state_size)
         #Define tensors/placeholders
-        with tf.variable_scope(self.scope_name) as vs:
+        reuse = True if reuse_nets else None
+        with tf.variable_scope(self.scope_name, reuse=reuse) as vs:
             self.softmax_temperature_tf = tf.placeholder(tf.float32, (1,), name='softmax_temperature')
             self.input_states_tf = tf.placeholder(tf.float32, (None,)+self.state_size, name='input_state')
             self.target_values_tf = tf.placeholder(tf.float32, (None,1), name='target_value')
             self.output_values_tf, self.output_probabilities_tf = self.create_value_net(self.input_states_tf)
+            self.learning_rate_tf = tf.placeholder(tf.float32, shape=())
             self.loss_weights_tf = tf.placeholder(tf.float32, (None,1), name='loss_weights')
             self.training_ops = self.create_training_ops()
             self.trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.scope_name)
@@ -45,7 +46,7 @@ class value_net:
         return_values = self.session.run(run_list, feed_dict=feed_dict)
         return return_values
 
-    def train(self, input_states, target_values, weights=None):
+    def train(self, input_states, target_values, weights=None, lr=None):
         if weights is None:
             weights = np.ones((input_states.shape[0],1))
         n_states = len(input_states)
@@ -54,6 +55,7 @@ class value_net:
                     ]
         feed_dict = {
                         self.input_states_tf : input_states,
+                        self.learning_rate_tf : lr,
                         self.target_values_tf : target_values,
                         self.loss_weights_tf : weights,
                     }
@@ -74,14 +76,15 @@ class value_net:
                                 x,
                                 1,
                                 name='layer{}'.format(self.settings['value_head_n_hidden']+1),
-                                activation=tf.nn.tanh,
+                                activation=self.output_activation,
                                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                 bias_initializer=tf.contrib.layers.xavier_initializer(),
                                )
         return x
 
-    def create_value_net(self, x):
+    def create_value_net(self, input):
         with tf.variable_scope("value_net") as vs:
+            x = input - 0.5 #"normalization"
             values_tf = self.create_value_head(x)
             probabilities_tf = tf.nn.softmax( tf.multiply(values_tf, self.softmax_temperature_tf), axis=0 )
             output_probabilities_tf = tf.div(probabilities_tf, tf.reduce_sum(probabilities_tf))
@@ -89,7 +92,7 @@ class value_net:
 
     def create_training_ops(self):
         value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.output_values_tf, weights=self.loss_weights_tf)
-        training_ops = tf.train.AdamOptimizer(learning_rate=self.settings['lr']).minimize(value_loss_tf)
+        training_ops = tf.train.AdamOptimizer(learning_rate=self.learning_rate_tf).minimize(value_loss_tf)
         return training_ops
 
     def create_weight_setting_ops(self):
@@ -117,7 +120,6 @@ class value_net:
         feed_dict = {}
         for var in collection:
             old_var_name = var.name.replace(self.scope_name, old_scope_name)
-            # run_list.append(var.assign(weight_dict[old_var_name]))
             run_list.append(self.assign_placeholder_dict[var]['assign_op'])
             feed_dict[self.assign_placeholder_dict[var]['assign_val_placeholder']] = weight_dict[old_var_name]
         self.session.run(run_list, feed_dict=feed_dict)

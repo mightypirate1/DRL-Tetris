@@ -19,9 +19,9 @@ class action_list(list):
     def __add__(self,n):
         return action_list(n.container+self.container, remove_null=(n.remove_null or self.remove_null))
     def __str__(self):
-        return str(self.container)
+        return "action_list("+str(self.container)+")"
     def __repr__(self):
-        return str(self.container)
+        return self.__str__()
     def __getitem__(self, key):
         return self.container[key]
     def __len__(self):

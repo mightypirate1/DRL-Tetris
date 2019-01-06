@@ -8,8 +8,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/tetris_env.dir/gamePlay.cpp.o"
   "CMakeFiles/tetris_env.dir/pieces.cpp.o"
   "CMakeFiles/tetris_env.dir/randomizer.cpp.o"
-  "/home/mightypirate1/Code/DQN_Tetris/game_backend/modules/tetris_env.pdb"
-  "/home/mightypirate1/Code/DQN_Tetris/game_backend/modules/tetris_env.cpython-36m-x86_64-linux-gnu.so"
+  "/home/mightypirate1/Code/DRL-Tetris/environment/game_backend/modules/tetris_env.pdb"
+  "/home/mightypirate1/Code/DRL-Tetris/environment/game_backend/modules/tetris_env.cpython-36m-x86_64-linux-gnu.so"
 )
 
 # Per-language clean rules from dependency scanning.

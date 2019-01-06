@@ -2,8 +2,9 @@ import pickle
 import os
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
+
 from game_controller_BOUNCE import game_controller
+from aux.parameter import *
 
 '''
 This is a very scetchy way of controlling the game flow.
@@ -25,10 +26,13 @@ settings = {
             "pieces" : [i,o], #It's good practice to preserve the ordering "l,j,s,z,i,t,o", even when using only a subset.
             "n_players" : 2,
             "run-id" : "my_first_experiment",
-            "action_prob_temperature" : 3.0,
-            "lr" : 5*10**(-4),
-            "bar_null_moves" : False, #True,
+            # "action_temperature" : constant_parameter(30.0),
+            # "use_curiosity" : True,
+            # "dithering_scheme" : "boltzmann",
+            # "action_temperature" : 1.0,
+            "bar_null_moves" : True, #defaults to False,
             }
+
 
 def run_stuff(controller, option=None, argument=None, manual=True):
     def menu():
@@ -75,6 +79,8 @@ def run_stuff(controller, option=None, argument=None, manual=True):
                 controller.agent[id].load(path,option="weights")
             if "mem" in option or option in ["load", "load_all"]:
                 controller.agent[id].load(path, option="mem")
+            controller.agent[id].load_settings_from_file(path+"/settings")
+
         else:
             print("UNKNOWN OPTION PASSED:{}".format(option))
     # except FileExistsError as e:
@@ -103,12 +109,14 @@ with tf.Session() as session:
     '''
     folders = [f.path.split("/")[1] for f in os.scandir("models") if f.is_dir() ]
     _models = [f.split("_")[0] for f in folders]
-    _models = ["obi", "poo", "q", "rusty", "ike", "joe"]
+    _models = ["yolo", "zwag"]
+    # _versions = ["004"]
+    _versions = None
     only_last_version = True
     models = {}
     results = {}
     for m in _models:
-        models[m] = [f.split("_")[1] for f in folders if m in f]
+        models[m] = [f.split("_")[1] for f in folders if m in f] if _versions is None else _versions
         models[m].sort(key=lambda y:int(y),reverse=True)
         if only_last_version:
             models[m] = [models[m][0]]
@@ -123,11 +131,13 @@ with tf.Session() as session:
             #Load the 1st agent...
             a1 = m1+"_"+n1
             run_stuff(controller, option="load_net", argument=(0,a1), manual=False)
-            for m2 in [m for m in models if m > m1]:
+            # controller.load_agent("models/" + a1, agent_id=0)
+            for m2 in models: #[m for m in models if m > m1]:
                 for n2 in models[m2]:
                     #Load the 2nd agent...
                     a2 = m2+"_"+n2
                     run_stuff(controller, option="load_net", argument=(1,a2), manual=False)
+                    # controller.load_agent("models/" + a2, agent_id=1)
                     #
                     print("{} vs {}!".format(a1,a2))
                     stats = run_stuff(controller, option="test", argument=3000, manual=False)

@@ -2,40 +2,27 @@ import logging
 import random
 import time
 import tensorflow as tf
-from environment.tetris_environment import tetris_environment
-from agents.prioritizedreplay_agent.prioritizedreplay_agent import prioritizedreplay_agent
-from agents.my_first_agent.my_first_agent import my_agent
+import pickle
+import os
 
-# # # # #
-# Configuration:
-# # #
-''' - - - - - - - - - - - - - - '''
-default_settings = {
-                    "n_players" : 2,
-                    "env" : tetris_environment,
-                    "agent" : prioritizedreplay_agent,
-                    "gamma" : 0.99,
-                    "render" : True,
-                    "max_round_time" : None,
-                    "time_elapsed_each_action" : 100,
-                    "balance_winrate" : True,
-                    "winrate_tolerance" : 1.2,
-                    "winrate_learningrate" : 0.04,
-                    }
-''' - - - - - - - - - - - - - - '''
+import agents
+import environment
+import aux.settings
+from aux.parameter import *
 
 class game_controller:
     def __init__(self, session, settings=None):
         logging.basicConfig(filename='logs/scratchpaper.log',level=logging.DEBUG)
-        self.settings = default_settings.copy()
+        self.settings = aux.settings.default_settings.copy()
         if settings is not None:
             for x in settings:
                 self.settings[x] = settings[x]
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
+        self.session = session
         self.env = self.settings['env'](settings=self.settings)
         self.agent = [ self.settings['agent'](id=x, session=session, sandbox=self.env.copy(), settings=self.settings) for x in range(self.settings['n_players'])]
         #IT FEELS UGLY TO HAVE THIS HERE?
-        session.run(tf.global_variables_initializer())
+        self.session.run(tf.global_variables_initializer())
 
     class session_stats:
         def __init__(self, controller):
@@ -62,6 +49,25 @@ class game_controller:
                 else:
                     self.scores[x].append(0)
                     self.exp_scores[x] = (1-self.gamma)*self.exp_scores[x]#+ self.gamma * 0
+
+    # def load_agent(self, path=None, agent_id=None, load_weights=True, load_mem=False):
+    #     assert type(path) is str and type(agent_id) is int
+    #     if os.path.exists(path + "/settings"):
+    #         with open(path + "/settings", "rb") as f:
+    #             settings = pickle.load(f)
+    #         agent_class = settings["agent"]
+    #     else:
+    #         settings = aux.settings.default_settings
+    #         agent_class = agents.curiosity_agent.curiosity_agent.curiosity_agent
+    #     self.agent[agent_id] = agent_class(id=agent_id, session=self.session, sandbox=self.env.copy(), settings=settings, reuse_nets=True)
+    #     if load_weights or load_mem:
+    #         if load_weights and load_mem:
+    #             opt = "all"
+    #         elif load_weights:
+    #             opt = "weights"
+    #         elif load_weights:
+    #             opt = "mem"
+    #         self.agent[agent_id].load(path, option=opt)
 
     def process_settings(self):
         print("game_controller_BOUNCE process_settings not implemented yet...")
@@ -96,7 +102,7 @@ class game_controller:
             state = next_state #state s
             #Store transition
             if not first_move[current_player]:
-                experience = (last_state[current_player], last_action[current_player], state, player_done[current_player], {"time" : t})
+                experience = [last_state[current_player], last_action[current_player], state, player_done[current_player], {"time" : t}]
                 self.agent[current_player].store_experience(experience)
             #Reset sometimes
             if self.time_out(t) or player_done[current_player]: #(this happens when the game is over, and every agent has noticed)
