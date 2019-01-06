@@ -25,8 +25,7 @@ class tetris_environment:
             tetris_env.set_pieces(pieces)
             self.backend = tetris_env.PythonHandle(
                                                 self.settings["n_players"],
-                                                self.settings["game_size"],
-                                                self.settings["mask"]
+                                                self.settings["game_size"]
                                               )
             self.backend.reset()
         else:
@@ -53,8 +52,11 @@ class tetris_environment:
             return available_actions if player is not None else [available_actions]*self.settings["n_players"]
         elif self.settings["action_type"] is "place_block":
             if player is None:
+                for p in range(self.settings["n_players"]):
+                    self.backend.get_actions(p)
                 return [action_list(self.backend.masks[p].action, remove_null=self.settings["bar_null_moves"]) for p in range(self.settings["n_players"])]
             else:
+                self.backend.get_actions(player)
                 return action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
         else:
             self.log.warning("get_actions called with action_type={}. This may be fatal. Expected action_type \"press_key\" or \"place_block\"".format(self.settings["action_type"]))

@@ -56,7 +56,6 @@ default_settings = {
                     "n_players" : 2,
                     "pieces" : [l,j,s,z,i,t,o],
                     "game_size" : [22,10],
-                    "mask" : 2,
                     "time_elapsed_each_action" : 100,
                     "state_processor" : "state_dict",        #This is a function that is applied to the state before returning it.
                     "action_type" : "place_block",  #This determines if an action represents pressing a key or placing a block. Allowd values is "press_key" and "place_block"
