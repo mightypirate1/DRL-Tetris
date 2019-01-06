@@ -52,7 +52,7 @@ class runner_thread(threading.Thread):
     def run(self):
         self.running = True
         s = self.env.get_state()
-        for t in range(0,self.n_steps,self.env.n_envs):
+        for t in range(0,self.n_steps):
             print("worker{}:{}".format(self.id,t))
             self.current_player = 1 - self.current_player
             _,a = self.agent.get_action(s, player=self.current_player)
