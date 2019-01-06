@@ -2,7 +2,7 @@ import sys
 import pygame as pg
 import numpy as np
 import time
-assert False
+
 pg.init()
 
 size = width, height = 860, 440

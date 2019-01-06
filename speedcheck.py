@@ -11,7 +11,7 @@ n_envs  = 64
 docoptstring = \
 '''Speedcheck!
 Usage:
-  Speedcheck.py [--n N] [--steps S]  [--no_rendering]
+  Speedcheck.py [--n N] [--steps S]  [--no-rendering]
 
 Options:
     --n N      N envs. [default: 16]
@@ -20,7 +20,7 @@ Options:
 docoptsettings = docopt.docopt(docoptstring)
 t_steps = int(docoptsettings["--steps"])
 n_envs = int(docoptsettings["--n"])
-render = not docoptsettings["--no_rendering"]
+render = not docoptsettings["--no-rendering"]
 
 settings = {
             "render" : render,

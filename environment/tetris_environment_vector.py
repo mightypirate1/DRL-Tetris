@@ -4,7 +4,7 @@ from environment.tetris_environment import tetris_environment
 import aux.settings
 
 class tetris_environment_vector:
-    def __init__(self, n_envs, env_type, init_envs=None, settings={}):
+    def __init__(self, n_envs, env_type, init_envs=None, settings=None):
         if type(init_envs) is not list: init_envs = [init_envs for _ in range(n_envs)]
         #Set up settings
         self.settings = aux.settings.default_settings.copy()

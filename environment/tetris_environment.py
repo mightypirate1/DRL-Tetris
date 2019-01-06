@@ -8,7 +8,7 @@ from environment.data_types.state import state
 import aux
 
 class tetris_environment:
-    def __init__(self, id=None, settings=None, init_env=None, renderer=None):
+    def __init__(self, id=None, settings=None, init_env=None):
         #Set up logging
         self.log = logging.getLogger("environment")
         #Set up settings
@@ -139,13 +139,13 @@ class tetris_environment:
     def render(self):
         if not self.settings["render"]:
             return
-        draw_tetris.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
+        self.draw_tetris.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
         #Pausing capability
-        if draw_tetris.pollEvents():
+        if self.draw_tetris.pollEvents():
             print("----------------------")
             print("--------PAUSED--------")
             print("----------------------")
-            while not draw_tetris.pollEvents():
+            while not self.draw_tetris.pollEvents():
                 time.sleep(1.0)
 
     def generate_pieces(self):
@@ -159,8 +159,8 @@ class tetris_environment:
         else:
             self.state_processor = state_processors.state_processor(self.settings["state_processor"])
         if self.settings["render"]:
-            assert False, self.settings["render"]
-            import environment.env_utils.draw_tetris
+            import environment.env_utils.draw_tetris as draw_tetris
+            self.draw_tetris = draw_tetris
         return True
 
     def __str__(self):

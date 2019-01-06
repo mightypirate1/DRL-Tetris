@@ -76,21 +76,19 @@ class vector_agent(tetris_agent):
         idx = 0
         idx_dict = dict( zip([p for p in p_list], [{} for _ in state_vec ]  ) )
 
-        # all_actions = [ [ [ [0] for _ in range(self.settings["n_players"]) ] for i,_ in enumerate(state_vec)] for _ in range(self.n_envs)]
         all_actions = [dict(zip(p_list, [ None for i,_ in enumerate(state_vec)])) for _ in range(self.n_envs)]
 
-        # all_actions = dict( zip([p for p in p_list],  for _ in range(self.n_envs) ]  ) )
         for i,s in enumerate(state_vec):
             for p in range(self.settings["n_players"]):
                 if p in p_list:
                     self.sandbox.set(s)
                     a = self.sandbox.get_actions(player=p)
-                    future_states = self.sandbox.simulate_actions(a, player)
+                    future_states = self.sandbox.simulate_actions(a, p)
                     feed_vector += future_states
-                    # print(all_actions[p]);exit()
                     all_actions[i][p] = a
                     idx_dict[p][i] = slice(idx,idx+len(future_states),1)
                     idx += len(future_states)
+
         #Run model!
         player_pairs = [(1-player, player) for _ in range(len(feed_vector))]
         extrinsic_values, _ = self.run_model(self.extrinsic_model, feed_vector, player_lists=player_pairs)
@@ -180,6 +178,7 @@ class vector_agent(tetris_agent):
         # return (self.time_to_training <= 0) and (len(self.experience_replay) > self.settings["n_samples_each_update"])
 
     def do_training(self):
+        assert False
         self.log.debug("agent[{}] doing training".format(self.id))
         print("agent{} training...".format(self.id))
         samples, _, time_stamps, is_weights, return_idxs =\
