@@ -57,7 +57,7 @@ with tf.Session() as session:
                                             envs=envs,
                                             runners=agents,
                                             trainer=agent,
-                                            n_steps=total_steps // n_runners,
+                                            n_steps=total_steps // (n_runners*n_envs_per_thread),
                                           )
     print("Starting pool")
     T_thread_start = time()
