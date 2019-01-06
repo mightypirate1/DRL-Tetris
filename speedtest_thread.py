@@ -53,15 +53,19 @@ with tf.Session() as session:
                         )
 
     #Run stuff
-    pool = threaded_runner.threaded_runner(envs=envs, runners=agents, trainer=agent)
+    pool = threaded_runner.threaded_runner(
+                                            envs=envs,
+                                            runners=agents,
+                                            trainer=agent,
+                                            n_steps=total_steps // n_runners,
+                                          )
     print("Starting pool")
     T_thread_start = time()
-    pool.run(total_steps // n_runners)
+    pool.run()
     pool.join()
     T_thread_stop = time()
     print("Pool finished")
     #Done!
-
 
     ##Init SERIAL
     print("Starting serial")
@@ -84,8 +88,8 @@ with tf.Session() as session:
     #Done!
 
 #Show what we collected (parallel)!
-print("[Parallel] Collected {} trajectories:".format(-1))
+print("[Parallel] Collected {} trajectories:".format(None))
 print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_thread_stop - T_thread_start, total_steps/(T_thread_stop - T_thread_start) ))
 
-print("[Serial] Collected {} trajectories:".format(-1))
+print("[Serial] Collected {} trajectories:".format(None))
 print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_serial_stop - T_serial_start, total_steps/(T_serial_stop - T_serial_start) ))

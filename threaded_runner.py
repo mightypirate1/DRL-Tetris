@@ -4,11 +4,14 @@ import numpy as np
 
 class trainer_thread(threading.Thread):
     def __init__(self,trainer, runner_threads, train_epochs):
+        threading.Thread.__init__(self, target=self, args=())
         self.trainer = trainer
         self.runner_threads = runner_threads
         self.train_epochs = train_epochs
-
-    def run(self, _):
+        self.running = False
+    def __call__(self, *x,**kx):
+        self.run()
+    def run(self):
         self.running = True
         # current_idx       = [0 for _ in runners]
         # current_iteration = [1 for _ in runners] #These are for the non-primitive solution...
@@ -31,22 +34,25 @@ class trainer_thread(threading.Thread):
             pass
 
 class runner_thread(threading.Thread):
-    def __init__(self, id, env, agent):
-        threading.Thread.__init__(self)
+    def __init__(self, id, env, n_steps, agent):
+        threading.Thread.__init__(self, target=self, args=())
         self.id = id
         self.env = env
+        self.n_steps = n_steps
         self.agent = agent
         self.running = False
         self.current_player = 1
-
+    def __call__(self):
+        self.run()
     def join(self):
         while self.running:
             pass
 
-    def run(self, n_steps):
+    def run(self):
         self.running = True
         s = self.env.get_state()
-        for t in range(n_steps):
+        for t in range(0,self.n_steps,self.env.n_envs):
+            print("worker{}:{}".format(self.id,t))
             self.current_player = 1 - self.current_player
             _,a = self.agent.get_action(s, player=self.current_player)
             ds = self.env.perform_action(a)
@@ -57,12 +63,12 @@ class runner_thread(threading.Thread):
         self.running = False
 
 class threaded_runner:
-    def __init__(self, envs=None, runners=None, trainer=None, train_epochs=3):
+    def __init__(self, envs=None, n_steps=0, runners=None, trainer=None, train_epochs=3):
         self.threads = []
         runner_threads = []
         for i,ae in enumerate(zip(runners,envs)):
             a,e = ae
-            thread = runner_thread(i, e, a)
+            thread = runner_thread(i, e, n_steps, a)
             self.threads.append(thread)
             runner_threads.append(thread)
         self.threads.append(trainer_thread(trainer,runner_threads, train_epochs))
@@ -71,9 +77,9 @@ class threaded_runner:
         for thread in self.threads:
             thread.agent = agent
 
-    def run(self,n_steps):
+    def run(self):
         for thread in self.threads:
-            thread.run(n_steps)
+            thread.start()
 
     def join_all_threads(self):
         for thread in self.threads:
