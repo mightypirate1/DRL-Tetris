@@ -5,7 +5,7 @@ import tensorflow as tf
 import docopt
 import time
 
-t_steps = 1000
+total_steps = 1000
 n_envs  = 64
 
 docoptstring = \
@@ -18,7 +18,7 @@ Options:
     --steps S  Run S environments steps in total. [default: 1000]
 '''
 docoptsettings = docopt.docopt(docoptstring)
-t_steps = int(docoptsettings["--steps"])
+total_steps = int(docoptsettings["--steps"])
 n_envs = int(docoptsettings["--n"])
 render = not docoptsettings["--no-rendering"]
 
@@ -42,7 +42,7 @@ with tf.Session() as session:
     current_player = 1
     s = envs.get_state()
     print("Go!")
-    for t in range(t_steps // n_envs):
+    for t in range(total_steps // n_envs):
         current_player = 1 - current_player
         _,a = agent.get_action(s, player=current_player)
         ds = envs.perform_action(a)
@@ -53,7 +53,7 @@ with tf.Session() as session:
             envs.render(env=0)
         print("Step {}".format((t+1)*n_envs))
     delta_t = time.time() - t0
-    print("{} steps in {} secs. ({} steps/sec)".format(t_steps, delta_t, t_steps/delta_t))
+    print("{} steps in {} secs. ({} steps/sec)".format(total_steps, delta_t, total_steps/delta_t))
 
 
 

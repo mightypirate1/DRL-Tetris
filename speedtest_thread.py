@@ -73,7 +73,7 @@ with tf.Session() as session:
     current_player = 1
     s = envs[0].get_state()
     print("Go!")
-    for t in range(total_steps // n_envs):
+    for t in range(total_steps):
         current_player = 1 - current_player
         _,a = agent.get_action(s, player=current_player)
         ds = envs[0].perform_action(a)
