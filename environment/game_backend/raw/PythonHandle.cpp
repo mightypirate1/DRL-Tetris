@@ -1,7 +1,7 @@
 #include "PythonHandle.h"
 #include <iostream>
 
-PythonHandle PythonHandle::init(int number_of_players, std::array<int, 2> field_size, int mask) {
+PythonHandle PythonHandle::init(int number_of_players, std::array<int, 2> field_size) {
 	PythonHandle ph;
 	FIELD_HEIGHT = field_size[0];
 	FIELD_WIDTH = field_size[1];
@@ -11,17 +11,11 @@ PythonHandle PythonHandle::init(int number_of_players, std::array<int, 2> field_
 	if (number_of_players > 1)
 		ph.check_for_winner = true;
 
-	ph.use_mask = mask;
-
 	for (auto& player : ph.players) {
 		player.restartRound();
 		ph.states.emplace_back(player);
 	}
 	ph.seed();
-
-	if (ph.use_mask)
-		for (auto& player : ph.players)
-			ph.masks.push_back(player.getMask(ph.use_mask));
 
 	return ph;
 }
@@ -164,8 +158,6 @@ bool PythonHandle::make_actions(std::vector<std::vector<int>> actions, int time_
 		player.linesCleared = player.data.linesCleared;
 
 		player.incoming_lines_count = player.garbage.count();
-		if (use_mask)
-			masks[player_count] = player.getMask(use_mask);
 	}
 
 	if ((check_for_winner && alive_count < 2) || !alive_count) {
@@ -174,4 +166,8 @@ bool PythonHandle::make_actions(std::vector<std::vector<int>> actions, int time_
 	}
 
 	return false;
+}
+
+void PythonHandle::get_actions(int p) {
+	mask[p] = players[p].getMask(2);
 }

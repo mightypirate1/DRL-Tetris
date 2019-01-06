@@ -81,7 +81,7 @@ struct State {
 };
 
 struct PythonHandle {
-	static PythonHandle init(int number_of_players, std::array<int, 2> field_size, int mask);
+	static PythonHandle init(int number_of_players, std::array<int, 2> field_size);
 	std::vector<GamePlay> players;
 	int use_mask=0;
 	bool check_for_winner=false, round_over=false;
@@ -97,6 +97,8 @@ struct PythonHandle {
 
 	void reset();
 	void seed();
+
+	void get_actions(int player);
 
 	PythonHandle copy();
 	void set(const PythonHandle&);
@@ -119,6 +121,7 @@ PYBIND11_MODULE(TETRIS_MODULE_NAME, m) {
 	.def("copy", &PythonHandle::copy)
 	.def("set", &PythonHandle::set)
 	.def("reset", &PythonHandle::reset)
+	.def("get_actions", &PythonHandle::get_actions)
 	.def_readwrite("use_mask", &PythonHandle::use_mask)
 	.def_readonly("states", &PythonHandle::states)
 	.def_readonly("masks", &PythonHandle::masks)
