@@ -166,7 +166,7 @@ class tetris_environment:
         else:
             self.state_processor = state_processors.state_processor(self.settings["state_processor"])
         if self.settings["render"]:
-            self.renderer = draw_tetris.renderer(self.settings["render_screen_dims"])
+            self.renderer = draw_tetris.get_global_renderer(resolution=self.settings["render_screen_dims"])
         return True
 
     def __str__(self):
@@ -187,4 +187,5 @@ class tetris_environment:
     def __setstate__(self, d):
         if 'log' in d:
             d['log'] = logging.getLogger(d['log'])
+            d['renderer'] = draw_tetris.get_global_renderer()
         self.__dict__.update(d)

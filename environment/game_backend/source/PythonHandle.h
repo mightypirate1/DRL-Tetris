@@ -260,6 +260,18 @@ pybind11::class_<GarbageHandler>(m, "GarbageHandler")
 .def(pybind11::init<>());
 // :)
 
+pybind11::class_<Garbage>(m, "Garbage")
+.def(pybind11::pickle([](const Garbage& g){
+	return pybind11::make_tuple(
+															g.count,
+															g.delay
+															);
+}, [](pybind11::tuple t){
+	return Garbage(t[0].cast<short>(), t[1].cast<int32_t>());
+}));
+// .def(pybind11::init<>());
+// :)
+
 pybind11::class_<ComboCounter>(m, "ComboCounter")
 .def(pybind11::pickle([](const ComboCounter& g){
 	return pybind11::make_tuple(

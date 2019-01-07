@@ -3,7 +3,16 @@ import pygame as pg
 import numpy as np
 import time
 
-class renderer:
+global_renderer = None
+
+def get_global_renderer(resolution=None):
+    global global_renderer
+    if global_renderer is None:
+        global_renderer = _renderer(resolution)
+    return global_renderer
+
+
+class _renderer:
     def __init__(self, resolution):
         pg.init()
         self.border_width = 2   #Border of dark pixels around blocks
