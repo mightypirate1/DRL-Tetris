@@ -88,6 +88,9 @@ struct PythonHandle {
 	std::vector<Mask> masks;
 	int last_winner = -1;
 
+	bool pickle_proof = false;
+	void recreate_state();
+
 	bool action(int player, int action);
 
 	bool make_actions(std::vector<std::vector<int>> actions, int time_elapsed);
@@ -100,8 +103,6 @@ struct PythonHandle {
 	void get_actions(int player);
 
 	PythonHandle copy();
-
-	// pybind11::tuple seabass(int);
 
 	void set(const PythonHandle&);
 };
@@ -360,8 +361,6 @@ pybind11::class_<ComboCounter>(m, "ComboCounter")
 		ret.round_over           = t[1].cast<bool>();
 		ret.check_for_winner     = t[2].cast<bool>();
 		auto n_players           = t[3].cast<std::size_t>();
-		ret.states.clear();
-		ret.masks.clear();
 		for(uint8_t i=0; i<n_players;++i){
 			ret.states.emplace_back(ret.players[i]);
 			ret.masks.emplace_back( );
@@ -379,7 +378,7 @@ pybind11::class_<ComboCounter>(m, "ComboCounter")
 	.def("copy", &PythonHandle::copy)
 	.def("set", &PythonHandle::set)
 	.def("reset", &PythonHandle::reset)
-	// .def("seabass", &PythonHandle::seabass)
+	.def("recreate_state", &PythonHandle::recreate_state)
 	.def("get_actions", &PythonHandle::get_actions)
 	.def_readonly("states", &PythonHandle::states)
 	.def_readonly("masks", &PythonHandle::masks)

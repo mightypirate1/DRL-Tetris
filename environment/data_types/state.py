@@ -18,6 +18,7 @@ class state:
         self.unlocked = True
 
     def __getitem__(self, idx):
+        self.backend_state.recreate_state()
         if isinstance(idx,slice):
             start,stop,step = idx.indices(len(self.backend_state.states))
             return [self.state_processor(self.backend_state.states,x) for x in range(start,stop,step)]

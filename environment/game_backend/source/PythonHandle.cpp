@@ -6,37 +6,48 @@ PythonHandle PythonHandle::init(int number_of_players, std::array<int, 2> field_
 	FIELD_HEIGHT = field_size[0];
 	FIELD_WIDTH = field_size[1];
 	ph.players.resize(number_of_players);
+	ph.masks.resize(number_of_players);
+	ph.states.reserve(number_of_players);
 
 	if (number_of_players > 1)
 		ph.check_for_winner = true;
 
 	for (auto& player : ph.players) {
 		player.restartRound();
-		ph.states.push_back(State(player));
+		ph.states.emplace_back(player);
 	}
 	ph.seed();
 
-	for (auto& player : ph.players) {
-		player.firstMove.square = player.field.square;
-		player.firstMove.setPiece(player.field.piece);
-
-		player.state_representation = player.firstMove.calcState();
-	}
+	// Pickle-proofed?
+	ph.pickle_proof = false;
 
 	return ph;
 }
 
+void PythonHandle::recreate_state() {
+	if(pickle_proof)
+		return;
+	states.clear();
+	for(uint8_t i=0 ; i<players.size(); ++i){
+		states.emplace_back(players[i]);
+	}
+	pickle_proof = true;
+}
+
 PythonHandle PythonHandle::copy() {
 	PythonHandle new_handle = init(players.size(), {FIELD_HEIGHT, FIELD_WIDTH});
-	new_handle.players = players;
-	new_handle.check_for_winner = check_for_winner;
+	new_handle = *this;
 	return new_handle;
 }
 
 void PythonHandle::set(const PythonHandle& other) {
-	players = other.players;
-	check_for_winner = other.check_for_winner;
+	*this = other;
 }
+
+// pybind11::tuple PythonHandle::seabass(int p){
+// 		auto &player = players[p];
+// 		return pybind11::make_tuple(player.field.square);
+// }
 
 void PythonHandle::reset() {
 	round_over = false;
@@ -128,18 +139,19 @@ void PythonHandle::distributeLines(int sender, int amount) {
 	}
 }
 
-
-
-bool PythonHandle::make_actions(std::vector<std::vector<uint8_t>> actions, int time_elapsed) {
+bool PythonHandle::make_actions(std::vector<std::vector<int>> actions, int time_elapsed) {
 	if (round_over)
 		return true;
-	for (unsigned i = 0; i < players.size(); ++i)
-    if (!players[i].dead)
-      for (auto p_action : actions[i])
+	for (unsigned i = 0; i < players.size(); ++i){
+    if (!players[i].dead){
+      for (auto p_action : actions[i]){
         if (action(i, p_action)) {
           players[i].dead = true;
           break;
         }
+			}
+		}
+	}
 
 	int player_count = -1;
 	int alive_count = 0;
@@ -152,6 +164,7 @@ bool PythonHandle::make_actions(std::vector<std::vector<uint8_t>> actions, int t
 		int sent = player.delayCheck(time_elapsed);
 		if (sent == -1) {
 			player.dead = true;
+			masks[player_count].clear();
 			continue;
 		}
 		else if (sent)
@@ -173,35 +186,6 @@ bool PythonHandle::make_actions(std::vector<std::vector<uint8_t>> actions, int t
 	return false;
 }
 
-// Heuristic
-
-void PythonHandle::set_weights(std::vector<std::array<double, 8>> weights, int time_elapsed) {
-	std::vector<std::vector<uint8_t>> player_moves;
-	for (unsigned i=0; i<players.size(); ++i) {
-		GamePlay& p = players[i];
-
-		for (unsigned c=0; c<weights[i].size(); ++c)
-			p.firstMove.weights[c] = weights[i][c];
-
-		p.firstMove.weights[8] = 0.01;
-		p.firstMove.weights[9] = weights[i][1] + 0.01;
-
-		p.secondMove.weights = p.firstMove.weights;
-
-		p.firstMove.openHolesBeforePiece = p.firstMove.openHoles;
-		p.firstMove.closedHolesBeforePiece = p.firstMove.closedHoles;
-
-		p.firstMove.tryAllMoves(p.secondMove, p.basepiece[p.nextpiece]);
-		p.firstMove.setPiece(p.field.piece);
-		player_moves.push_back(p.firstMove.make_move_sequence());
-	}
-
-	make_actions(player_moves, time_elapsed);
-
-	for (auto& p : players) {
-		p.firstMove.square = p.field.square;
-		p.firstMove.setPiece(p.field.piece);
-
-		p.state_representation = p.firstMove.calcState();
-	}
+void PythonHandle::get_actions(int p) {
+	masks[p] = players[p].getMask(2);
 }

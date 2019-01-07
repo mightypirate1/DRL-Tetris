@@ -5,12 +5,11 @@ from environment.game_backend.modules import tetris_env
 import environment.env_utils.state_processors as state_processors
 from environment.data_types.action_list import action_list
 from environment.data_types.state import state
-import aux
+import aux.settings
+draw_tetris_module = None
 
 class tetris_environment:
     def __init__(self, id=None, settings=None, init_env=None):
-        #Set up logging
-        self.log = logging.getLogger("environment")
         #Set up settings
         self.settings = aux.settings.default_settings.copy()
         self.id = id
@@ -19,6 +18,9 @@ class tetris_environment:
                 self.settings[x] = settings[x]
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
         assert settings_ok, "Settings are not ok! See previous error messages..."
+        #Set up logging
+        self.debug = self.settings["environment_logging"]
+        if self.debug: self.log = logging.getLogger("environment")
         #Set up the environment
         if init_env is None:
             pieces = self.generate_pieces()
@@ -33,8 +35,9 @@ class tetris_environment:
         self.done = False
 
         #Say hi!
-        self.log.info("Created tetris_environment!")
-        self.log.info(self)
+        if self.debug:
+            self.log.info("Created tetris_environment!")
+            self.log.info(self)
 
     # # # # #
     # Env interface fcns
@@ -43,9 +46,9 @@ class tetris_environment:
         self.backend.reset()
 
     def get_actions(self,player=None):
-        self.log.debug("get_action invoked: player={}".format(player))
+        if self.debug: self.log.debug("get_action invoked: player={}".format(player))
         if player not in range(self.settings["n_players"]) and player is not None:
-            self.log.warning("get_actions called with player={}. This may be fatal. Expected 0<=player<{}.".format(player,self.settings["n_players"]))
+            if self.debug: self.log.warning("get_actions called with player={}. This may be fatal. Expected 0<=player<{}.".format(player,self.settings["n_players"]))
             return None
         if self.settings["action_type"] is "press_key":
             available_actions = [0,1,2,3,4,5,6,7,8,9,10]
@@ -59,7 +62,7 @@ class tetris_environment:
                 self.backend.get_actions(player)
                 return action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
         else:
-            self.log.warning("get_actions called with action_type={}. This may be fatal. Expected action_type \"press_key\" or \"place_block\"".format(self.settings["action_type"]))
+            if self.debug: self.log.warning("get_actions called with action_type={}. This may be fatal. Expected action_type \"press_key\" or \"place_block\"".format(self.settings["action_type"]))
             return None
 
     def get_random_action(self, player=None):
@@ -77,7 +80,7 @@ class tetris_environment:
         return ret
 
     def simulate_actions(self,actions, player=None):
-        self.log.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))
+        if self.debug: self.log.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))
         ret = []
         anchor = self.backend.copy()
         for a in actions:
@@ -90,7 +93,7 @@ class tetris_environment:
         return ret
 
     def perform_action(self, action, player=None, render=None):
-        self.log.debug("executing action {} for player {}".format(action, player))
+        if self.debug: self.log.debug("executing action {} for player {}".format(action, player))
         # print(action,player,render);exit()
         if player is None:
             a = action
@@ -109,7 +112,7 @@ class tetris_environment:
         for i in range(self.settings["n_players"]):
             if not self.backend.states[i].dead:
                 return i
-        self.log.warning("get_winner: env returned done=True, no one was alive to win game. I returned winner=666 in the hopes that this will be noticed...")
+        if self.debug: self.log.warning("get_winner: env returned done=True, no one was alive to win game. I returned winner=666 in the hopes that this will be noticed...")
         return 666 #This should never happen.
 
     def simulate_all_actions(self, player):
@@ -133,21 +136,21 @@ class tetris_environment:
         elif isinstance(e,state):
             self.backend.set(e.backend_state)
         else:
-            self.log.error("tetris_environment.set was called with an unrecognized argument!")
+            if self.debug: self.log.error("tetris_environment.set was called with an unrecognized argument!")
 
     # # # # #
     # Helper functions
     # # #
     def render(self):
-        if not self.settings["render"]:
+        if draw_tetris_module is None or not self.settings["render"]:
             return
-        self.draw_tetris.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
+        draw_tetris_module.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
         #Pausing capability
-        if self.draw_tetris.pollEvents():
+        if draw_tetris_module.pollEvents():
             print("----------------------")
             print("--------PAUSED--------")
             print("----------------------")
-            while not self.draw_tetris.pollEvents():
+            while not draw_tetris_module.pollEvents():
                 time.sleep(1.0)
 
     def generate_pieces(self):
@@ -162,7 +165,7 @@ class tetris_environment:
             self.state_processor = state_processors.state_processor(self.settings["state_processor"])
         if self.settings["render"]:
             import environment.env_utils.draw_tetris as draw_tetris
-            self.draw_tetris = draw_tetris
+            draw_tetris_module = draw_tetris
         return True
 
     def __str__(self):

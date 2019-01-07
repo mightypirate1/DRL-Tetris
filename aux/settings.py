@@ -1,4 +1,5 @@
-import environment.tetris_environment
+# import environment.tetris_environment
+# from environment.tetris_environment import tetris_environment
 import agents.curiosity_agent.curiosity_agent
 import tensorflow as tf
 from aux.parameter import *
@@ -52,7 +53,8 @@ default_settings = {
                     "curiosity_lr" : constant_parameter(0.000001),
 
                 ##ENV:
-                    "env" : environment.tetris_environment.tetris_environment,
+                    "environment_logging" : False,
+                    # "env" : tetris_environment,
                     "n_players" : 2,
                     "pieces" : [l,j,s,z,i,t,o],
                     "game_size" : [22,10],
