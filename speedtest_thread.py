@@ -5,7 +5,8 @@ import threaded_runner
 
 import tensorflow as tf
 import docopt
-from time import time
+import time
+import sys
 
 total_steps = 1000
 n_envs  = 64
@@ -60,16 +61,20 @@ with tf.Session() as session:
                                             n_steps=total_steps // (n_runners*n_envs_per_thread),
                                           )
     print("Starting pool")
-    T_thread_start = time()
+    T_thread_start = time.time()
     pool.run()
+
     pool.join()
-    T_thread_stop = time()
+    T_thread_stop = time.time()
     print("Pool finished")
     #Done!
 
+    sys.stdout.flush()
+    exit("___")
+
     ##Init SERIAL
     print("Starting serial")
-    T_serial_start = time()
+    T_serial_start = time.time()
     current_player = 1
     s = envs[0].get_state()
     print("Go!")
@@ -83,7 +88,7 @@ with tf.Session() as session:
         if render:
             envs[0].render(env=0)
         print("Step {}".format((t+1)*n_envs_per_thread))
-    T_serial_stop = time()
+    T_serial_stop = time.time()
     print("Serial done")
     #Done!
 
