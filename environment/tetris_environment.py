@@ -1,27 +1,31 @@
 import logging
 import time
 import numpy as np
+import aux
+# from aux.settings import *
 from environment.game_backend.modules import tetris_env
 import environment.env_utils.state_processors as state_processors
+import environment.env_utils.draw_tetris as draw_tetris
 from environment.data_types.action_list import action_list
 from environment.data_types.state import state
-import aux.settings
-draw_tetris_module = None
 
 class tetris_environment:
     def __init__(self, id=None, settings=None, init_env=None):
+
         #Set up settings
         self.settings = aux.settings.default_settings.copy()
-        self.id = id
         if settings is not None:
             for x in settings:
                 self.settings[x] = settings[x]
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
         assert settings_ok, "Settings are not ok! See previous error messages..."
+
         #Set up logging
         self.debug = self.settings["environment_logging"]
         if self.debug: self.log = logging.getLogger("environment")
+
         #Set up the environment
+        self.id = id
         if init_env is None:
             pieces = self.generate_pieces()
             tetris_env.set_pieces(pieces)
@@ -29,6 +33,7 @@ class tetris_environment:
                                                 self.settings["n_players"],
                                                 self.settings["game_size"]
                                               )
+            #Upon agreement with backend, we always reset once.
             self.backend.reset()
         else:
             self.backend = init_env.copy()
@@ -94,14 +99,12 @@ class tetris_environment:
 
     def perform_action(self, action, player=None, render=None):
         if self.debug: self.log.debug("executing action {} for player {}".format(action, player))
-        # print(action,player,render);exit()
         if player is None:
             a = action
         else:
             a = [[0]]*self.settings["n_players"]
             a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        # print(a, type(a));exit()
         if render:
             self.render()
         return self.done
@@ -142,15 +145,15 @@ class tetris_environment:
     # Helper functions
     # # #
     def render(self):
-        if draw_tetris_module is None or not self.settings["render"]:
+        if not self.settings["render"]:
             return
-        draw_tetris_module.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
+        self.renderer.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
         #Pausing capability
-        if draw_tetris_module.pollEvents():
+        if self.renderer.pollEvents():
             print("----------------------")
             print("--------PAUSED--------")
             print("----------------------")
-            while not draw_tetris_module.pollEvents():
+            while not self.renderer.pollEvents():
                 time.sleep(1.0)
 
     def generate_pieces(self):
@@ -164,8 +167,7 @@ class tetris_environment:
         else:
             self.state_processor = state_processors.state_processor(self.settings["state_processor"])
         if self.settings["render"]:
-            import environment.env_utils.draw_tetris as draw_tetris
-            draw_tetris_module = draw_tetris
+            self.renderer = draw_tetris.renderer(self.settings["render_screen_dims"])
         return True
 
     def __str__(self):
@@ -174,3 +176,16 @@ class tetris_environment:
         for x in self.settings:
             ret += "\t{:{}}\t{}\n".format(x,length,self.settings[x])
         return ret
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        if 'log' in d:
+            d['log'] = d['log'].name
+        if 'renderer' in d:
+            del d['renderer']
+        return d
+
+    def __setstate__(self, d):
+        if 'log' in d:
+            d['log'] = logging.getLogger(d['log'])
+        self.__dict__.update(d)
