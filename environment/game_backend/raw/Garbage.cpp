@@ -1,4 +1,5 @@
 #include "Garbage.h"
+#include <algorithm>
 
 const int32_t initialDelay = 1000;
 const int32_t freezeDelay = 450;
@@ -26,14 +27,16 @@ uint16_t GarbageHandler::block(uint16_t amount, int32_t _time, bool freeze_incom
 	if (garbage.empty())
 		return amount;
 	int32_t delay = garbage.front().delay;
-	
+
 	int blocked=0;
 	while (amount && !garbage.empty()) {
 		garbage.front().count--;
 		amount--;
 		blocked++;
-		if (garbage.front().count == 0)
-			garbage.pop_front();
+		if (garbage.front().count == 0) {
+			std::rotate(garbage.begin(), garbage.begin()+1, garbage.end());
+			garbage.pop_back();
+		}
 	}
 
 	linesBlocked+=blocked;
@@ -53,8 +56,10 @@ bool GarbageHandler::check(int32_t _time) {
 		return false;
 	if (_time > garbage.front().delay) {
 		int32_t delay = garbage.front().delay + addDelay;
-		if (--garbage.front().count == 0)
-			garbage.pop_front();
+		if (--garbage.front().count == 0) {
+			std::rotate(garbage.begin(), garbage.begin()+1, garbage.end());
+			garbage.pop_back();
+		}
 		if (!garbage.empty()) {
 			garbage.front().delay = std::max(delay, garbage.front().delay);
 			minRemaining = garbage.front().delay - _time;

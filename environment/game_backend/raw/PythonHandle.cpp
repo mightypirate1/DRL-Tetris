@@ -31,6 +31,11 @@ void PythonHandle::set(const PythonHandle& other) {
 	*this = other;
 }
 
+pybind11::tuple PythonHandle::seabass(int p){
+		auto &player = players[p];
+		return pybind11::make_tuple(player.field.square);
+}
+
 void PythonHandle::reset() {
 	round_over = false;
 	int player_count = -1;
@@ -124,13 +129,16 @@ void PythonHandle::distributeLines(int sender, int amount) {
 bool PythonHandle::make_actions(std::vector<std::vector<int>> actions, int time_elapsed) {
 	if (round_over)
 		return true;
-	for (unsigned i = 0; i < players.size(); ++i)
-    if (!players[i].dead)
-      for (auto p_action : actions[i])
+	for (unsigned i = 0; i < players.size(); ++i){
+    if (!players[i].dead){
+      for (auto p_action : actions[i]){
         if (action(i, p_action)) {
           players[i].dead = true;
           break;
         }
+			}
+		}
+	}
 
 	int player_count = -1;
 	int alive_count = 0;

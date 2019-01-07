@@ -4,11 +4,11 @@
 #include <cstdint>
 
 class DropDelay {
+public:
 	int32_t dropDelay, dropDelayTime;
 	int32_t increaseDropDelay, increaseDropDelayTime;
 	int32_t lockdownTime;
 	bool lockdown;
-public:
 	bool check(int32_t t);
 	void reset(int32_t t);
 	void clear();

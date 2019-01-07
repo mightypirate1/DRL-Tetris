@@ -1,7 +1,7 @@
 #ifndef GARBAGE_H
 #define GARBAGE_H
 
-#include <deque>
+#include <vector>
 #include <cstdint>
 
 struct Garbage {
@@ -10,10 +10,11 @@ struct Garbage {
 	int32_t delay;
 };
 
+inline uint16_t foo2;
+
 class GarbageHandler {
-private:
-	std::deque<Garbage> garbage;
 public:
+	GarbageHandler() : linesBlocked(foo2) {}
 	GarbageHandler(uint16_t& _linesBlocked);
 	GarbageHandler& operator=(const GarbageHandler& other) {
 		garbage = other.garbage;
@@ -23,6 +24,7 @@ public:
 		return *this;
 	}
 
+	std::vector<Garbage> garbage;
 	uint16_t & linesBlocked;
 	int32_t minRemaining, addDelay;
 

@@ -35,7 +35,7 @@ public:
 	std::vector<uint8_t> test_path;
 	Mask mask;
 	int current_column;
-	int use_mask;
+	// int use_mask;
 
 	MoveInfo finesseMove;
 

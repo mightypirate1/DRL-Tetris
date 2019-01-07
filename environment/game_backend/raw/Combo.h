@@ -3,11 +3,14 @@
 
 #include <cstdint>
 
+inline uint16_t foo;
+
 class ComboCounter {
 private:
 	int32_t comboStart=0, comboTime=0;
 	uint8_t lineCount=0;
 public:
+	ComboCounter() : maxCombo(foo) {}
 	ComboCounter(uint16_t& _maxCombo) : maxCombo(_maxCombo) {}
 	ComboCounter& operator=(const ComboCounter& other) {
 		comboStart = other.comboStart;

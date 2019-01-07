@@ -62,8 +62,8 @@ void TestField::setPiece(basePieces& newpiece) {
 }
 
 Mask& TestField::getMask(int use_mask_) {
-	use_mask = use_mask_;
-	if (use_mask == 2)
+	//use_mask = use_mask_;
+	if (use_mask_ == 2)
 		mask.clear();
 	else
 		mask.clear_to_size();
@@ -111,14 +111,14 @@ Mask& TestField::getMask(int use_mask_) {
 }
 
 void TestField::findNextMove() {
-	if (use_mask == 2) {
+	//if (use_mask == 2) {
 		mask.action.push_back({});
 		mask.mask.push_back(1);
 		addRotationValue(piece.current_rotation - piece.rotation, mask.action.back());
 		makeStartSequence(piece.posX, mask.action.back());
 		convert(mask.action.back());
 		mask.action.back().push_back(7);
-	}
+	//}
 	current_column = piece.posX+1;
 	hd();
 	tryAllFinesseMoves();
@@ -126,7 +126,7 @@ void TestField::findNextMove() {
 
 void TestField::useFinesseMove() {
 	std::vector<int>* currentMove;
-	if (use_mask == 2) {
+	if (/*use_mask == 2*/true) {
 		mask.action.push_back({});
 		mask.mask.push_back(1);
 		currentMove = &mask.action.back();
