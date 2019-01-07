@@ -1,5 +1,3 @@
-from environment.tetris_environment import tetris_environment
-import agents.curiosity_agent.curiosity_agent
 import tensorflow as tf
 from aux.parameter import *
 
@@ -9,7 +7,7 @@ from aux.parameter import *
 
 default_settings = {
                 ## AGENT:
-                    "agent" : agents.curiosity_agent.curiosity_agent.curiosity_agent,
+                    "agent" : None,
                     #Training:
                     "minibatch_size" : 32,
                     "time_to_training" : 10**3,
@@ -52,8 +50,8 @@ default_settings = {
                     "curiosity_lr" : constant_parameter(0.000001),
 
                 ##ENV:
-                    "environment_logging" : False,
-                    "env" : tetris_environment,
+                    "environment_logging" : True,
+                    "env" : None,
                     "n_players" : 2,
                     "pieces" : [l,j,s,z,i,t,o],
                     "game_size" : [22,10],
@@ -61,6 +59,7 @@ default_settings = {
                     "state_processor" : "state_dict",        #This is a function that is applied to the state before returning it.
                     "action_type" : "place_block",  #This determines if an action represents pressing a key or placing a block. Allowd values is "press_key" and "place_block"
                     "render" : True,                 #Gfx on?,
+                    "pause_on_keypress" : True,
                     "render_screen_dims" : (860,400),
                     "render_simulation" : False,    #This renders the outcomes of the first 4 non-empty action sequences when simulating.
                     "bar_null_moves" : False,

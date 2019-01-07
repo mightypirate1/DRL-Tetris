@@ -117,3 +117,6 @@ results/*
 environment/game_backend/source/CMakeCache.txt
 environment/game_backend/source/CMakeFiles/*
 environment/game_backend/source/CMakeFiles/
+environment/game_backend/source/Makefile
+
+yeah.py
