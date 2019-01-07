@@ -107,8 +107,13 @@ venv.bak/
 # Project-specific gitignore!
 # # #
 models/*
+
 !models/.gitkeep
 logs/*
 results/*
 !results/.gitkeep
 *.pkl
+
+environment/game_backend/source/CMakeCache.txt
+environment/game_backend/source/CMakeFiles/*
+environment/game_backend/source/CMakeFiles/
