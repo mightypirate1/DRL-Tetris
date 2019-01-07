@@ -1,6 +1,8 @@
 import logging
+import math
 import time
 from environment.tetris_environment import tetris_environment
+import environment.env_utils.draw_tetris as draw_tetris
 import aux.settings
 
 class tetris_environment_vector:
@@ -13,6 +15,9 @@ class tetris_environment_vector:
                 self.settings[x] = settings[x]
         self.n_envs = n_envs
         self.envs = [env_type(id=i, settings=settings, init_env=e) for i,e in enumerate(init_envs)]
+        if self.settings["render"]:
+            self.renderer = draw_tetris.renderer(self.settings["render_screen_dims"])
+            self.renderer_adjusted = False
 
     # def __getattr__(self, attr):
     #     class wrapper:
@@ -101,8 +106,32 @@ class tetris_environment_vector:
     # # # # #
     # Helper functions
     # # #
+    def adjust_rendering(self,fields):
+        x, y = self.settings["render_screen_dims"]
+        dy, dx = fields[0].shape
+        x,y = x/dx, y/dy
+        tmp = math.sqrt(len(fields)/(x/y))
+        tmp = math.ceil(len(fields)/tmp)
+        tmp += self.settings["n_players"] - tmp%self.settings["n_players"]
+        self.render_n_fields_per_row = tmp
+        self.renderer_adjusted = True
+
     def render(self, env=0):
-        self.envs[env].render()
+        if self.settings["render"]:
+            _fs = [e.get_fields() for e in self.envs]
+            fs = []
+            for x in _fs:
+                fs += x
+            render, row = [], []
+            if not self.renderer_adjusted:
+                self.adjust_rendering(fs)
+            for f in fs:
+                row.append(f)
+                if len(row) >= self.render_n_fields_per_row:
+                    render.append(row)
+                    row = []
+            if len(row)>0: render.append(row)
+            self.renderer.drawAllFields(render)
 
     def generate_pieces(self, env=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]

@@ -361,6 +361,8 @@ pybind11::class_<ComboCounter>(m, "ComboCounter")
 		ret.round_over           = t[1].cast<bool>();
 		ret.check_for_winner     = t[2].cast<bool>();
 		auto n_players           = t[3].cast<std::size_t>();
+		ret.states.reserve(n_players);
+		ret.masks.reserve(n_players);
 		for(uint8_t i=0; i<n_players;++i){
 			ret.states.emplace_back(ret.players[i]);
 			ret.masks.emplace_back( );

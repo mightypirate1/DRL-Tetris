@@ -6,13 +6,16 @@ import time
 class renderer:
     def __init__(self, resolution):
         pg.init()
-        self.border_width = 2
-        self.border_fade = 0.2
+        self.border_width = 2   #Border of dark pixels around blocks
+        self.border_fade = 0.2  #Border color. 1=piececolor, 0=black
+        self.padding = 0.5      #Distance between fields measured in units of piece sizes
+        self.scaled = False     #This is set when the piece size is scaled to the inputs
+
         self.resolution = self.res_x, self.res_y = resolution
         self.screen = self.createScreen(self.res_x,self.res_y)
         self.field_row_size = 4
         self.piece_size = self.pieceSize(20)
-        self.fg_colormap = [[20,20,20],
+        self.fg_colormap = [[25,25,25],
                             [255,0,0],
                             [0,255,0],
                             [115,145,255],
@@ -36,32 +39,6 @@ class renderer:
         self.screen.fill([0,0,0])
         return newsize
 
-    def rowSize(self, newsize):
-        # global field_row_size
-        self.field_row_size = newsize
-        screen.fill([0,0,0])
-
-    def drawField(self, field, x, y):
-        field_width = field[0].size
-        d = 0.5 * self.border_width
-        fg_size = self.piece_size - 2*d
-
-        bg_rect = pg.Rect(x,y,self.piece_size,self.piece_size)
-        fg_rect = pg.Rect(x+d,y+d, fg_size,fg_size)
-        count = 0
-        for i in np.nditer(field):
-            self.screen.fill(self.bg_colormap[i], rect=bg_rect)
-            self.screen.fill(self.fg_colormap[i], rect=fg_rect)
-            bg_rect.left += self.piece_size
-            fg_rect.left += self.piece_size
-            count += 1
-            if count == field_width:
-                fg_rect.left = x + d
-                bg_rect.left = x
-                fg_rect.top += self.piece_size
-                bg_rect.top += self.piece_size
-                count = 0
-
     def pollEvents(self, ):
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -70,29 +47,74 @@ class renderer:
             if event.type == pg.KEYDOWN: return True
         return False
 
-    def drawAllFields(self, fields):
-        ret = self.pollEvents()
-        x = 0
-        y = 0
-        height, width = fields[0].shape
-        n = self.field_row_size = len(fields)
+    def pause_on_event(self):
+        if self.pollEvents():
+            print("----------------------")
+            print("--------PAUSED--------")
+            print("----------------------")
+            while not self.pollEvents():
+                time.sleep(1.0)
 
-        x_ratio = (self.piece_size*width*n) / self.res_x
-        y_ratio = (self.piece_size*height) / self.res_y
-        r = max(x_ratio, y_ratio)
-        if r > 1.05 or r < 0.95:
-            self.piece_size /= r
+    def drawField(self, field, x, y, width, height):
+        if field is None:
+            return
+        d = 0.5 * self.border_width
+        fg_size = self.piece_size - 2*d
 
-        width = (width + 1) * self.piece_size
-        height = (height + 1) * self.piece_size
+        bg_rect = pg.Rect(x,y,self.piece_size,self.piece_size)
+        fg_rect = pg.Rect(x+d,y+d, fg_size,fg_size)
         count = 0
-        for f in fields:
-            self.drawField(f,x,y)
-            x += width
+
+        for i in np.nditer(field):
+            self.screen.fill(self.bg_colormap[i], rect=bg_rect)
+            self.screen.fill(self.fg_colormap[i], rect=fg_rect)
+            bg_rect.left += self.piece_size
+            fg_rect.left += self.piece_size
             count += 1
-            if count == self.field_row_size:
+            if count == width:
+                fg_rect.left = x + d
+                bg_rect.left = x
+                fg_rect.top += self.piece_size
+                bg_rect.top += self.piece_size
                 count = 0
-                x = 0
-                y += height
+
+    def drawAllFields(self, fields, force_rescale=False, pause_on_event=False):
+        #We assume that fields is a list of c rows.
+        #Each row contains fields. All rows assuemd to be of equal length except
+        #for possibly the last one which may be shorter.
+
+        #Pausing capability
+        if pause_on_event:
+            self.pause_on_event()
+
+        #Measure fields
+        n_rows = len(fields)
+        if n_rows == 0: return
+        n_cols = len(fields[0])
+        if n_cols == 0: return
+        if type(fields[0][0]) is list:
+            height = len(fields[0][0])
+            width  = len(fields[0][0][0])
+        else:
+            height, width = fields[0][0].shape
+
+        #Rescale pice-sizes to match drawing area
+        if force_rescale or not self.scaled:
+            x_ratio = (self.piece_size*(width +self.padding)*n_cols) / self.res_x
+            y_ratio = (self.piece_size*(height+self.padding)*n_rows) / self.res_y
+            r = max(x_ratio, y_ratio)
+            if r > 1.0 or r < 0.95:
+                self.piece_size /= r
+
+        #Draw field
+        x, y = 0, 0 #First field drawn in top left corner
+        width_px  = (width  +   self.padding) * self.piece_size #px-sizes of a field
+        height_px = (height + 0*self.padding) * self.piece_size
+        count = 0
+        for row in fields:
+            for f in row:
+                self.drawField(f,x,y, width,height)
+                x += width_px
+            x = 0
+            y += height_px
         pg.display.flip()
-        return ret

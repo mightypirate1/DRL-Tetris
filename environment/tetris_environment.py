@@ -1,8 +1,8 @@
 import logging
 import time
 import numpy as np
-import aux
-# from aux.settings import *
+# import aux
+from aux.settings import default_settings
 from environment.game_backend.modules import tetris_env
 import environment.env_utils.state_processors as state_processors
 import environment.env_utils.draw_tetris as draw_tetris
@@ -13,7 +13,7 @@ class tetris_environment:
     def __init__(self, id=None, settings=None, init_env=None):
 
         #Set up settings
-        self.settings = aux.settings.default_settings.copy()
+        self.settings = default_settings.copy()
         if settings is not None:
             for x in settings:
                 self.settings[x] = settings[x]
@@ -144,17 +144,16 @@ class tetris_environment:
     # # # # #
     # Helper functions
     # # #
+    def get_fields(self):
+        # self.backend.recreate_state()
+        return [self.backend.states[x].field for x in range(len(self.backend.states))]
     def render(self):
-        if not self.settings["render"]:
-            return
-        self.renderer.drawAllFields([self.backend.states[x].field for x in range(len(self.backend.states))])
-        #Pausing capability
-        if self.renderer.pollEvents():
-            print("----------------------")
-            print("--------PAUSED--------")
-            print("----------------------")
-            while not self.renderer.pollEvents():
-                time.sleep(1.0)
+        if self.settings["render"]:
+            self.renderer.drawAllFields(
+                                        [self.get_fields()],
+                                        force_rescale=False,
+                                        pause_on_event=self.settings["pause_on_keypress"],
+                                        )
 
     def generate_pieces(self):
         p = self.settings["pieces"]
