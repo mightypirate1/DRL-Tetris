@@ -34,6 +34,9 @@ class value_net:
         #Run init-op
         self.session.run(self.init_ops)
 
+    def reinitialize(self):
+        self.session.run(self.init_ops)
+
     def evaluate(self, input_states, temperature=1.0):
         run_list = [
                     self.output_values_tf,

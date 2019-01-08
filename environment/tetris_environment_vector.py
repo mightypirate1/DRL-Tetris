@@ -14,6 +14,7 @@ class tetris_environment_vector:
             for x in settings:
                 self.settings[x] = settings[x]
         self.n_envs = n_envs
+        self.env_type = env_type
         self.envs = [env_type(id=i, settings=settings, init_env=e) for i,e in enumerate(init_envs)]
         if self.settings["render"]:
             self.renderer = draw_tetris.get_global_renderer(self.settings["render_screen_dims"])
@@ -79,9 +80,9 @@ class tetris_environment_vector:
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.simulate_all_actions(actions, player=player) for e in env_list]
 
-    def get_state(self, env=None, player=None):
+    def get_state(self, env=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]
-        return [e.get_state(player=player) for e in env_list]
+        return [e.get_state() for e in env_list]
 
     # # # # #
     # Somewhat hacky fcns for env handling
@@ -136,6 +137,14 @@ class tetris_environment_vector:
     def generate_pieces(self, env=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.generate_pieces(actions, player=player) for e in env_list]
+
+    def copy(self):
+        return tetris_environment_vector(
+                                         self.n_envs,
+                                         self.env_type,
+                                         init_envs=self.envs,
+                                         settings=self.settings
+                                         )
 
     def __str__(self, env=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]

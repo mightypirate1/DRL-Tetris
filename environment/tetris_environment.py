@@ -36,7 +36,12 @@ class tetris_environment:
             #Upon agreement with backend, we always reset once.
             self.backend.reset()
         else:
-            self.backend = init_env.copy()
+            if type(init_env) is tetris_environment:
+                self.backend = init_env.backend.copy()
+            elif type(init_env) is tetris_env.PythonHandle:
+                self.backend = init_env.copy()
+            else:
+                assert False, "Invalid init_env: type is {}".format(type(init_env))
         self.done = False
 
         #Say hi!

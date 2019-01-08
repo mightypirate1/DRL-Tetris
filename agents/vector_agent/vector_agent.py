@@ -39,7 +39,7 @@ class vector_agent(tetris_agent):
         self.n_envs = n_envs
         self.id = id
         self.n_train_steps = 0
-        self.sandbox = sandbox
+        self.sandbox = sandbox.copy()
         self.settings = aux.settings.default_settings.copy()
         if settings is not None:
             for x in settings:
@@ -50,17 +50,17 @@ class vector_agent(tetris_agent):
         #Initialize training variables
         self.time_to_training = self.settings['time_to_training']
         self.time_to_reference_update = 0#self.settings['time_to_reference_update']
-
         self.state_size = self.state_to_vector(self.sandbox.get_state(), player_list=[0,0]).shape[1:]
         self.experience_replay = experience_replay(self.settings["experience_replay_size"], prioritized=self.settings["prioritized_experience_replay"])
         self.current_trajectory = []
 
-        self.extrinsic_model =           value_net(self.id, "main_extrinsic",      self.state_size, session, settings=self.settings)
-        self.reference_extrinsic_model = value_net(self.id, "reference_extrinsic", self.state_size, session, settings=self.settings)
-        if self.settings["use_curiosity"]:
-            self.curiosity_network =         curiosity_network(self.id, self.state_size, session)
-            self.intrinsic_model =           value_net(self.id, "main_intrinsic",      self.state_size, session, settings=self.settings, output_activation="elu_plus1")
-            self.reference_intrinsic_model = value_net(self.id, "reference_intrinsic", self.state_size, session, settings=self.settings, output_activation="elu_plus1")
+        with tf.variable_scope("vectoragent{}".format(id)) as scope:
+            self.extrinsic_model =           value_net(self.id, "main_extrinsic",      self.state_size, session, settings=self.settings)
+            self.reference_extrinsic_model = value_net(self.id, "reference_extrinsic", self.state_size, session, settings=self.settings)
+            if self.settings["use_curiosity"]:
+                self.curiosity_network =         curiosity_network(self.id, self.state_size, session)
+                self.intrinsic_model =           value_net(self.id, "main_intrinsic",      self.state_size, session, settings=self.settings, output_activation="elu_plus1")
+                self.reference_intrinsic_model = value_net(self.id, "reference_intrinsic", self.state_size, session, settings=self.settings, output_activation="elu_plus1")
 
         self.nemesis = [(i +1)%self.settings["n_players"] for i in range(self.n_envs)]
         self.avg_trajectory_length = 5 #tau is initialized to something...
@@ -173,6 +173,9 @@ class vector_agent(tetris_agent):
                 self.time_to_training -= len(self.current_trajectory)
                 self.current_trajectory.clear()
 
+    def reinitialize_model(self):
+        self.extrinsic_model.reinitialize()
+        self.reference_extrinsic_model.reinitialize()
     def is_ready_for_training(self):
         return False
         # return (self.time_to_training <= 0) and (len(self.experience_replay) > self.settings["n_samples_each_update"])
@@ -350,7 +353,7 @@ class vector_agent(tetris_agent):
     # # #
 
     def states_from_perspective(self, states, player):
-        assert self.settings["n_players"] == 2, "onöy 2player mode as of yet..."
+        assert self.settings["n_players"] == 2, "only 2player mode as of yet..."
         return self.states_to_vectors(states, player_list=[player, 1-player])
 
     def state_to_vector(self, state, player_list=None):
@@ -380,3 +383,14 @@ class vector_agent(tetris_agent):
     def process_settings(self):
         print("process_settings not implemented yet!")
         return True
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        if 'log' in d:
+            d['log'] = d['log'].name
+        return d
+
+    def __setstate__(self, d):
+        if 'log' in d:
+            d['log'] = logging.getLogger(d['log'])
+        self.__dict__.update(d)

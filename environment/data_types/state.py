@@ -6,7 +6,6 @@ class state:
         self.is_dead = [x.dead[0] for x in backend_state.states]
         if not unlocked:
             self.lock()
-
     def lock(self):
         for s in self.backend_state.states:
             s.dead[0] = 1 #This prevents the state to be changed by performing actions...

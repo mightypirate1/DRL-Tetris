@@ -18,83 +18,90 @@ Usage:
 
 Options:
     --n N      N envs per thread. [default: 16]
-    --m M      M runners. [default: 16]
+    --m M      M workers. [default: 16]
     --steps S  Run S environments steps in total. [default: 1000]
 '''
 docoptsettings = docopt.docopt(docoptstring)
 total_steps = int(docoptsettings["--steps"])
-n_runners = int(docoptsettings["--m"])
+n_workers = int(docoptsettings["--m"])
 n_envs_per_thread = int(docoptsettings["--n"])
-n_envs = n_runners * n_envs_per_thread
+n_envs = n_workers * n_envs_per_thread
 render = not docoptsettings["--no-rendering"]
 
 settings = {
-            "render" : render,
+            "worker_steps"      : total_steps // n_envs,
+            "n_envs_per_thread" : n_envs_per_thread,
+            "render"            : render,
+            "n_workers"         : n_workers,
+            "env_vector_type"   : tetris_environment_vector,
+            "env_type"          : tetris_environment,
+            "agent_type"        : vector_agent,
+            "process_patience"  : [0.1,0.1, 0.1],
            }
 
 print("Speedcheck:")
 for x in docoptsettings:
     print("\t{} : {}".format(x,docoptsettings[x]))
 
+
+#Init PARALLEL
+###########################
+pool = threaded_runner.threaded_runner(
+                                        settings=settings
+                                      )
+print("Starting pool")
+pool.run(total_steps // n_envs )
+pool.join()
+print("Pool finished")
+#Done!
+
+sys.stdout.flush()
+T_parallel = pool.sum_return_que() / n_workers
+###########################
+
+
+#
+##Init SERIAL
 with tf.Session() as session:
-    envs = [tetris_environment_vector(n_envs, tetris_environment, settings=settings) for _ in range(n_runners)]
-    agents = [vector_agent(
-                         n_envs,
-                         id=thread_n,
-                         session=session,
-                         sandbox=tetris_environment(settings=settings),
-                         settings=settings,
-                        ) for thread_n in range(n_runners) ]
-    agent = vector_agent(
-                         n_envs,
-                         id="trainer",
-                         session=session,
-                         sandbox=tetris_environment(settings=settings),
-                         settings=settings,
-                        )
+    env = settings["env_vector_type"](
+                                      1,
+                                      settings["env_type"],
+                                      settings=settings
+                                     )
+    agent = settings["agent_type"](
+                                   1,
+                                   id=0,
+                                   sandbox=settings["env_type"](settings=settings),
+                                   session=session,
+                                   settings=settings,
+                                  )
 
-    #Run stuff
-    pool = threaded_runner.threaded_runner(
-                                            envs=envs,
-                                            runners=agents,
-                                            trainer=agent,
-                                            n_steps=total_steps // (n_runners*n_envs_per_thread),
-                                          )
-    print("Starting pool")
-    T_thread_start = time.time()
-    pool.run()
+    session.run(tf.global_variables_initializer())
+    agent.reinitialize_model()
 
-    pool.join()
-    T_thread_stop = time.time()
-    print("Pool finished")
-    #Done!
-
-    sys.stdout.flush()
-    exit("___")
-
-    ##Init SERIAL
     print("Starting serial")
     T_serial_start = time.time()
     current_player = 1
-    s = envs[0].get_state()
+    s = env.get_state()
     print("Go!")
-    for t in range(total_steps // n_envs_per_thread):
+    for t in range(total_steps):
         current_player = 1 - current_player
         _,a = agent.get_action(s, player=current_player)
-        ds = envs[0].perform_action(a)
-        s = envs[0].get_state()
+        # a = env.get_random_action()
+        ds = env.perform_action(a)
+        s = env.get_state()
         for i,d in enumerate(ds):
-            if d: envs[0].reset(env=[i])
+            if d: env.reset(env=[i])
         if render:
-            envs[0].render(env=0)
-        print("Step {}".format((t+1)*n_envs_per_thread))
+            env.render(env=0)
+        print("Step {}".format((t+1)))
     T_serial_stop = time.time()
     print("Serial done")
     #Done!
 
 #Show what we collected (parallel)!
 print("[Parallel] Collected {} trajectories:".format(None))
-print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_thread_stop - T_thread_start, total_steps/(T_thread_stop - T_thread_start) ))
+print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_parallel, total_steps/T_parallel))
 
 print("[Serial] Collected {} trajectories:".format(None))
 print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_serial_stop - T_serial_start, total_steps/(T_serial_stop - T_serial_start) ))
