@@ -14,7 +14,7 @@ class action_list(list):
         if self.remove_null:
             self.remove_nulls()
     def remove_nulls(self):
-        while len(self.container) > 0 and [0] in self.container:
+        while len(self.container) > 1 and [0] in self.container:
             self.container.remove([0])
     def __add__(self,n):
         return action_list(n.container+self.container, remove_null=(n.remove_null or self.remove_null))
