@@ -1,6 +1,7 @@
 import logging
 import math
 import time
+import numpy as np
 from environment.tetris_environment import tetris_environment
 import environment.env_utils.draw_tetris as draw_tetris
 import aux.settings
@@ -14,6 +15,7 @@ class tetris_environment_vector:
             for x in settings:
                 self.settings[x] = settings[x]
         self.n_envs = n_envs
+        self.players = [p for p in range(self.settings["n_players"])]
         self.env_type = env_type
         self.envs = [env_type(id=i, settings=settings, init_env=e) for i,e in enumerate(init_envs)]
         if self.settings["render"]:
@@ -52,35 +54,62 @@ class tetris_environment_vector:
     # # # # #
     # Env interface fcns
     # # #
+    def parse_arg(self, entry_idx, data, fill_up=None):
+        #This tries to encapsulate the general pattern of passing data vectorized...
+        #TODO: Write a more thorough comment on the two ways this method can be usedself.
+        #TODO: Move this function to some utility plays (maybe) if e.g. vector_agent needs it too...
+        if entry_idx is None:
+            return data
+        elif type(entry_idx) in [list, np.ndarray]:
+            return [data[i] for i in entry_idx]
+        else:
+            if fill_up is None:
+                entry_idx = [entry_idx]
+            else:
+                entry_idx = [entry_idx for _ in range(fill_up)]
+            return [data[i] for i in entry_idx]
+
     def reset(self, env=None):
-        env_list = self.envs if env is None else [self.envs[i] for i in env]
+        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
+        env_list = self.parse_arg(env, self.envs)
         return [e.reset() for e in env_list]
 
     def get_actions(self,env=None,player=None):
+        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.get_actions(player=player) for e in env_list]
 
     def get_random_action(self, env=None, player=None):
+        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.get_random_action(player=player) for e in env_list]
 
     def simulate_actions(self,actions, env=None, player=None):
+        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.simulate_actions(a, player=player) for e,a in zip(env_list, actions)]
 
     def perform_action(self,actions, env=None, player=None, render=None):
-        env_list = self.envs if env is None else [self.envs[i] for i in env]
-        return [e.perform_action(a, player=player, render=render) for  e,a in zip(env_list, actions)]
+        env_list = self.parse_arg(env, self.envs)
+        p_list   = self.parse_arg(player, self.players, fill_up=len(env_list))
+        rewards, dones = [None for _ in env_list], [None for _ in env_list]
+        for i,e,a,p in zip(range(len(env_list)),env_list, actions, p_list):
+            r, d = e.perform_action(a, player=p, render=render)
+            rewards[i], dones[i] = r, d
+        return rewards, dones
 
     def get_winner(self, env=None):
+        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.get_winner(actions, player=player) for e in env_list]
 
     def simulate_all_actions(self,actions, env=None, player=None):
+        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.simulate_all_actions(actions, player=player) for e in env_list]
 
     def get_state(self, env=None):
+        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.get_state() for e in env_list]
 
@@ -117,22 +146,29 @@ class tetris_environment_vector:
         self.render_n_fields_per_row = tmp
         self.renderer_adjusted = True
 
-    def render(self, env=0):
-        if self.settings["render"]:
-            _fs = [e.get_fields() for e in self.envs]
-            fs = []
-            for x in _fs:
-                fs += x
-            render, row = [], []
-            if not self.renderer_adjusted:
-                self.adjust_rendering(fs)
-            for f in fs:
-                row.append(f)
-                if len(row) >= self.render_n_fields_per_row:
-                    render.append(row)
-                    row = []
-            if len(row)>0: render.append(row)
-            self.renderer.drawAllFields(render)
+    def render(self, env=None):
+        if not self.settings["render"]:
+            return
+        if env is None:
+            env_list = self.envs
+        else:
+            if type(env) is not list:
+                env = [env]
+            env_list = [self.envs[e] for e in env]
+        _fs = [e.get_fields() for e in env_list]
+        fs = []
+        for x in _fs:
+            fs += x
+        render, row = [], []
+        if not self.renderer_adjusted:
+            self.adjust_rendering(fs)
+        for f in fs:
+            row.append(f)
+            if len(row) >= self.render_n_fields_per_row:
+                render.append(row)
+                row = []
+        if len(row)>0: render.append(row)
+        self.renderer.drawAllFields(render)
 
     def generate_pieces(self, env=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]

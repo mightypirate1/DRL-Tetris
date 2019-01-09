@@ -57,23 +57,29 @@ class tetris_environment:
 
     def get_actions(self,player=None):
         if self.debug: self.log.debug("get_action invoked: player={}".format(player))
-        if player not in range(self.settings["n_players"]) and player is not None:
-            if self.debug: self.log.warning("get_actions called with player={}. This may be fatal. Expected 0<=player<{}.".format(player,self.settings["n_players"]))
-            return None
-        if self.settings["action_type"] is "press_key":
-            available_actions = [0,1,2,3,4,5,6,7,8,9,10]
-            return available_actions if player is not None else [available_actions]*self.settings["n_players"]
-        elif self.settings["action_type"] is "place_block":
-            if player is None:
-                for p in range(self.settings["n_players"]):
+        if player is None:
+            p_list = [p for p in range(self.settings["n_players"])]
+        if type(player) is not list:
+            p_list = [player]
+            # if player not in range(self.settings["n_players"]):
+            #     self.log.warning("get_actions called with player={}. This may be fatal. Expected 0<=player<{}.".format(player,self.settings["n_players"]))
+            #     return None
+        else:
+            p_list = player
+        if self.settings["action_type"] is "place_block":
+            if type(player) is list:
+                for p in p_list:
                     self.backend.get_actions(p)
                 return [action_list(self.backend.masks[p].action, remove_null=self.settings["bar_null_moves"]) for p in range(self.settings["n_players"])]
             else:
                 self.backend.get_actions(player)
                 return action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
-        else:
-            if self.debug: self.log.warning("get_actions called with action_type={}. This may be fatal. Expected action_type \"press_key\" or \"place_block\"".format(self.settings["action_type"]))
-            return None
+        if self.settings["action_type"] is "press_key":
+            available_actions = [0,1,2,3,4,5,6,7,8,9,10]
+            if type(player) is list:
+                return [available_actions for _ in p_list]
+            else:
+                return available_actions
 
     def get_random_action(self, player=None):
         if player is None: p_list = [p for p in range(self.settings["n_players"])]
@@ -110,9 +116,10 @@ class tetris_environment:
             a = [[0]]*self.settings["n_players"]
             a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
+        r = self.get_state()[player]["reward"]
         if render:
             self.render()
-        return self.done
+        return r, self.done
 
     def get_winner(self):
         if not self.done:
@@ -172,6 +179,8 @@ class tetris_environment:
             self.state_processor = state_processors.state_processor(self.settings["state_processor"])
         if self.settings["render"]:
             self.renderer = draw_tetris.get_global_renderer(resolution=self.settings["render_screen_dims"])
+
+        assert self.settings["action_type"] in ["place_block", "press_key"]
         return True
 
     def __str__(self):
