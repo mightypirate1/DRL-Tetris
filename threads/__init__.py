@@ -1,0 +1,3 @@
+STANDALONE = None
+WORKER = 0
+TRAINER = 1
