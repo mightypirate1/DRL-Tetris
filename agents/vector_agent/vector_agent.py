@@ -6,7 +6,9 @@ import numpy as np
 import tensorflow as tf
 import collections
 
+import threads
 import aux
+import aux.utils
 from agents.tetris_agent import tetris_agent
 from agents.networks.value_net import value_net
 from agents.networks.curiosity_network import curiosity_network
@@ -33,7 +35,7 @@ class vector_agent(tetris_agent):
                 return self[-1] >= x[-1] #Last element in an experience is the surprise_factor
             return self[-1] >= x
 
-    def __init__(self, n_envs, id=0, session=None, sandbox=None, settings=None):
+    def __init__(self, n_envs, id=0, session=None, sandbox=None, messages=None, settings=None):
         self.log = logging.getLogger("agent")
         self.log.debug("Test agent created!")
         self.n_envs = n_envs
@@ -45,6 +47,7 @@ class vector_agent(tetris_agent):
             for x in settings:
                 self.settings[x] = settings[x]
         assert self.settings["n_players"] == 2, "2-player mode only as of yet..."
+        self.messages = messages
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
         assert settings_ok, "Settings are not ok! See previous error messages..."
         #Initialize training variables
@@ -52,15 +55,14 @@ class vector_agent(tetris_agent):
         self.time_to_reference_update = 0#self.settings['time_to_reference_update']
         self.state_size = self.state_to_vector(self.sandbox.get_state(), player_list=[0,0]).shape[1:]
         self.experience_replay = experience_replay(self.settings["experience_replay_size"], prioritized=self.settings["prioritized_experience_replay"])
-        self.current_trajectory = []
-
-        with tf.variable_scope("vectoragent{}".format(id)) as scope:
-            self.extrinsic_model =           value_net(self.id, "main_extrinsic",      self.state_size, session, settings=self.settings)
-            self.reference_extrinsic_model = value_net(self.id, "reference_extrinsic", self.state_size, session, settings=self.settings)
-            if self.settings["use_curiosity"]:
-                self.curiosity_network =         curiosity_network(self.id, self.state_size, session)
-                self.intrinsic_model =           value_net(self.id, "main_intrinsic",      self.state_size, session, settings=self.settings, output_activation="elu_plus1")
-                self.reference_intrinsic_model = value_net(self.id, "reference_intrinsic", self.state_size, session, settings=self.settings, output_activation="elu_plus1")
+        self.current_trajectory = [[] for _ in range(self.n_envs)]
+        #Create models
+        self.extrinsic_model =           value_net(self.id, "main_extrinsic",      self.state_size, session, settings=self.settings, on_cpu=self.settings["worker_net_on_cpu"])
+        self.reference_extrinsic_model = value_net(self.id, "reference_extrinsic", self.state_size, session, settings=self.settings, on_cpu=self.settings["worker_net_on_cpu"])
+        if self.settings["use_curiosity"]:
+            self.curiosity_network =         curiosity_network(self.id, self.state_size, session)
+            self.intrinsic_model =           value_net(self.id, "main_intrinsic",      self.state_size, session, settings=self.settings, on_cpu=self.settings["worker_net_on_cpu"], output_activation="elu_plus1")
+            self.reference_intrinsic_model = value_net(self.id, "reference_intrinsic", self.state_size, session, settings=self.settings, on_cpu=self.settings["worker_net_on_cpu"], output_activation="elu_plus1")
 
         self.nemesis = [(i +1)%self.settings["n_players"] for i in range(self.n_envs)]
         self.avg_trajectory_length = 5 #tau is initialized to something...
@@ -70,63 +72,48 @@ class vector_agent(tetris_agent):
     def get_action(self, state_vec, player=None, training=False, verbose=False):
         #Get hypothetical future states and turn them into vectors!
         if player is None: p_list = [i for i in range(self.n_envs)]
-        else : p_list             = player if type(player) is list else [player]
-        feed_vector = []
-        change_nemesis_flag = [False] * self.n_envs
-        idx = 0
-        idx_dict = dict( zip([p for p in p_list], [{} for _ in state_vec ]  ) )
+        else : p_list             = player if type(player) in [list, np.ndarray] else [player]
+        player_pairs_flat, future_states, future_states_flat = [], {}, []
+        all_actions = [None for _ in range(len(state_vec))]
 
-        all_actions = [dict(zip(p_list, [ None for i,_ in enumerate(state_vec)])) for _ in range(self.n_envs)]
+        #Simulate future states
+        for state_idx, state in enumerate(state_vec):
+            self.sandbox.set(state)
+            player_action            = self.sandbox.get_actions(                    player=p_list[state_idx])
+            future_states[state_idx] = self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
+            all_actions[state_idx] = player_action
+            player_pairs_flat += [ (p_list[state_idx],1-p_list[state_idx]) for _ in range(len(player_action)) ]
 
-        for i,s in enumerate(state_vec):
-            for p in range(self.settings["n_players"]):
-                if p in p_list:
-                    self.sandbox.set(s)
-                    a = self.sandbox.get_actions(player=p)
-                    future_states = self.sandbox.simulate_actions(a, p)
-                    feed_vector += future_states
-                    all_actions[i][p] = a
-                    idx_dict[p][i] = slice(idx,idx+len(future_states),1)
-                    idx += len(future_states)
+        #Flatten
+        unflatten_dict, temp = {}, 0
+        for state_idx in range(len(state_vec)):
+            future_states_flat += future_states[state_idx]
+            unflatten_dict[state_idx] = slice(temp,temp+len(future_states[state_idx]),1)
 
         #Run model!
-        player_pairs = [(1-player, player) for _ in range(len(feed_vector))]
-        extrinsic_values, _ = self.run_model(self.extrinsic_model, feed_vector, player_lists=player_pairs)
-        values = -extrinsic_values
+        extrinsic_values_flat, _ = self.run_model(self.extrinsic_model, future_states_flat, player_lists=player_pairs_flat)
+        values_flat = -extrinsic_values_flat
+        #for each e: values, argmax_sprime
+        values = [values_flat[unflatten_dict[state_idx]] for state_idx in range(len(state_vec))]
+        argmax = [ np.argmax( values_flat[unflatten_dict[state_idx]]) for state_idx in range(len(state_vec))]
 
-        actions     = [ [ [0]  for _ in range(self.settings["n_players"])  ]  for _ in range(self.n_envs)]
-        action_idxs = [ [  0   for _ in range(self.settings["n_players"])  ]  for _ in range(self.n_envs)]
+        #Epsilon rolls
+        action_idxs = argmax
+        if training:
+            for state_idx in range(len(state_vec)):
+                if "boltzmann" in self.settings["dithering_scheme"]:
+                    assert False, "use adaptive_epsilon as your dithering scheme with this agent!"
+                if self.settings["dithering_scheme"] == "adaptive_epsilon":
+                    dice = random.random()
+                    #if random, change the action
+                    if dice < self.settings["epsilon"].get_value(self.n_train_steps) * self.avg_trajectory_length**(-1):
+                        a_idx = np.random.choice(np.arange(values[state_idx].size))
+                        action_idxs[state_idx] = a_idx
+        actions = [all_actions[state_idx][action_idxs[state_idx]] for state_idx in range(len(state_vec)) ]
 
-        for e in range(self.n_envs):
-            for p in range( self.settings["n_players"] ):
-                if p not in p_list: #We choose a dummy-action for the players who dont get to act!
-                    actions[e][p] = [0]
-                    action_idxs[e][p] = 0
-                else:
-                    #Choose action!
-                    my_values = values[idx_dict[p][e]]
-                    if training:
-                        if "boltzmann" in self.settings["dithering_scheme"]:
-                            assert False, "use adaptive_epsilon as your dithering scheme with this agent!"
-                        if self.settings["dithering_scheme"] == "adaptive_epsilon":
-                            dice = random.random()
-                            if dice < self.settings["epsilon"].get_value(self.n_train_steps) * self.avg_trajectory_length**(-1):
-                                a_idx = np.random.choice(np.arange(my_values.size))
-                            else:
-                                a_idx = np.argmax(my_values.reshape((-1)))
-                    else:
-                        a_idx = np.argmax(my_values.reshape((-1)))
-                    actions[e][p] = all_actions[e][p][a_idx]
-                    action_idxs[e][p] = a_idx
-
-        #Print some stuff...
-        str = "agents{} chose actions{}:{}\nvals:{}\n---".format(p_list,a_idx,action_idxs,np.around(values[:,0],decimals=2))
-        if verbose:
-            print(str)
-        self.log.debug(str)
+        #Keep the clock going...
         if training:
             self.n_train_steps += 1
-        # print(player,actions);exit()
         return action_idxs, actions
 
     def run_model(self, net, states, player_lists=None):
@@ -138,11 +125,13 @@ class vector_agent(tetris_agent):
         return net.evaluate(states_vector)
 
     def store_experience(self, experience):
-        #unpack the experience, and get the reward that is hidden in s'
-        s,a,s_prime, players, done, info = experience
-        r = s_prime[self.id]["reward"]
-        self.current_trajectory.append( [s,a,r,s_prime, players,[done]] )
-        self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, info))
+        def unpack_experience(*e):
+            return list(zip(*e))
+        #Turn a list of experience ingredients into one list of experiences:
+        es = unpack_experience(*experience)
+        for i,e in enumerate(es):
+            self.current_trajectory[i].append(e)
+        self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
 
     def ready_for_new_round(self,training=False, env=None):
         if e_list is None: e_list = [i for i in range(self.n_envs)]
@@ -173,9 +162,6 @@ class vector_agent(tetris_agent):
                 self.time_to_training -= len(self.current_trajectory)
                 self.current_trajectory.clear()
 
-    def reinitialize_model(self):
-        self.extrinsic_model.reinitialize()
-        self.reference_extrinsic_model.reinitialize()
     def is_ready_for_training(self):
         return False
         # return (self.time_to_training <= 0) and (len(self.experience_replay) > self.settings["n_samples_each_update"])
@@ -381,6 +367,15 @@ class vector_agent(tetris_agent):
         return np.concatenate(ret, axis=0)
 
     def process_settings(self):
+        if self.messages is None:
+            self.role = threads.STANDALONE
+        else:
+            if "worker" in self.messages:
+                self.role = threads.WORKER
+                self.transfer_buffer = self.messages["worker"]
+            if "trainer" in self.messages:
+                self.role = threads.TRAINER
+                self.transfer_buffer = self.messages["worker"]
         print("process_settings not implemented yet!")
         return True
 

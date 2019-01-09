@@ -1,8 +1,9 @@
 import tensorflow as tf
+from tensorflow.python.client import device_lib
 import numpy as np
 import aux
 class value_net:
-    def __init__(self, agent_id, name, state_size, sess, settings=None, output_activation=tf.nn.tanh, reuse_nets=False):
+    def __init__(self, agent_id, name, state_size, sess, on_cpu=False, settings=None, output_activation=tf.nn.tanh, reuse_nets=False):
         self.settings = aux.settings.default_settings.copy()
         self.session = sess
         self.name = name
@@ -16,10 +17,10 @@ class value_net:
             for x in settings:
                 self.settings[x] = settings[x]
         self.state_size = state_size
-        self.dummy_state = np.zeros((1,)+state_size)
         #Define tensors/placeholders
         reuse = True if reuse_nets else None
-        with tf.variable_scope(self.scope_name, reuse=reuse) as vs:
+        device = "/cpu:0" if on_cpu or not self.check_gpu() else "/device:GPU:0"
+        with tf.variable_scope(self.scope_name, reuse=reuse), tf.device(device):
             self.softmax_temperature_tf = tf.placeholder(tf.float32, (1,), name='softmax_temperature')
             self.input_states_tf = tf.placeholder(tf.float32, (None,)+self.state_size, name='input_state')
             self.target_values_tf = tf.placeholder(tf.float32, (None,1), name='target_value')
@@ -29,13 +30,16 @@ class value_net:
             self.training_ops = self.create_training_ops()
             self.trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.scope_name)
             self.all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scope_name)
-            self.init_ops = tf.variables_initializer(self.trainable_vars)
+            self.init_ops = tf.variables_initializer(self.all_vars)
             self.assign_placeholder_dict = self.create_weight_setting_ops()
         #Run init-op
         self.session.run(self.init_ops)
 
-    def reinitialize(self):
-        self.session.run(self.init_ops)
+    def check_gpu(self):
+        for dev in device_lib.list_local_devices():
+            if "GPU" in dev.name:
+                return True
+        return False
 
     def evaluate(self, input_states, temperature=1.0):
         run_list = [
