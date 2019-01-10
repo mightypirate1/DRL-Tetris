@@ -62,34 +62,28 @@ class tetris_environment_vector:
 
     def get_actions(self,env=None,player=None):
         #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
-        env_idxs, env_list = utils.parse_arg(env,    self.envs,      indices=True)
-        p_list             = utils.parse_arg(player, self.player_idxs            )
-        assert len(env_list) == len(p_list)
+        env_list = utils.parse_arg(env,    self.envs       )
+        p_list   = utils.parse_arg(player, self.player_idxs, fill_up=len(env_list))
+        assert len(env_list) == len(p_list), "You want to specify one player per tetris_environment that the tetris_environment_vector manages"
         ret = [None for _ in env_list]
-        for i,e,p in zip(env_idxs, env_list, p_list):
-            ret[i] = e.get_actions(player=p)
-        return ret
+        return [e.get_actions(player=p) for e,p in zip(env_list, p_list)]
 
     def get_random_action(self, env=None, player=None):
-        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
-        env_list = self.envs if env is None else [self.envs[i] for i in env]
-        return [e.get_random_action(player=player) for e in env_list]
-
-    def simulate_actions(self,actions, env=None, player=None):
-        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
-        ''' CODE BELOW INCORRECT! '''
-        env_idxs, env_list = utils.parse_arg(env,     self.envs,      indices=True)
-        a_list             = utils.parse_arg(actions, self.player_idxs            )
-        p_list             = utils.parse_arg(player,  self.player_idxs            )
+        env_list = utils.parse_arg(env,    self.envs       )
+        p_list   = utils.parse_arg(player, self.player_idxs, fill_up=len(env_list))
         assert len(env_list) == len(p_list)
-        ret = [None for _ in env_list]
-        for i,e,p in zip(env_idxs, env_list, p_list):
-            ret[i] = e.simulate_actions(player=p)
-        return ret
+        return [e.get_random_action(player=p) for e,p in zip(env_list,p_list)]
+
+    def simulate_actions(self, actions, env=None, player=None):
+        env_list = utils.parse_arg(env,    self.envs       )
+        p_list   = utils.parse_arg(player, self.player_idxs, fill_up=len(env_list))
+        assert len(env_list) == len(p_list)
+        ret = [None for _ in env_idxs]
+        return [e.simulate_actions(a,player=p) for e,a,p in zip(env_list, actions, p_list)]
 
     def perform_action(self,actions, env=None, player=None, render=None):
         env_list = utils.parse_arg(env, self.envs)
-        p_list   = utils.parse_arg(player, self.players, fill_up=len(env_list))
+        p_list   = utils.parse_arg(player, self.player_idxs, fill_up=len(env_list))
         rewards, dones = [None for _ in env_list], [None for _ in env_list]
         for i,e,a,p in zip(range(len(env_list)),env_list, actions, p_list):
             r, d = e.perform_action(a, player=p, render=render)
@@ -101,14 +95,14 @@ class tetris_environment_vector:
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.get_winner(actions, player=player) for e in env_list]
 
-    def simulate_all_actions(self,actions, env=None, player=None):
-        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
-        env_list = self.envs if env is None else [self.envs[i] for i in env]
-        return [e.simulate_all_actions(actions, player=player) for e in env_list]
+    def simulate_all_actions(self, env=None, player=None):
+        env_list = utils.parse_arg(env, self.envs)
+        p_list   = utils.parse_arg(player, self.players, fill_up=len(env_list))
+        assert len(env_list) == len(p_list)
+        return [e.simulate_all_actions(player=p) for e,p in zip(env_list,p_list)]
 
     def get_state(self, env=None):
-        #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
-        env_list = self.envs if env is None else [self.envs[i] for i in env]
+        env_list = utils.parse_arg(env, self.envs)
         return [e.get_state() for e in env_list]
 
     # # # # #

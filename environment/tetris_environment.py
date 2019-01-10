@@ -7,8 +7,7 @@ from aux.settings import default_settings
 from environment.game_backend.modules import tetris_env
 import environment.env_utils.state_processors as state_processors
 import environment.env_utils.draw_tetris as draw_tetris
-from environment.data_types.action_list import action_list
-from environment.data_types.state import state
+import environment.data_types as data_types
 
 class tetris_environment:
     def __init__(self, id=None, settings=None, init_env=None):
@@ -51,45 +50,28 @@ class tetris_environment:
     # # # # #
     # Env interface fcns
     # # #
+    def get_random_action(self, player=None):
+        assert type(player)  is int,  "tetris_environment.get_random_action(player=int) was called with type(player)={}".format(type(player))
+        actions = self.get_actions(player=player)
+        idx = np.random.randint(low=0, high=len(actions))
+        return actions[idx]
+
     def reset(self):
         self.backend.reset()
 
     def get_actions(self,player=None):
         if self.debug: self.log.debug("get_action invoked: player={}".format(player))
-        p_list = utils.parse_arg(player, self.player_idxs)
+        assert type(player)  is int,  "tetris_environment.get_actions(int player) was called with type(player)={}".format(type(player))
         if self.settings["action_type"] is "place_block":
-            # if type(player) is list:
-                for p in p_list:
-                    self.backend.get_actions(p)
-                return [action_list(self.backend.masks[p].action, remove_null=self.settings["bar_null_moves"]) for p in range(self.settings["n_players"])]
-            # else:
-            #     self.backend.get_actions(player)
-            #     return action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
+            self.backend.get_actions(player) #This ensures that the backend is in a sound state (i.e. did not currupt due to pickling. If you think you can fix pickling better, please contact me //mightypirate1)
+            return data_types.action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
         if self.settings["action_type"] is "press_key":
-            available_actions = [0,1,2,3,4,5,6,7,8,9,10]
-            if type(player) is list:
-                return [available_actions for _ in p_list]
-            else:
-                return available_actions
-
-    def get_random_action(self, player=None):
-        if player is None: p_list = [p for p in range(self.settings["n_players"])]
-        else : p_list = player
-        if type(p_list) is not list: p_list = [p_list]
-        ret = []
-        actions = self.get_actions()
-        for i in range(self.settings["n_players"]):
-            if i in p_list:
-                idx = np.random.choice(np.arange(len(actions[i])))
-                ret.append(actions[i][idx])
-            else:
-                ret.append([0])
-        return ret
+            return action_list([[0],[1],[2],[3],[4],[5],[6],[7],[8],[9],[10]]) #This is not error-tested (but "should work")
 
     def simulate_actions(self,actions, player=None):
         if self.debug: self.log.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))
-        assert type(player)  is int,  "tetris_environment.simulate_actions(list actions,int p) was called with type(player)={}".format(type(player))
-        assert type(actions) is list, "tetris_environment.simulate_actions(list actions,int p) was called with type(actions)={}".format(type(actions))
+        assert type(player)  is int,                    "tetris_environment.simulate_actions(action_list actions,int player) was called with type(player)={}".format(type(player))
+        assert type(actions) is data_types.action_list, "tetris_environment.simulate_actions(action_list actions,int player) was called with type(actions)={}".format(type(actions))
         ret = [None for _ in range(len(actions))]
         anchor = self.backend.copy()
         for i,a in enumerate(actions):
@@ -103,13 +85,12 @@ class tetris_environment:
 
     def perform_action(self, action, player=None, render=False):
         if self.debug: self.log.debug("executing action {} for player {}".format(action, player))
-        assert type(player) is int,         "tetris_environment.perform_action(action_list a,int p) was called with type(player)={}".format(type(player))
-        assert type(action) is action_list, "tetris_environment.perform_action(action_list a,int p) was called with type(action)={}".format(type(action))
-        a      = [[0] for _ in self.player_idxs]
-        for i,p in enumerate(p_list):
-        a[p] = action
+        assert type(player) is int,               "tetris_environment.perform_action(action a,int p) was called with type(player)={}".format(type(player))
+        assert type(action) is data_types.action, "tetris_environment.perform_action(action a,int p) was called with type(action)={}".format(type(action))
+        a         = [data_types.null_action for _ in self.player_idxs]
+        a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        reward = self.get_state()[p]["reward"]
+        reward = self.get_state()[player]["reward"]
         done   = self.done
         return reward, done
 
@@ -127,7 +108,7 @@ class tetris_environment:
         return self.simulate_actions(actions, player)
 
     def get_state(self):
-        return state(self.backend, self.state_processor)
+        return data_types.state(self.backend, self.state_processor)
 
     # # # # #
     # Somewhat hacky fcns for env handling
@@ -140,7 +121,7 @@ class tetris_environment:
             self.backend.set(e)
         elif isinstance(e,tetris_environment):
             self.backend.set(e.backend)
-        elif isinstance(e,state):
+        elif isinstance(e,data_types.state):
             self.backend.set(e.backend_state)
         else:
             if self.debug: self.log.error("tetris_environment.set was called with an unrecognized argument!")
