@@ -39,7 +39,7 @@ settings = {
             "n_workers"         : n_workers,
             "n_envs_per_thread" : n_envs_per_thread,
             "worker_steps"      : total_steps // n_envs,
-            "process_patience"  : [0.1,0.1, 0.1], #runner/trainer/pool
+            "process_patience"  : [0.1,0.1, 0.1], #runner/trainer/process_manager
             "worker_net_on_cpu" : True,
             #Misc.
             "render"            : render,
@@ -50,28 +50,29 @@ for x in docoptsettings:
     print("\t{} : {}".format(x,docoptsettings[x]))
 
 
-pool = threads.threaded_runner.threaded_runner(
-                                                settings=settings
-                                              )
+process_manager = threads.threaded_runner.threaded_runner(
+                                                           settings=settings
+                                                         )
 
 ##
 #Thread debugger
 #We get better error messages if we run just one process. Activate with "--debug"
 if debug:
     print("Executing only thread_0:")
-    pool.threads[0]()
-    exit("___")
+    process_manager.threads[0]()
+    print("___")
+    exit("thread debug run done.")
 
 #Init PARALLEL
 ###########################
-print("Starting pool")
-pool.run(total_steps // n_envs )
-pool.join()
-print("Pool finished")
+print("Creating processes")
+process_manager.run(total_steps // n_envs )
+process_manager.join()
+T_parallel = process_manager.get_avg_runtime()
+sys.stdout.flush()
+print("Multi-processes finished")
 #Done!
 
-sys.stdout.flush()
-T_parallel = pool.sum_return_que() / n_workers
 ###########################
 
 #

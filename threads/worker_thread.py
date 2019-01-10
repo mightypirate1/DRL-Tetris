@@ -8,9 +8,10 @@ import aux.utils as utils
 class worker_thread(multiprocessing.Process):
     def __init__(self, id=id, settings=None, trajectory_queue=None):
         multiprocessing.Process.__init__(self, target=self)
-        self.id = id
-        self.trajectory_queue = trajectory_queue
         self.settings = utils.parse_settings(settings)
+        self.id = id
+        self.n_steps = self.settings["worker_steps"]
+        self.trajectory_queue = trajectory_queue
         if self.id > 0:
             self.settings["render"] = False #At most one worker renders stuff...
         self.running = False
@@ -26,7 +27,6 @@ class worker_thread(multiprocessing.Process):
         '''
         Main code:
         '''
-
         with tf.Session() as session:
             #Initialize!
             self.env = self.settings["env_vector_type"](
@@ -42,15 +42,14 @@ class worker_thread(multiprocessing.Process):
                                                 trajectory_queue=self.trajectory_queue,
                                                 settings=self.settings,
                                                 )
-            self.n_steps = self.settings["worker_steps"]
 
             #
             ##Run!
             #####
             #Thread-logics
-            T_thread_start = time.time()
             self.running = True
             #Init run
+            t_thread_start = time.time()
             s_prime = self.env.get_state()
             current_player = np.random.choice([i for i in range(self.settings["n_players"])], size=(self.settings["n_envs_per_thread"])  )
             for t in range(0,self.n_steps):
@@ -63,12 +62,14 @@ class worker_thread(multiprocessing.Process):
 
                 #Get action from agent
                 action_idx, action    = self.agent.get_action(state, player=current_player)
+                # action = self.env.get_random_action(player=current_player)
+
                 #Perform action
                 reward, done = self.env.perform_action(action, player=current_player)
                 s_prime = self.env.get_state()
 
                 #Store to memory
-                experience = (state, reward, s_prime, current_player,done)
+                experience = (state, action_idx, reward, s_prime, current_player,done)
                 self.agent.store_experience(experience)
 
                 #Render?
@@ -79,10 +80,10 @@ class worker_thread(multiprocessing.Process):
                 for i,d in enumerate(done):
                     if d:
                         self.env.reset(env=[i])
+                        # self.agent.ready_for_new_round(...)
                         current_player[i] = np.random.choice([0,1])
 
             #Report when done!
             print("worker{} done".format(self.id))
-            T_thread_stop = time.time()
-            self.trajectory_queue.put(T_thread_stop-T_thread_start)
-            self.running = False
+            runtime = time.time() - t_thread_start
+            self.trajectory_queue.put(runtime)

@@ -14,12 +14,12 @@ class threaded_runner:
         patience = self.settings["process_patience"]
         if type(patience) is list: runner_patience, trainer_patience, self.patience = patience
         else: runner_patience = trainer_patience = self.patience = patience
-        self.trajectory_queue = [multiprocessing.Queue() for _ in range(settings["n_workers"])]
+        self.trajectory_queues = [multiprocessing.Queue() for _ in range(settings["n_workers"])]
         for i in range(settings["n_workers"]):
             thread = worker_thread(
                                    id=i,
                                    settings=settings,
-                                   trajectory_queue=self.trajectory_queue[i],
+                                   trajectory_queue=self.trajectory_queues[i],
                                    )
             self.threads.append(thread)
         # self.trainer = trainer_thread(
@@ -29,11 +29,11 @@ class threaded_runner:
         #                              )
         # self.threads.append(trainer_thread)
 
-    def sum_return_que(self):
+    def get_avg_runtime(self):
         ret = 0
-        while not self.trajectory_queue.empty():
-            ret += self.trajectory_queue.get()
-        return ret
+        for queue in self.trajectory_queues:
+            ret += queue.get()
+        return ret / len(self.trajectory_queues)
 
     def run(self, steps):
         for thread in self.threads:
