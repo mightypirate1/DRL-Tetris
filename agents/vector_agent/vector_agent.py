@@ -8,7 +8,7 @@ import collections
 
 import threads
 import aux
-import aux.utils
+import aux.utils as utils
 from agents.tetris_agent import tetris_agent
 from agents.networks.value_net import value_net
 from agents.networks.curiosity_network import curiosity_network
@@ -35,20 +35,18 @@ class vector_agent(tetris_agent):
                 return self[-1] >= x[-1] #Last element in an experience is the surprise_factor
             return self[-1] >= x
 
-    def __init__(self, n_envs, id=0, session=None, sandbox=None, messages=None, settings=None):
+    def __init__(self, n_envs, id=0, session=None, sandbox=None, trajectory_queue=None, settings=None):
         self.log = logging.getLogger("agent")
         self.log.debug("Test agent created!")
         self.n_envs = n_envs
         self.id = id
         self.n_train_steps = 0
         self.sandbox = sandbox.copy()
-        self.settings = aux.settings.default_settings.copy()
-        if settings is not None:
-            for x in settings:
-                self.settings[x] = settings[x]
-        assert self.settings["n_players"] == 2, "2-player mode only as of yet..."
-        self.messages = messages
+        self.settings = utils.parse_settings(settings)
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
+        assert settings_ok and self.settings["n_players"] == 2, "2-player mode only as of yet..."
+        self.player_idxs = [p for p in range(self.settings["n_players"])]
+        self.trajectory_queue = trajectory_queue
         assert settings_ok, "Settings are not ok! See previous error messages..."
         #Initialize training variables
         self.time_to_training = self.settings['time_to_training']
@@ -71,8 +69,7 @@ class vector_agent(tetris_agent):
     # # #
     def get_action(self, state_vec, player=None, training=False, verbose=False):
         #Get hypothetical future states and turn them into vectors!
-        if player is None: p_list = [i for i in range(self.n_envs)]
-        else : p_list             = player if type(player) in [list, np.ndarray] else [player]
+        p_list = utils.parse_arg(player, self.player_idxs)
         player_pairs_flat, future_states, future_states_flat = [], {}, []
         all_actions = [None for _ in range(len(state_vec))]
 
@@ -81,6 +78,7 @@ class vector_agent(tetris_agent):
             self.sandbox.set(state)
             player_action            = self.sandbox.get_actions(                    player=p_list[state_idx])
             future_states[state_idx] = self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
+            print(player_action, future_states[state_idx]);exit(":()")
             all_actions[state_idx] = player_action
             player_pairs_flat += [ (p_list[state_idx],1-p_list[state_idx]) for _ in range(len(player_action)) ]
 
@@ -96,7 +94,8 @@ class vector_agent(tetris_agent):
         #for each e: values, argmax_sprime
         values = [values_flat[unflatten_dict[state_idx]] for state_idx in range(len(state_vec))]
         argmax = [ np.argmax( values_flat[unflatten_dict[state_idx]]) for state_idx in range(len(state_vec))]
-
+        print(values[0])
+        print(argmax[0]);exit()
         #Epsilon rolls
         action_idxs = argmax
         if training:
@@ -114,6 +113,7 @@ class vector_agent(tetris_agent):
         #Keep the clock going...
         if training:
             self.n_train_steps += 1
+        print(action_idxs, actions); input("//vector agent")
         return action_idxs, actions
 
     def run_model(self, net, states, player_lists=None):
@@ -134,24 +134,28 @@ class vector_agent(tetris_agent):
         self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
 
     def ready_for_new_round(self,training=False, env=None):
-        if e_list is None: e_list = [i for i in range(self.n_envs)]
+        e_list = utils.parse_arg(env, self.envs)
         for env in e_list:
             a = self.settings["tau_learning_rate"]
             if len(self.current_trajectory[env]) > 0 and training:
                 self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*len(self.current_trajectory[env])
+        if not training: #If we for some reason call this method even while not training.
+            return
 
-            if training:
+        ##
+        # Preprocess the data to prepare it for training
+        for env in env_list:
+            states_visited,extrinsic_rewards, p_lists, s_primes = [], [], [], []
+            for experience in self.current_trajectory[env]:
                 #Process the trajectory to calculate the TD-error of the value-predictions of each transition
-                states_visited, extrinsic_rewards, p_lists, s_primes = [], [], [], []
-                for e in self.current_trajectory[env]:
-                    s,a,r,s_prime, players,done = e
-                    states_visited.append(e[0]) #s
-                    extrinsic_rewards.append(e[2]) #r
-                    self.sandbox.set(e[0]) #s
-                    actions = self.sandbox.get_actions(player=self.id)
-                    s_prime = self.sandbox.simulate_actions([actions[e[1]]], self.id)[0] #a
-                    s_primes.append(s_prime)
-                    p_lists.append(e[4])
+                state, action_idx, reward, s_prime, player, done = experience
+                states_visited.append(state)
+                extrinsic_rewards.append(reward)
+                self.sandbox.set(state) #s
+                actions = self.sandbox.get_actions(player=player)
+                s_prime = self.sandbox.simulate_actions(actions[action_idx], player) #a
+                s_primes.append(s_prime)
+                p_lists.append(e[4])
 
                 #states_visited should now be all states we visited
                 extrinsic_value_s, _      = self.run_model(self.extrinsic_model, states_visited, player_lists=p_lists)
@@ -160,7 +164,7 @@ class vector_agent(tetris_agent):
                 surprise_factors = np.abs(extrinsic_td_errors)
                 self.experience_replay.add_samples([(*e, self.nemesis) for e in self.current_trajectory], surprise_factors)
                 self.time_to_training -= len(self.current_trajectory)
-                self.current_trajectory.clear()
+                self.current_trajectory[env].clear()
 
     def is_ready_for_training(self):
         return False
@@ -367,15 +371,6 @@ class vector_agent(tetris_agent):
         return np.concatenate(ret, axis=0)
 
     def process_settings(self):
-        if self.messages is None:
-            self.role = threads.STANDALONE
-        else:
-            if "worker" in self.messages:
-                self.role = threads.WORKER
-                self.transfer_buffer = self.messages["worker"]
-            if "trainer" in self.messages:
-                self.role = threads.TRAINER
-                self.transfer_buffer = self.messages["worker"]
         print("process_settings not implemented yet!")
         return True
 

@@ -2,6 +2,7 @@ import logging
 import time
 import numpy as np
 # import aux
+import aux.utils as utils
 from aux.settings import default_settings
 from environment.game_backend.modules import tetris_env
 import environment.env_utils.state_processors as state_processors
@@ -13,10 +14,7 @@ class tetris_environment:
     def __init__(self, id=None, settings=None, init_env=None):
 
         #Set up settings
-        self.settings = default_settings.copy()
-        if settings is not None:
-            for x in settings:
-                self.settings[x] = settings[x]
+        self.settings = utils.parse_settings(settings)
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
         assert settings_ok, "Settings are not ok! See previous error messages..."
 
@@ -42,6 +40,7 @@ class tetris_environment:
                 self.backend = init_env.copy()
             else:
                 assert False, "Invalid init_env: type is {}".format(type(init_env))
+        self.player_idxs = [p_idx for p_idx in range(self.settings["n_players"])]
         self.done = False
 
         #Say hi!
@@ -57,23 +56,15 @@ class tetris_environment:
 
     def get_actions(self,player=None):
         if self.debug: self.log.debug("get_action invoked: player={}".format(player))
-        if player is None:
-            p_list = [p for p in range(self.settings["n_players"])]
-        if type(player) is not list:
-            p_list = [player]
-            # if player not in range(self.settings["n_players"]):
-            #     self.log.warning("get_actions called with player={}. This may be fatal. Expected 0<=player<{}.".format(player,self.settings["n_players"]))
-            #     return None
-        else:
-            p_list = player
+        p_list = utils.parse_arg(player, self.player_idxs)
         if self.settings["action_type"] is "place_block":
-            if type(player) is list:
+            # if type(player) is list:
                 for p in p_list:
                     self.backend.get_actions(p)
                 return [action_list(self.backend.masks[p].action, remove_null=self.settings["bar_null_moves"]) for p in range(self.settings["n_players"])]
-            else:
-                self.backend.get_actions(player)
-                return action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
+            # else:
+            #     self.backend.get_actions(player)
+            #     return action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
         if self.settings["action_type"] is "press_key":
             available_actions = [0,1,2,3,4,5,6,7,8,9,10]
             if type(player) is list:
@@ -97,29 +88,30 @@ class tetris_environment:
 
     def simulate_actions(self,actions, player=None):
         if self.debug: self.log.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))
-        ret = []
+        assert type(player)  is int,  "tetris_environment.simulate_actions(list actions,int p) was called with type(player)={}".format(type(player))
+        assert type(actions) is list, "tetris_environment.simulate_actions(list actions,int p) was called with type(actions)={}".format(type(actions))
+        ret = [None for _ in range(len(actions))]
         anchor = self.backend.copy()
-        for a in actions:
+        for i,a in enumerate(actions):
             self.backend.set(anchor)
             self.perform_action(a, player=player, render=False)
-            ret.append(state(self.backend, self.state_processor))
+            ret[i] = self.get_state()
         self.backend.set(anchor)
         if self.settings["render_simulation"]:
             draw_tetris.drawAllFields([r.backend.states[0].field for r in ret[1:5]])
         return ret
 
-    def perform_action(self, action, player=None, render=None):
+    def perform_action(self, action, player=None, render=False):
         if self.debug: self.log.debug("executing action {} for player {}".format(action, player))
-        if player is None:
-            a = action
-        else:
-            a = [[0]]*self.settings["n_players"]
-            a[player] = action
+        assert type(player) is int,         "tetris_environment.perform_action(action_list a,int p) was called with type(player)={}".format(type(player))
+        assert type(action) is action_list, "tetris_environment.perform_action(action_list a,int p) was called with type(action)={}".format(type(action))
+        a      = [[0] for _ in self.player_idxs]
+        for i,p in enumerate(p_list):
+        a[p] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        r = self.get_state()[player]["reward"]
-        if render:
-            self.render()
-        return r, self.done
+        reward = self.get_state()[p]["reward"]
+        done   = self.done
+        return reward, done
 
     def get_winner(self):
         if not self.done:
@@ -134,7 +126,7 @@ class tetris_environment:
         actions = self.get_actions(player=player)
         return self.simulate_actions(actions, player)
 
-    def get_state(self, player=None):
+    def get_state(self):
         return state(self.backend, self.state_processor)
 
     # # # # #

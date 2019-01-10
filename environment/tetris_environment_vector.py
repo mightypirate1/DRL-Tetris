@@ -2,6 +2,7 @@ import logging
 import math
 import time
 import numpy as np
+import aux.utils as utils
 from environment.tetris_environment import tetris_environment
 import environment.env_utils.draw_tetris as draw_tetris
 import aux.settings
@@ -15,7 +16,7 @@ class tetris_environment_vector:
             for x in settings:
                 self.settings[x] = settings[x]
         self.n_envs = n_envs
-        self.players = [p for p in range(self.settings["n_players"])]
+        self.player_idxs = [p for p in range(self.settings["n_players"])]
         self.env_type = env_type
         self.envs = [env_type(id=i, settings=settings, init_env=e) for i,e in enumerate(init_envs)]
         if self.settings["render"]:
@@ -54,30 +55,20 @@ class tetris_environment_vector:
     # # # # #
     # Env interface fcns
     # # #
-    def parse_arg(self, entry_idx, data, fill_up=None):
-        #This tries to encapsulate the general pattern of passing data vectorized...
-        #TODO: Write a more thorough comment on the two ways this method can be usedself.
-        #TODO: Move this function to some utility plays (maybe) if e.g. vector_agent needs it too...
-        if entry_idx is None:
-            return data
-        elif type(entry_idx) in [list, np.ndarray]:
-            return [data[i] for i in entry_idx]
-        else:
-            if fill_up is None:
-                entry_idx = [entry_idx]
-            else:
-                entry_idx = [entry_idx for _ in range(fill_up)]
-            return [data[i] for i in entry_idx]
-
     def reset(self, env=None):
         #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
-        env_list = self.parse_arg(env, self.envs)
+        env_list = utils.parse_arg(env, self.envs)
         return [e.reset() for e in env_list]
 
     def get_actions(self,env=None,player=None):
         #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
-        env_list = self.envs if env is None else [self.envs[i] for i in env]
-        return [e.get_actions(player=player) for e in env_list]
+        env_idxs, env_list = utils.parse_arg(env,    self.envs,      indices=True)
+        p_list             = utils.parse_arg(player, self.player_idxs            )
+        assert len(env_list) == len(p_list)
+        ret = [None for _ in env_list]
+        for i,e,p in zip(env_idxs, env_list, p_list):
+            ret[i] = e.get_actions(player=p)
+        return ret
 
     def get_random_action(self, env=None, player=None):
         #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
@@ -86,12 +77,19 @@ class tetris_environment_vector:
 
     def simulate_actions(self,actions, env=None, player=None):
         #TODO: Swap this behavior for the standardized "parse_arg(idxs, array, fill_up=bool)" e.g. parse_arg(env, self.envs, fill_up=False)
-        env_list = self.envs if env is None else [self.envs[i] for i in env]
-        return [e.simulate_actions(a, player=player) for e,a in zip(env_list, actions)]
+        ''' CODE BELOW INCORRECT! '''
+        env_idxs, env_list = utils.parse_arg(env,     self.envs,      indices=True)
+        a_list             = utils.parse_arg(actions, self.player_idxs            )
+        p_list             = utils.parse_arg(player,  self.player_idxs            )
+        assert len(env_list) == len(p_list)
+        ret = [None for _ in env_list]
+        for i,e,p in zip(env_idxs, env_list, p_list):
+            ret[i] = e.simulate_actions(player=p)
+        return ret
 
     def perform_action(self,actions, env=None, player=None, render=None):
-        env_list = self.parse_arg(env, self.envs)
-        p_list   = self.parse_arg(player, self.players, fill_up=len(env_list))
+        env_list = utils.parse_arg(env, self.envs)
+        p_list   = utils.parse_arg(player, self.players, fill_up=len(env_list))
         rewards, dones = [None for _ in env_list], [None for _ in env_list]
         for i,e,a,p in zip(range(len(env_list)),env_list, actions, p_list):
             r, d = e.perform_action(a, player=p, render=render)

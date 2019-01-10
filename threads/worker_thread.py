@@ -3,18 +3,17 @@ import numpy as np
 import multiprocessing
 import time
 from aux.settings import default_settings
+import aux.utils as utils
 
 class worker_thread(multiprocessing.Process):
-    def __init__(self, id, settings=None, return_queue=None):
-        multiprocessing.Process.__init__(self, target=self, args=(return_queue,))
+    def __init__(self, id=id, settings=None, trajectory_queue=None):
+        multiprocessing.Process.__init__(self, target=self)
         self.id = id
-        self.running = False
-        self.settings = default_settings.copy()
-        for x in settings:
-            self.settings[x] = settings[x]
+        self.trajectory_queue = trajectory_queue
+        self.settings = utils.parse_settings(settings)
         if self.id > 0:
             self.settings["render"] = False #At most one worker renders stuff...
-        self.return_queue = return_queue
+        self.running = False
 
     def __call__(self, *args):
         self.run(*args)
@@ -40,6 +39,7 @@ class worker_thread(multiprocessing.Process):
                                                 id=self.id,
                                                 sandbox=self.settings["env_type"](settings=self.settings),
                                                 session=session,
+                                                trajectory_queue=self.trajectory_queue,
                                                 settings=self.settings,
                                                 )
             self.n_steps = self.settings["worker_steps"]
@@ -62,7 +62,7 @@ class worker_thread(multiprocessing.Process):
                 state = s_prime
 
                 #Get action from agent
-                _, action    = self.agent.get_action(state, player=current_player)
+                action_idx, action    = self.agent.get_action(state, player=current_player)
                 #Perform action
                 reward, done = self.env.perform_action(action, player=current_player)
                 s_prime = self.env.get_state()
@@ -84,5 +84,5 @@ class worker_thread(multiprocessing.Process):
             #Report when done!
             print("worker{} done".format(self.id))
             T_thread_stop = time.time()
-            self.return_queue.put(T_thread_stop-T_thread_start)
+            self.trajectory_queue.put(T_thread_stop-T_thread_start)
             self.running = False

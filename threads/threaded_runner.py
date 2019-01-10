@@ -2,22 +2,24 @@ import tensorflow as tf
 import multiprocessing
 import time
 import numpy as np
+import aux.utils as utils
 from threads.worker_thread import worker_thread
 from threads.trainer_thread import trainer_thread
 
 class threaded_runner:
     def __init__(self, settings=None):
         self.threads = []
-        self.return_queue = multiprocessing.Queue()
         # runner_threads = []
-        patience = settings["process_patience"]
+        self.settings = utils.parse_settings(settings)
+        patience = self.settings["process_patience"]
         if type(patience) is list: runner_patience, trainer_patience, self.patience = patience
         else: runner_patience = trainer_patience = self.patience = patience
+        self.trajectory_queue = [multiprocessing.Queue() for _ in range(settings["n_workers"])]
         for i in range(settings["n_workers"]):
             thread = worker_thread(
-                                   i,
+                                   id=i,
                                    settings=settings,
-                                   return_queue=self.return_queue,
+                                   trajectory_queue=self.trajectory_queue[i],
                                    )
             self.threads.append(thread)
         # self.trainer = trainer_thread(
@@ -29,8 +31,8 @@ class threaded_runner:
 
     def sum_return_que(self):
         ret = 0
-        while not self.return_queue.empty():
-            ret += self.return_queue.get()
+        while not self.trajectory_queue.empty():
+            ret += self.trajectory_queue.get()
         return ret
 
     def run(self, steps):

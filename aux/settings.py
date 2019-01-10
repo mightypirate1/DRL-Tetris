@@ -25,7 +25,7 @@ default_settings = {
                     "curiosity_reward_multiplier" : 0.3,
                     "curiosity_amount" : linear_parameter(1, final_val=0, time_horizon=0.6*10**7),
                     #avg_trajectory_length_learning:
-                    "tau_learning_rate" : 0.01,
+                    "tau_learning_rate" : 0.001,
                     #experience replay:
                     "experience_replay_size" : 10**5,
                     "prioritized_experience_replay" : True,
