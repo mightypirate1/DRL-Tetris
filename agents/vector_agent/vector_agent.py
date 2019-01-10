@@ -78,11 +78,10 @@ class vector_agent(tetris_agent):
             self.sandbox.set(state)
             player_action            = self.sandbox.get_actions(                    player=p_list[state_idx])
             future_states[state_idx] = self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
-            print(player_action, future_states[state_idx]);exit(":()")
             all_actions[state_idx] = player_action
             player_pairs_flat += [ (p_list[state_idx],1-p_list[state_idx]) for _ in range(len(player_action)) ]
 
-        #Flatten
+        #Flatten (kinda like ravel for np.arrays)
         unflatten_dict, temp = {}, 0
         for state_idx in range(len(state_vec)):
             future_states_flat += future_states[state_idx]
@@ -91,11 +90,13 @@ class vector_agent(tetris_agent):
         #Run model!
         extrinsic_values_flat, _ = self.run_model(self.extrinsic_model, future_states_flat, player_lists=player_pairs_flat)
         values_flat = -extrinsic_values_flat
-        #for each e: values, argmax_sprime
+
+        #Undo flatten
         values = [values_flat[unflatten_dict[state_idx]] for state_idx in range(len(state_vec))]
         argmax = [ np.argmax( values_flat[unflatten_dict[state_idx]]) for state_idx in range(len(state_vec))]
-        print(values[0])
-        print(argmax[0]);exit()
+        # print(values[0])
+        # print(argmax[0]);exit()
+
         #Epsilon rolls
         action_idxs = argmax
         if training:
@@ -113,7 +114,6 @@ class vector_agent(tetris_agent):
         #Keep the clock going...
         if training:
             self.n_train_steps += 1
-        print(action_idxs, actions); input("//vector agent")
         return action_idxs, actions
 
     def run_model(self, net, states, player_lists=None):
