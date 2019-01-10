@@ -10,7 +10,7 @@ class action_list(list):
         else:
             self.container = []
         for x in container:
-            assert type(x) is list, "attempted to create action list with non-list type actions (x={} type(x)={}). An actions list is of the form [s_1,...,s_n] where each s_i is a list of actions [a_1,...,a_m], and each a_j an integer.".format(x,type(x))
+            assert type(x) in [action, list], "attempted to create action list with non-list type actions (x={} type(x)={}). An actions list is of the form [s_1,...,s_n] where each s_i is a list of actions [a_1,...,a_m], and each a_j an integer.".format(x,type(x))
             if x not in self.container:
                 self.container.append(action(x))
         if self.remove_null:
