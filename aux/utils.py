@@ -8,7 +8,7 @@ def parse_arg(entry_idx, data, fill_up=None, indices=False):
 
     #Depending on what the indexing was: int, [int_0, ... , int_k] or None (None is alias for ALL), we get the data vector and possibly indices too
     if entry_idx is None:
-        ret = data
+        ret = data if type(data) is list else [d for d in data]
         entry_idx = [idx for idx in range(len(data))]
     elif type(entry_idx) in [list, np.ndarray]:
         ret = [data[i] for i in entry_idx]
@@ -30,3 +30,7 @@ def parse_settings(settings):
     for x in settings:
         s[x] = settings[x]
     return s
+
+# This takes a bunch of lists: [a1,a2,...], [b1,..], [c1, ...] and maps onto [[a1,b1,c1,...], [a2,b2,c2,..]...]
+def merge_lists(*e):
+    return list(zip(*e))
