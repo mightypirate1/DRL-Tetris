@@ -43,6 +43,7 @@ settings = {
             "worker_net_on_cpu" : True,
             #Misc.
             "render"            : render,
+            "bar_null_moves"    : True,
            }
 
 print("Speedcheck:")

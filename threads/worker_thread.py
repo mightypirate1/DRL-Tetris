@@ -4,6 +4,7 @@ import multiprocessing
 import time
 from aux.settings import default_settings
 import aux.utils as utils
+import threads
 
 class worker_thread(multiprocessing.Process):
     def __init__(self, id=id, settings=None, trajectory_queue=None):
@@ -37,6 +38,7 @@ class worker_thread(multiprocessing.Process):
             self.agent = self.settings["agent_type"](
                                                 self.settings["n_envs_per_thread"],
                                                 id=self.id,
+                                                mode=threads.WORKER,
                                                 sandbox=self.settings["env_type"](settings=self.settings),
                                                 session=session,
                                                 trajectory_queue=self.trajectory_queue,
@@ -79,8 +81,8 @@ class worker_thread(multiprocessing.Process):
                 #Reset the envs that reach terminal states
                 for i,d in enumerate(done):
                     if d:
-                        self.env.reset(env=[i])
-                        # self.agent.ready_for_new_round(...)
+                        self.env.reset(env=i)
+                        self.agent.ready_for_new_round(training=True, env=i)
                         current_player[i] = np.random.choice([0,1])
 
             #Report when done!
