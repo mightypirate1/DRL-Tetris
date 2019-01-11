@@ -38,7 +38,10 @@ default_settings = {
                 ##VALUE NET:
                     "value_head_n_hidden" : 5,
                     "value_head_hidden_size" : 512,
+
+                ##MULTIPROCESSING:
                     "worker_net_on_cpu" : True,
+                    "worker_data_send_fequency" : 100,
 
                 ##CURIOSITY NET:
                     "n_hidden_layers" : 3,
