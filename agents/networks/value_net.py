@@ -19,8 +19,8 @@ class value_net:
         self.state_size = state_size
         #Define tensors/placeholders
         reuse = True if reuse_nets else None
-        device = "/cpu:0" if on_cpu or not self.check_gpu() else "/device:GPU:0"
-        with tf.variable_scope(self.scope_name, reuse=reuse), tf.device(device):
+        # device = "/cpu:0" if on_cpu or not self.check_gpu() else "/device:GPU:0" #Previously this was to force CPU-placed nets on workers. Now this is regulated when creating sessions in worker threads. Unsure if current solution is good, but it runs... If you know how to do this, please contact me :) //mightypirate1
+        with tf.variable_scope(self.scope_name, reuse=reuse):
             self.softmax_temperature_tf = tf.placeholder(tf.float32, (1,), name='softmax_temperature')
             self.input_states_tf = tf.placeholder(tf.float32, (None,)+self.state_size, name='input_state')
             self.target_values_tf = tf.placeholder(tf.float32, (None,1), name='target_value')
