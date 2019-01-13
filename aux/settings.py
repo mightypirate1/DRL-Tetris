@@ -7,12 +7,13 @@ from aux.parameter import *
 
 default_settings = {
                 ## AGENT:
-                    "agent" : None,
+                    "agent_type"   : None,
+                    "trainer_type" : None,
                     #Training:
                     "minibatch_size" : 32,
                     "time_to_training" : 10**3,
                     "time_to_reference_update" : 5, #How after how many do_training calls do we update the reference-model?
-                    "n_samples_each_update" : 2**7,
+                    "n_samples_each_update" : 2048,
                     "n_train_epochs_per_update" : 5,
                     "value_lr" : linear_parameter(5*10**-6, final_val=5*10**-8, time_horizon=10**7),
                     "alternating_models" : True, #This means that instead of using a reference-model to produce target values for the model, we instead make the two models switch roles periodically. Empirically this seems to maybe have advantages.
@@ -41,7 +42,14 @@ default_settings = {
 
                 ##MULTIPROCESSING:
                     "worker_net_on_cpu" : True,
+                    "trainer_net_on_cpu" : False,
                     "worker_data_send_fequency" : 100,
+                    "weight_transfer_frequency" : 100,
+                    #Threading
+                    "n_workers"         : 4,
+                    "n_envs_per_thread" : 16,
+                    "worker_steps"      : 1000,
+                    "process_patience"  : [0.1,0.1, 10.0], #runner/trainer/process_manager
 
                 ##CURIOSITY NET:
                     "n_hidden_layers" : 3,
@@ -55,7 +63,8 @@ default_settings = {
 
                 ##ENV:
                     "environment_logging" : True,
-                    "env" : None,
+                    "env_type" : None,
+                    "env_vector_type" : None,
                     "n_players" : 2,
                     "pieces" : [l,j,s,z,i,t,o],
                     "game_size" : [22,10],
