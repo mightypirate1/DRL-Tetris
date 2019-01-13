@@ -1,49 +1,90 @@
 import tensorflow as tf
-import multiprocessing
+import multiprocessing as mp
 import time
 import numpy as np
 import aux.utils as utils
+import threads
 from threads.worker_thread import worker_thread
 from threads.trainer_thread import trainer_thread
 
 class threaded_runner:
     def __init__(self, settings=None):
-        self.threads = []
-        # runner_threads = []
+        #Parse settings
         self.settings = utils.parse_settings(settings)
         patience = self.settings["process_patience"]
-        if type(patience) is list: runner_patience, trainer_patience, self.patience = patience
-        else: runner_patience = trainer_patience = self.patience = patience
-        self.trajectory_queues = [multiprocessing.Queue() for _ in range(settings["n_workers"])]
-        for i in range(settings["n_workers"]):
+        if type(patience) is list: worker_patience, trainer_patience, self.patience = patience
+        else: worker_patience = trainer_patience = self.patience = patience
+
+        #Set up some shared variables to use for inter-thread communications (data transfer etc)
+        manager = mp.Manager()
+        self.shared_vars = {
+                            #run_flag is up when a worker is running. run_time is the exectution-time of a worker.
+                             "run_flag"            : mp.Array("i", [0 for _ in range(settings["n_workers"])] ),
+                             "run_time"            : mp.Array("i", [0 for _ in range(settings["n_workers"])] ),
+                            #Time
+                             "global_clock"        : mp.Value("i", 0),
+                            #Weights
+                             "update_weights"      : manager.dict(zip(["idx", "weights"], [0,None] ) ), #This means that the last issued weights is "None" with batch_no "0"
+                             "update_weights_lock" : mp.Lock(),
+                            #data_flag signals that a worker put something on it's data_bus
+                             "data_queue"          : mp.Queue(),
+                           }
+
+        #Init all threads!
+        self.threads = {"workers" : [], "trainer" : None}
+        #Add N workers
+        for i in range(self.settings["n_workers"]):
             thread = worker_thread(
                                    id=i,
                                    settings=settings,
-                                   trajectory_queue=self.trajectory_queues[i],
-                                   )
-            self.threads.append(thread)
-        # self.trainer = trainer_thread(
-        #                                 id="trainer",
-        #                                 settings=settings,
-        #                                 session=session,
-        #                              )
-        # self.threads.append(trainer_thread)
+                                   shared_vars=self.shared_vars,
+                                   patience=worker_patience,
+                                  )
+            thread.deamon = True
+            self.threads["workers"].append(thread)
+        #Add 1 trainer
+        trainer = trainer_thread(
+                                 id=threads.TRAINER_ID,
+                                 settings=settings,
+                                 shared_vars=self.shared_vars,
+                                 patience=trainer_patience,
+                                )
+        self.threads["trainer"] = trainer
 
     def get_avg_runtime(self):
         ret = 0
-        for queue in self.trajectory_queues:
+        for queue in self.shared_vars["run_time"]:
             ret += queue.get()
-        return ret / len(self.trajectory_queues)
+        return ret / len(self.shared_vars["run_time"])
 
     def run(self, steps):
-        for thread in self.threads:
-            thread.start()
+        if len(self.threads["workers"]) == 0:
+            print("You have no workers employed. What do you want to run, even???");return
+        for thread in self.threads["workers"]:
+            self.start_thread(thread)
+        while self.shared_vars["run_flag"][0] == 0:
+            time.sleep(1);
+        self.start_thread(self.threads["trainer"])
+
+    def start_thread(self, thread):
+        print("Starting thread: {}".format(thread))
+        thread.start()
 
     def join_all_threads(self):
+
+        ##TODO: This code segment was meant to exit if the trainer crashes... but it doesnt work :(
+        # flag = True
+        # while flag:
+        #     time.sleep(self.patience)
+        #     if not self.threads["trainer"].is_alive():
+        #         if not self.threads["trainer"].running:
+        #             print("TRAINER IS DEAD!")
+        #             for thread in self.threads["workers"]:
+        #                 thread.terminate()
+        #         flag = False
+
         print("Tring to join...")
-        for thread in self.threads:
-            while thread.running:
-                time.sleep(self.patience)
+        for thread in [self.threads["trainer"], *self.threads["workers"]]:
             thread.join()
         print("join done!")
 
