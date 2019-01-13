@@ -1,22 +1,45 @@
 import threads
 import aux.utils as utils
 import numpy as np
+import logging
+import pickle
 
 class vector_agent_base:
-    def __init__(self, n_envs, id=0, session=None, sandbox=None, trajectory_queue=None, settings=None, mode=threads.STANDALONE):
-        self.n_envs = n_envs
-        self.env_idxs = [i for i in range(n_envs)]
-        self.id = id
-        self.mode = mode
-        self.n_train_steps = 0
-        self.sandbox = sandbox.copy()
+    def __init__(self, id=0, name="base_type!", session=None, sandbox=None, shared_vars=None, settings=None, mode=threads.STANDALONE):
+        #Parse settings
         self.settings = utils.parse_settings(settings)
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
-        assert settings_ok and self.settings["n_players"] == 2, "2-player mode only as of yet..."
-        self.player_idxs = [p for p in range(self.settings["n_players"])]
-        self.trajectory_queue = trajectory_queue
+        assert self.settings["n_players"] == 2, "2-player mode only as of yet..."
         assert settings_ok, "Settings are not ok! See previous error messages..."
+
+        #Set up some helper variables
+        self.player_idxs = [p for p in range(self.settings["n_players"])]
+        self.id = id
+        self.name = name
+        self.mode = mode
+
+        #Logger
+        self.log = logging.getLogger(self.name)
+        self.log.debug("name created! type={} mode={}".format(self.name,self.mode))
+
+        #Some basic core functionality
+        self.shared_vars = shared_vars
+        self.sandbox = sandbox.copy()
         self.state_size = self.state_to_vector(self.sandbox.get_state(), player_list=[0,0]).shape[1:]
+        self.model_dict = {}
+
+    def run_model(self, net, states, player=None):
+        assert player is not None, "Specify a player to run the model for!"
+        if isinstance(states, np.ndarray):
+            assert False, "This should not ever happen"
+            if player_list is not None: self.log.warning("run_model was called with an np.array as an argument, and non-None player list. THIS IS NOT MENT TO BE, AND IF YOU DONT KNOW WHAT YOU ARE DOING, EXPECT INCORRECT RESULTS!")
+            states_vector = states
+        else:
+            states_vector = self.states_from_perspective(states, player)
+        return net.evaluate(states_vector)
+
+    def run_default_model(self, states, player=None):
+        return self.run_model(self.model_dict["default"], states, player=player)
 
     # # # # #
     # Memory management fcns
@@ -24,28 +47,16 @@ class vector_agent_base:
     def save_settings(self, file):
         with open(file, 'wb') as f:
             pickle.dump(self.settings, f, protocol=pickle.HIGHEST_PROTOCOL)
-
     def save_weights(self, file):
         #Fix this proper one day!!
         self.save_settings(file.replace("weights","settings"))
-
-        # output = {}
-        # extrinsic_model_weight_dict, extrinsic_model_name = self.extrinsic_model.get_weights(self.extrinsic_model.all_vars)
-        # reference_extrinsic_model_weight_dict, reference_extrinsic_model_name = self.reference_extrinsic_model.get_weights(self.reference_extrinsic_model.all_vars)
-        # output["extrinsic_model"]           = ((extrinsic_model_weight_dict)           , extrinsic_model_name          ),
-        # output["reference_extrinsic_model"] = ((reference_extrinsic_model_weight_dict) , reference_extrinsic_model_name),
-        # if self.settings["use_curiosity"]:
-        #     intrinsic_model_weight_dict, intrinsic_model_name = self.intrinsic_model.get_weights(self.intrinsic_model.all_vars)
-        #     reference_intrinsic_model_weight_dict, reference_intrinsic_model_name = self.reference_intrinsic_model.get_weights(self.reference_intrinsic_model.all_vars)
-        #     output["intrinsic_model"]           = ((intrinsic_model_weight_dict)           , intrinsic_model_name          ),
-        #     output["reference_intrinsic_model"] = ((reference_intrinsic_model_weight_dict) , reference_intrinsic_model_name),
-        #     ''' Implement this if you really want it... '''
-        #     # curiosity_network_weight_dict, curiosity_network_name = self.curiosity_network.get_weights(self.curiosity_network.all_vars)
-        #     # output["curiosity_network"]         = ((curiosity_network_weight_dict)         , curiosity_network_name        ),
-
+        output = {}
+        extrinsic_model_weight_dict, extrinsic_model_name = self.extrinsic_model.get_weights(self.extrinsic_model.all_vars)
+        reference_extrinsic_model_weight_dict, reference_extrinsic_model_name = self.reference_extrinsic_model.get_weights(self.reference_extrinsic_model.all_vars)
+        output["extrinsic_model"]           = ((extrinsic_model_weight_dict)           , extrinsic_model_name          ),
+        output["reference_extrinsic_model"] = ((reference_extrinsic_model_weight_dict) , reference_extrinsic_model_name),
         with open(file, 'wb') as f:
             pickle.dump(output, f, protocol=pickle.HIGHEST_PROTOCOL)
-
     def load_weights(self, file):
         with open(file, 'rb') as f:
             weight_dict = pickle.load(f)
@@ -58,15 +69,6 @@ class vector_agent_base:
                 weight_dict[x] = weight_dict[x][0]
         self.extrinsic_model.set_weights(self.extrinsic_model.all_vars,weight_dict["extrinsic_model"])
         self.reference_extrinsic_model.set_weights(self.reference_extrinsic_model.all_vars,weight_dict["reference_extrinsic_model"])
-        if self.settings["use_curiosity"]:
-            if "intrinsic_model" in weight_dict:
-                self.intrinsic_model.set_weights(self.intrinsic_model.all_vars,weight_dict["intrinsic_model"])
-                self.reference_intrinsic_model.set_weights(self.reference_intrinsic_model.all_vars,weight_dict["reference_intrinsic_model"])
-                self.settings["use_curiosity"] = False
-            elif "curiosity_network" in weight_dict:
-                self.curiosity_network.set_weights(self.curiosity_network.all_vars,weight_dict["curiosity_network"])
-            else:
-                self.settings["use_curiosity"] = False
 
     def save_memory(self, file):
         tmp = deque(maxlen=self.settings["experience_replay_size"])
@@ -104,10 +106,16 @@ class vector_agent_base:
     # # #
     def states_from_perspective(self, states, player):
         assert self.settings["n_players"] == 2, "only 2player mode as of yet..."
-        return self.states_to_vectors(states, player_list=[player, 1-player])
+        p_list = utils.parse_arg(player, self.player_idxs)
+        return self.states_to_vectors(states, player_lists=[[p, 1-p] for p in p_list])
+
+    def state_from_perspective(self, state, player):
+        assert self.settings["n_players"] == 2, "only 2player mode as of yet..."
+        return self.state_to_vector(state, [player, 1-player])
 
     def state_to_vector(self, state, player_list=None):
         if isinstance(state,np.ndarray):
+            assert False, "This should not happen"
             return state
         def collect_data(state_dict):
             tmp = []
@@ -122,7 +130,7 @@ class vector_agent_base:
         return ret
 
     def states_to_vectors(self, states, player_lists=None):
-        assert player_lists is not None
+        assert len(player_lists) == len(states), "player_list:{}, states:{}".format(player_lists, states)
         if type(states) is list:
             ret = [self.state_to_vector(s, player_list=player_lists[i]) for i,s in enumerate(states)]
         else:

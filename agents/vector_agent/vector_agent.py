@@ -1,46 +1,71 @@
-import logging
 import random
-import pickle
 import random
 import numpy as np
 import tensorflow as tf
-import collections
 
 import threads
 import aux
 import aux.utils as utils
-import agents.vector_agent as va
+from agents.vector_agent.vector_agent_base import vector_agent_base
+from agents.vector_agent.vector_agent_trainer import vector_agent_trainer
 import agents.agent_utils as agent_utils
+import agents.datatypes as dt
 from agents.tetris_agent import tetris_agent
 from agents.networks import value_net
 from aux.parameter import *
 
+class vector_agent(vector_agent_base):
+    def __init__(
+                 self,
+                 n_envs,                    # How many envs in the vector-env?
+                 id=0,                      # What's this trainers name?
+                 session=None,              # The session to operate in
+                 sandbox=None,              # Sandbox to play in!
+                 shared_vars=None,          # This is to send data between nodes
+                 mode=threads.STANDALONE,   # What's our role?
+                 settings=None,             # Settings-dict passed down from the ancestors
+                ):
 
-class vector_agent(va.vector_agent_base):
-    def __init__(self, n_envs, id=0, session=None, sandbox=None, trajectory_queue=None, settings=None, mode=threads.STANDALONE):
         #Some general variable initialization etc...
-        va.vector_agent_base.__init__(self, n_envs, id=id, session=session, sandbox=sandbox, trajectory_queue=trajectory_queue, settings=settings, mode=mode)
-        #Logger
-        self.log = logging.getLogger("vector_agent")
-        self.log.debug("vector_agent created! mode={}".format(self.mode))
+        vector_agent_base.__init__(self, id=id, name="worker{}".format(id), session=session, sandbox=sandbox, shared_vars=shared_vars, settings=settings, mode=mode)
+
+        #Helper variables
+        self.env_idxs = [i for i in range(n_envs)]
+        self.n_envs = n_envs
+
+        #Clock (keep?)
+        self.n_train_steps = 0
 
         #If we do our own training, we prepare for that
         if self.mode is threads.STANDALONE:
-            self.trainer = vector_agent.trainer(settings=settings, sandbox=sandbox, mode=threads.PASSIVE)
+            self.trainer = self.settings["trainer_type"](settings=settings, sandbox=sandbox, mode=threads.PASSIVE)
             self.experience_replay = trainer.experience_replay
             #STANDALONE agents have to keep track of their own training habits!
             self.time_to_training = self.settings['time_to_training']
 
         if self.mode is threads.WORKER:
-            self.experience_replay = agent_utils.experience_replay(self.settings["experience_replay_size"], prioritized=self.settings["prioritized_experience_replay"])
-            self.time_to_send_data = self.settings["worker_data_send_fequency"]
+            self.experience_replay = agent_utils.experience_replay(
+                                                                    self.settings["experience_replay_size"],
+                                                                    prioritized=self.settings["prioritized_experience_replay"],
+                                                                    time_fcn=lambda x : self.settings["n_workers"] * x + self.id,
+                                                                  )
 
         if self.mode in [threads.WORKER, threads.STANDALONE]: #This means everyone :)
-            self.current_trajectory = [agent_utils.trajectory(self.state_size) for _ in range(self.n_envs)]
+            self.current_trajectory = [dt.trajectory() for _ in range(self.n_envs)]
             self.avg_trajectory_length = 5 #tau is initialized to something...
             #Create models
-            self.extrinsic_model =           value_net(self.id, "main_extrinsic",      self.state_size, session, settings=self.settings, on_cpu=self.settings["worker_net_on_cpu"])
-            self.model_dict = {"extrinsic_model" : self.extrinsic_model}
+            self.extrinsic_model = value_net(
+                                             self.id,
+                                             "main_extrinsic",
+                                             self.state_size,
+                                             session,
+                                             settings=self.settings,
+                                             on_cpu=self.settings["worker_net_on_cpu"]
+                                            )
+            self.model_dict = {
+                                "extrinsic_model" : self.extrinsic_model,
+                                "default"         : self.extrinsic_model,
+                              }
 
 
     # # # # #
@@ -53,7 +78,7 @@ class vector_agent(va.vector_agent_base):
     def get_action(self, state_vec, player=None, training=False, verbose=False):
         #Get hypothetical future states and turn them into vectors!
         p_list = utils.parse_arg(player, self.player_idxs)
-        player_pairs_flat, future_states, future_states_flat = [], {}, []
+        player_list_flat, future_states, future_states_flat = [], {}, []
         all_actions = [None for _ in range(len(state_vec))]
 
         #Simulate future states
@@ -61,8 +86,8 @@ class vector_agent(va.vector_agent_base):
             self.sandbox.set(state)
             player_action            = self.sandbox.get_actions(                    player=p_list[state_idx])
             future_states[state_idx] = self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
-            all_actions[state_idx] = player_action
-            player_pairs_flat += [ (p_list[state_idx],1-p_list[state_idx]) for _ in range(len(player_action)) ]
+            all_actions[state_idx]   = player_action
+            player_list_flat        += [ 1-p_list[state_idx] for _ in range(len(player_action)) ] #View the state from the perspective of the enemy!
 
         #Flatten (kinda like ravel for np.arrays)
         unflatten_dict, temp = {}, 0
@@ -71,8 +96,8 @@ class vector_agent(va.vector_agent_base):
             unflatten_dict[state_idx] = slice(temp,temp+len(future_states[state_idx]),1)
 
         #Run model!
-        extrinsic_values_flat, _ = self.run_model(self.extrinsic_model, future_states_flat, player_lists=player_pairs_flat)
-        values_flat = -extrinsic_values_flat
+        extrinsic_values_flat, _ = self.run_model(self.extrinsic_model, future_states_flat, player=player_list_flat)
+        values_flat = -extrinsic_values_flat #We flip the sign, since this is the evaluation from the perspective of our opponent!
 
         #Undo flatten
         values = [values_flat[unflatten_dict[state_idx]] for state_idx in range(len(state_vec))]
@@ -100,7 +125,7 @@ class vector_agent(va.vector_agent_base):
     #
     ###
     #####
-    def ready_for_new_round(self,training=False, env=None):
+    def ready_for_new_round(self, training=False, env=None):
         e_idxs, _ = utils.parse_arg(env, self.env_idxs, indices=True)
         for e in e_idxs:
             a = self.settings["tau_learning_rate"]
@@ -112,19 +137,16 @@ class vector_agent(va.vector_agent_base):
         # Preprocess the trajectories specifiel to prepare them for training
         for e in e_idxs:
             #Process trajectory to get some advantages etc...
-            prio, data = self.current_trajectory[e].process_trajectory(self.extrinsic_model)
-            # data = utils.merge_lists(*samples)
+            data, prio = self.current_trajectory[e].process_trajectory(self.run_default_model)
 
             #Add data to experience replay sorted by surprise factor
             self.experience_replay.add_samples(data, prio)
 
             #Increment some counters to guide what we do
             if self.mode is threads.STANDALONE:
-                self.time_to_training -= len(self.current_trajectory[e])
-            if self.mode is threads.WORKER:
-                self.time_to_send_data -= len(self.current_trajectory[e])
+                self.time_to_training  -= len(self.current_trajectory[e])
             #Clear trajectory
-            self.current_trajectory[e] = agent_utils.trajectory(self.state_size)
+            self.current_trajectory[e] = dt.trajectory()
 
         #Standalone agents have to keep track of their training habits!
         if self.mode is threads.STANDALONE:
@@ -135,17 +157,28 @@ class vector_agent(va.vector_agent_base):
     #
     ###
     #####
-    def run_model(self, net, states, player_lists=None):
-        if isinstance(states, np.ndarray):
-            if player_list is not None: self.log.warning("run_model was called with an np.array as an argument, and non-None player list. THIS IS NOT MENT TO BE, AND IF YOU DONT KNOW WHAT YOU ARE DOING, EXPECT INCORRECT RESULTS!")
-            states_vector = states
-        else:
-            states_vector = self.states_to_vectors(states, player_lists=player_lists)
-        return net.evaluate(states_vector)
-
-    def store_experience(self, experience):
+    def store_experience(self, experience, env=None):
+        if env is not None:
+            assert type(env) is int, "This funtion only works for env=None or env=integer"
+            #We assume this is only ever used for the last state.
+            self.current_trajectory[env].add(experience, end_of_trajectory=True)
+            return
         #Turn a list of experience ingredients into one list of experiences:
         es = utils.merge_lists(*experience)
         for i,e in enumerate(es):
             self.current_trajectory[i].add(e)
         self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
+
+    def transfer_data(self, keep_data=False):
+        #This function gives away the experience replay and replaces is with a new empty one...
+        ret = self.experience_replay.data
+        if not keep_data:
+            self.experience_replay.clear_buffer()
+        return ret
+
+    def update_weights(self, w): #As passed by the trainer's export_weights-fcn..
+        self.model_dict["default"].set_weights(self.model_dict["default"].all_vars,w)
+    def update_clock(self, clock):
+        old_clock = self.experience_replay.time
+        self.experience_replay.time = clock
+        print("agent{} UPDATED CLOCK {} -> {}".format(self.id,old_clock,clock))
