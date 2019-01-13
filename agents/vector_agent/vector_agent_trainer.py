@@ -78,11 +78,11 @@ class vector_agent_trainer(vector_agent_base):
         n              = self.settings["n_samples_each_update"]
 
         #Get a sample!
-        sample = self.experience_replay.get_random_sample(
-                                                          n,
-                                                          alpha=self.settings["prioritized_replay_alpha"].get_value(self.global_clock),
-                                                          beta=self.settings["prioritized_replay_beta"].get_value(self.global_clock),
-                                                         )
+        sample, filter = self.experience_replay.get_random_sample(
+                                                                  n,
+                                                                  alpha=self.settings["prioritized_replay_alpha"].get_value(self.global_clock),
+                                                                  beta=self.settings["prioritized_replay_beta"].get_value(self.global_clock),
+                                                                 )
         #Put it in arrays
         t_unpack = time.time()
         states        = np.zeros((n,*self.state_size ))
@@ -114,8 +114,8 @@ class vector_agent_trainer(vector_agent_base):
 
         #Update all samples! (priorities and target_value are re-computed using the default model)
         t_update_sample = time.time()
-        for s in sample:
-            s.update_value(self.run_default_model)
+        for i in filter:
+            sample[i].update_value(self.run_default_model)
         t_done = time.time()
 
         #Keep stats and tell the world

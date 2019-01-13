@@ -118,8 +118,7 @@ class experience_replay:
             #We now give the sampled data to the caller.
             #The filter is provided so that they can compute new priorities, update the data_entries, and put them back through replace_samples.
             #IMPORTANT: pass the filter given here to the replace_samples method when replacing samples, otherwise any data that occured n times in the sample given out, will be added n times back, which is NOT how you want to do it most likely...
-            return sample_data, filter
-        return sample_data
+        return sample_data, filter
 
     def add_samples(self, data, prio):
         #Add time_stamps if needed, and filter the input if we are told to!
