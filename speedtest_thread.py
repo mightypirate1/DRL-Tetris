@@ -1,6 +1,6 @@
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
-from agents.vector_agent.vector_agent import vector_agent
+from agents.vector_agent import vector_agent, vector_agent_trainer
 import threads.threaded_runner
 
 import tensorflow as tf
@@ -30,17 +30,28 @@ render = not docoptsettings["--no-rendering"]
 debug = docoptsettings["--debug"]
 
 settings = {
+            #Game settings
+            "game_size"         : [10,5],
+            "pieces"            : [4,6],
             #Types
             "env_vector_type"   : tetris_environment_vector,
             "env_type"          : tetris_environment,
-            "agent_type"        : vector_agent,
+            "agent_type"        : vector_agent.vector_agent,
+            "trainer_type"      : vector_agent_trainer.vector_agent_trainer,
+
             #Threading
-            "worker_batch_size" : 128,
             "n_workers"         : n_workers,
             "n_envs_per_thread" : n_envs_per_thread,
             "worker_steps"      : total_steps // n_envs,
-            "process_patience"  : [0.1,0.1, 0.1], #runner/trainer/process_manager
+            "process_patience"  : [0.1,0.1, 10.0], #runner/trainer/process_manager
             "worker_net_on_cpu" : True,
+            "trainer_net_on_cpu": False,
+
+            #Communication
+            "n_samples_each_update"     : 2048,
+            "worker_data_send_fequency" : 100,
+            "weight_transfer_frequency" : 20,
+
             #Misc.
             "render"            : render,
             "bar_null_moves"    : True,
