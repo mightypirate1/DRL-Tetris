@@ -16,13 +16,12 @@ class vector_agent_trainer(vector_agent_base):
                  id=0,                      # What's this trainers name?
                  session=None,              # The session to operate in
                  sandbox=None,              # Sandbox to play in!
-                 shared_vars=None,          # This is to send data between nodes
                  mode=threads.ACTIVE,       # What's our role?
                  settings=None,             # Settings-dict passed down from the ancestors
                 ):
 
         #Some general variable initialization etc...
-        vector_agent_base.__init__(self, id=id, name="trainer{}".format(id), session=session, sandbox=sandbox, shared_vars=shared_vars, settings=settings, mode=mode)
+        vector_agent_base.__init__(self, id=id, name="trainer{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
         self.n_train_steps = 0
 
         #Bucket of data

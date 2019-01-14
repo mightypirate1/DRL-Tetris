@@ -34,3 +34,9 @@ def parse_settings(settings):
 # This takes a bunch of lists: [a1,a2,...], [b1,..], [c1, ...] and maps onto [[a1,b1,c1,...], [a2,b2,c2,..]...]
 def merge_lists(*e):
     return list(zip(*e))
+
+def weight_location(s, idx=""): #s is a settings dictionary
+    project = s["run-id"]
+    folder = "models/"+project
+    file   = folder+"/weights"+str(idx)+".w"
+    return folder, file

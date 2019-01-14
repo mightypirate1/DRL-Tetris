@@ -3,9 +3,10 @@ import aux.utils as utils
 import numpy as np
 import logging
 import pickle
+import os
 
 class vector_agent_base:
-    def __init__(self, id=0, name="base_type!", session=None, sandbox=None, shared_vars=None, settings=None, mode=threads.STANDALONE):
+    def __init__(self, id=0, name="base_type!", session=None, sandbox=None, settings=None, mode=threads.STANDALONE):
         #Parse settings
         self.settings = utils.parse_settings(settings)
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
@@ -24,7 +25,6 @@ class vector_agent_base:
         self.log.debug("name created! type={} mode={}".format(self.name,self.mode))
 
         #Some basic core functionality
-        self.shared_vars = shared_vars
         self.sandbox = sandbox.copy()
         self.state_size = self.state_to_vector(self.sandbox.get_state(), player_list=[0,0]).shape[1:]
         self.model_dict = {}
@@ -50,62 +50,28 @@ class vector_agent_base:
     # # # # #
     # Memory management fcns
     # # #
-    def save_settings(self, file):
-        with open(file, 'wb') as f:
-            pickle.dump(self.settings, f, protocol=pickle.HIGHEST_PROTOCOL)
-    def save_weights(self, file):
-        #Fix this proper one day!!
-        self.save_settings(file.replace("weights","settings"))
+    def save_weights(self, folder, file): #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
+        #recommended use for standardized naming is .save_weights(*aux.utils.weight_location(...)) and similarily for the load_weights fcn
         output = {}
-        extrinsic_model_weight_dict, extrinsic_model_name = self.extrinsic_model.get_weights(self.extrinsic_model.all_vars)
-        reference_extrinsic_model_weight_dict, reference_extrinsic_model_name = self.reference_extrinsic_model.get_weights(self.reference_extrinsic_model.all_vars)
-        output["extrinsic_model"]           = ((extrinsic_model_weight_dict)           , extrinsic_model_name          ),
-        output["reference_extrinsic_model"] = ((reference_extrinsic_model_weight_dict) , reference_extrinsic_model_name),
+        for net in self.model_dict:
+            if net is "default": continue
+            weight_dict, model_name = self.model_dict[net].get_weights(self.model_dict[net].all_vars)
+            output[net] = weight_dict, model_name
+        if not os.path.exists(folder):
+            os.makedirs(folder)
         with open(file, 'wb') as f:
             pickle.dump(output, f, protocol=pickle.HIGHEST_PROTOCOL)
-    def load_weights(self, file):
+
+    def load_weights(self, folder, file):  #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
         with open(file, 'rb') as f:
-            weight_dict = pickle.load(f)
-        if "extrinsic_model" not in weight_dict:
-            weight_dict["extrinsic_model"] = weight_dict["model"]
-            weight_dict["extrinsic_reference_model"] = weight_dict["reference_model"]
-        for x in weight_dict: #One version had an error in the save-code, so this is for model backward compatibility
-            if len(weight_dict[x]) == 1:
-                print("You were saved by a compatibility hack")
-                weight_dict[x] = weight_dict[x][0]
-        self.extrinsic_model.set_weights(self.extrinsic_model.all_vars,weight_dict["extrinsic_model"])
-        self.reference_extrinsic_model.set_weights(self.reference_extrinsic_model.all_vars,weight_dict["reference_extrinsic_model"])
-
-    def save_memory(self, file):
-        tmp = deque(maxlen=self.settings["experience_replay_size"])
-        if len(self.experience_replay) > 0:
-            #Turns out PythonHandle-objects (corner-stone of the tetris-env is not picklable)...
-            #Because of that we convert all states to np-arrays and store those instead. (presumed to be less compact)
-            for e in self.experience_replay:
-                s, a, r, s_prime, done, surprise = e
-                tmp.append( (self.state_to_vector(s), a, r, self.state_to_vector(s_prime), done, surprise) )
-        with open(file, 'wb') as f:
-            pickle.dump(tmp, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    def load_memory(self, file):
-        self.log.warning("You are loading the memory of an agent. This is not compatible with all agents and settings etc. If your agent's state_to_vector function takes no parameters, or is always called wit hthe same parameters, you should be fine, but be adviced that this feature is onlöy partially implemented!")
-        with open(file, 'rb') as f:
-            self.experience_replay = pickle.load(f)
-
-    def save(self,path, option="all"):
-        if option in ["all", "weights"]:
-            self.save_weights(path+"/weights")
-        if option in ["all", "mem"]:
-            self.save_memory(path+"/mem")
-
-    def load(self,path, option="all"):
-        if option in ["all", "weights"]:
-            self.load_weights(path+"/weights")
-            print("agent{} loaded weights from {}".format(self.id, path))
-        if option in ["all", "mem"]:
-            self.load_memory(path+"/mem")
-            print("agent{} loaded memory from {}".format(self.id, path))
-        self.load_weights(path+"/weights")
+            input_models = pickle.load(f)
+        for net in self.model_dict:
+            if net is "default": continue
+            weight_dict, model_name = input_models[net]
+            self.model_dict[net].set_weights(
+                                             self.model_dict[net].all_vars,
+                                             input_models[net]
+                                            )
 
     # # # # #
     # Helper fcns
