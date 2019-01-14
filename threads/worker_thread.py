@@ -55,7 +55,6 @@ class worker_thread(mp.Process):
                                                      mode=threads.WORKER,
                                                      sandbox=self.settings["env_type"](settings=self.settings),
                                                      session=session,
-                                                     shared_vars=self.shared_vars,
                                                      settings=self.settings,
                                                     )
 

@@ -59,7 +59,6 @@ class wrangler_thread(mp.Process):
                                                           mode=threads.ACTIVE,
                                                           sandbox=self.settings["env_type"](settings=self.settings),
                                                           session=session,
-                                                          shared_vars=self.shared_vars,
                                                           settings=self.settings,
                                                          )
 
