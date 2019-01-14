@@ -1,7 +1,10 @@
+import multiprocessing as mp
 import tensorflow as tf
 import numpy as np
-import multiprocessing as mp
+import struct
 import time
+import os
+
 from aux.settings import default_settings
 import aux.utils as utils
 import threads
@@ -20,7 +23,6 @@ class worker_thread(mp.Process):
         if self.id > 0:
             self.settings["render"] = False #At most one worker renders stuff...
         self.running = False
-
     def __call__(self, *args):
         self.running = True
         self.run(*args)
@@ -34,6 +36,11 @@ class worker_thread(mp.Process):
         '''
         Main code [WORKER]:
         '''
+        myid=mp.current_process()._identity[0]
+        np.random.seed(myid^struct.unpack("<L",os.urandom(4))[0])
+        # Be Nice
+        niceness=os.nice(0)
+        os.nice(5-niceness)
         self.shared_vars["run_flag"][self.id] = 1
         with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})) as session:
             #Initialize!

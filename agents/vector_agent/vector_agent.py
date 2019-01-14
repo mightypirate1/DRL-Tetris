@@ -33,9 +33,6 @@ class vector_agent(vector_agent_base):
         self.env_idxs = [i for i in range(n_envs)]
         self.n_envs = n_envs
 
-        #Clock (keep?)
-        self.n_train_steps = 0
-
         #If we do our own training, we prepare for that
         if self.mode is threads.STANDALONE:
             self.trainer = self.settings["trainer_type"](settings=settings, sandbox=sandbox, mode=threads.PASSIVE)
@@ -46,8 +43,7 @@ class vector_agent(vector_agent_base):
         if self.mode is threads.WORKER:
             self.experience_replay = agent_utils.experience_replay(
                                                                     self.settings["experience_replay_size"],
-                                                                    prioritized=self.settings["prioritized_experience_replay"],
-                                                                    time_fcn=lambda x : self.settings["n_workers"] * x + self.id,
+                                                                    prioritized=False
                                                                   )
 
         if self.mode in [threads.WORKER, threads.STANDALONE]: #This means everyone :)
@@ -112,14 +108,14 @@ class vector_agent(vector_agent_base):
                 if self.settings["dithering_scheme"] == "adaptive_epsilon":
                     dice = random.random()
                     #if random, change the action
-                    if dice < self.settings["epsilon"].get_value(self.n_train_steps) * self.avg_trajectory_length**(-1):
+                    if dice < self.settings["epsilon"].get_value(self.clock) * self.avg_trajectory_length**(-1):
                         a_idx = np.random.choice(np.arange(values[state_idx].size))
                         action_idxs[state_idx] = a_idx
         actions = [all_actions[state_idx][action_idxs[state_idx]] for state_idx in range(len(state_vec)) ]
 
         #Keep the clock going...
         if training:
-            self.n_train_steps += 1
+            self.clock += 1
         return action_idxs, actions
 
     #
@@ -136,11 +132,8 @@ class vector_agent(vector_agent_base):
 
         # Preprocess the trajectories specifiel to prepare them for training
         for e in e_idxs:
-            #Process trajectory to get some advantages etc...
-            data, prio = self.current_trajectory[e].process_trajectory(self.run_default_model)
-
             #Add data to experience replay sorted by surprise factor
-            self.experience_replay.add_samples(data, prio)
+            self.experience_replay.data.append(self.current_trajectory[e])
 
             #Increment some counters to guide what we do
             if self.mode is threads.STANDALONE:
@@ -175,10 +168,3 @@ class vector_agent(vector_agent_base):
         if not keep_data:
             self.experience_replay.clear_buffer()
         return ret
-
-    def update_weights(self, w): #As passed by the trainer's export_weights-fcn..
-        self.model_dict["default"].set_weights(self.model_dict["default"].all_vars,w)
-    def update_clock(self, clock):
-        old_clock = self.experience_replay.time
-        self.experience_replay.time = clock
-        print("agent{} UPDATED CLOCK {} -> {}".format(self.id,old_clock,clock))

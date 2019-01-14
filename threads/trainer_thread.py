@@ -1,6 +1,10 @@
-import tensorflow as tf
 import multiprocessing as mp
+import tensorflow as tf
+import numpy as np
+import struct
 import time
+import os
+
 from aux.settings import default_settings
 import aux.utils as utils
 import threads
@@ -13,6 +17,7 @@ class trainer_thread(mp.Process):
         self.id = id
         self.patience = patience
         self.gpu_count = 0 if self.settings["trainer_net_on_cpu"] else 1
+        self.last_global_clock = 0
         self.running = False
         self.shared_vars = shared_vars
         self.stats = {
@@ -23,10 +28,7 @@ class trainer_thread(mp.Process):
                         "t_loading"        : None,
                         "t_training_total" : 0,
                         "t_loading_total"  : 0,
-
-                        "n_samples_total"  : 0,
                        }
-
     def __call__(self, *args):
         self.running = True
         self.run(*args)
@@ -37,7 +39,12 @@ class trainer_thread(mp.Process):
         '''
         Main code [TRAINER]:
         '''
-        with tf.Session(config=tf.ConfigProto(log_device_placement=True,device_count={'GPU': self.gpu_count})) as session:
+        myid=mp.current_process()._identity[0]
+        np.random.seed(myid^struct.unpack("<L",os.urandom(4))[0])
+        # Be Nice
+        niceness=os.nice(0)
+        # os.nice(niceness-3) #Not allowed it seems :)
+        with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})) as session:
             #Initialize!
             self.trainer = self.settings["trainer_type"](
                                                          id=self.id,
@@ -58,12 +65,13 @@ class trainer_thread(mp.Process):
 
             #This is ALL we do. All day long.
             while self.workers_running():
-                self.do_training()
-                self.load_data()
-                # self.print_stats()
+                sample = self.get_sample()
+                self.do_training(sample)
+                self.return_sample()
+                self.print_stats()
+                self.update_clock()
                 if self.trainer.n_train_steps % self.settings["weight_transfer_frequency"] == 0:
                     self.transfer_weights()
-                    self.set_global_clock()
 
             #Report when done!
             print("trainer done")
@@ -71,38 +79,33 @@ class trainer_thread(mp.Process):
             self.stats["t_total"] = self.stats["t_stop"] - self.stats["t_start"]
             runtime = self.stats["t_total"]
 
-    def do_training(self):
+    def do_training(self, sample):
         t = time.time()
-        self.trainer.do_training()
+        self.trainer.do_training(sample=sample)
         t = time.time() - t
         self.stats["t_training"] = t
         self.stats["t_training_total"] += t
 
-    def load_data(self):
-        t = time.time()
-        data = list()
-        while not self.shared_vars["data_queue"].empty():
-            try:
-                d = self.shared_vars["data_queue"].get()
-                self.stats["n_samples_total"] += len(d)
-                data.append(d)
-            except ValueError:
-                while True:
-                    print("really really bad")
-        self.trainer.receive_data(data)
-        t = time.time() - t
-        self.stats["t_loading"] = t
-        self.stats["t_loading_total"] += t
-
     def print_stats(self):
         frac_load  = self.stats["t_loading_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"])
         frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"])
-        current_speed = self.stats["n_samples_total"] / (time.time() - self.stats["t_start"])
         print("-------trainer info-------")
         print("trained for {}s".format(self.stats["t_training"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
-        print("current speed: {} samples/sec".format(current_speed))
+
+    def get_sample(self):
+        t = time.time()
+        print("requesting SAMPLE...")
+        sample = self.shared_vars["trainer_feed"].get()
+        print("found SAMPLE! :D")
+        t = time.time() - t
+        self.stats["t_loading"] = t
+        self.stats["t_loading_total"] += t
+        return sample
+
+    def return_sample(self):
+        self.shared_vars["trainer_return"].put(1) #Thread language for "I ate a sample you gave me!"
 
     def transfer_weights(self):
         #Get some data
@@ -113,10 +116,10 @@ class trainer_thread(mp.Process):
         self.shared_vars["update_weights"]["weights"] = w
         self.shared_vars["update_weights_lock"].release()
 
-    def set_global_clock(self):
-        with self.shared_vars["global_clock"].get_lock():
-            self.shared_vars["global_clock"].value = self.trainer.global_clock
-
+    def update_clock(self):
+        if self.shared_vars["global_clock"].value > self.last_global_clock:
+            self.last_global_clock = self.shared_vars["global_clock"].value
+            self.trainer.update_clock(self.last_global_clock)
 
     def workers_running(self):
         for i in self.shared_vars["run_flag"]:

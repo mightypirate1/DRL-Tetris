@@ -17,6 +17,7 @@ class vector_agent_base:
         self.id = id
         self.name = name
         self.mode = mode
+        self.clock = 0
 
         #Logger
         self.log = logging.getLogger(self.name)
@@ -27,6 +28,11 @@ class vector_agent_base:
         self.sandbox = sandbox.copy()
         self.state_size = self.state_to_vector(self.sandbox.get_state(), player_list=[0,0]).shape[1:]
         self.model_dict = {}
+
+    def update_clock(self, clock):
+        old_clock = self.experience_replay.time
+        self.experience_replay.time = self.clock = clock
+        print("{} UPDATED CLOCK {} -> {}".format(self.id,old_clock,clock))
 
     def run_model(self, net, states, player=None):
         assert player is not None, "Specify a player to run the model for!"
@@ -137,6 +143,9 @@ class vector_agent_base:
             #Assume it is a single state if it is not a list
             ret = [self.state_to_vector(states, player_list=player_lists)]
         return np.concatenate(ret, axis=0)
+
+    def update_weights(self, w): #As passed by the trainer's export_weights-fcn..
+        self.model_dict["default"].set_weights(self.model_dict["default"].all_vars,w)
 
     def process_settings(self):
         print("process_settings not implemented yet!")

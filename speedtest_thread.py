@@ -30,6 +30,9 @@ render = not docoptsettings["--no-rendering"]
 debug = docoptsettings["--debug"]
 
 settings = {
+            #Project
+            "run-id"            : "dev"
+
             #Game settings
             "game_size"         : [10,5],
             "pieces"            : [4,6],

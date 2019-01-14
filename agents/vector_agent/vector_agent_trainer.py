@@ -24,7 +24,7 @@ class vector_agent_trainer(vector_agent_base):
         #Some general variable initialization etc...
         vector_agent_base.__init__(self, id=id, name="trainer{}".format(id), session=session, sandbox=sandbox, shared_vars=shared_vars, settings=settings, mode=mode)
         self.n_train_steps = 0
-        self.global_clock = 0
+
         #Bucket of data
         self.experience_replay = agent_utils.experience_replay(self.settings["experience_replay_size"], prioritized=self.settings["prioritized_experience_replay"])
 
@@ -56,15 +56,18 @@ class vector_agent_trainer(vector_agent_base):
 
     #What if someone just sends us some experiences?! :D
     def receive_data(self, data_list):
-        for data in data_list:
-            self.experience_replay.merge_in(data)
-            self.global_clock += len(data)
+        for d in data_list:
+            for trajectory in d: #entry is a replaybuffer_entry with a trajectory on it's .data member
+                data, prio = trajectory.process_trajectory(self.run_default_model)
+                self.experience_replay.add_samples(data,prio)
+                self.clock += len(data)
+
     def export_weights(self):
         return self.n_train_steps, self.model_dict["default"].get_weights(self.model_dict["default"].all_vars)
         #return n_steps, (m_weight_dict, m_name)
 
-    def do_training(self):
-        if len(self.experience_replay) < self.settings["n_samples_each_update"]:
+    def do_training(self, sample=None):
+        if sample is None and len(self.experience_replay) < self.settings["n_samples_each_update"]:
             time.sleep(5)
             return
 
@@ -78,11 +81,12 @@ class vector_agent_trainer(vector_agent_base):
         n              = self.settings["n_samples_each_update"]
 
         #Get a sample!
-        sample, filter = self.experience_replay.get_random_sample(
-                                                                  n,
-                                                                  alpha=self.settings["prioritized_replay_alpha"].get_value(self.global_clock),
-                                                                  beta=self.settings["prioritized_replay_beta"].get_value(self.global_clock),
-                                                                 )
+        if sample is None:
+            sample, _ = self.experience_replay.get_random_sample(
+                                                                 n,
+                                                                 alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
+                                                                 beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
+                                                                )
         #Put it in arrays
         t_unpack = time.time()
         states        = np.zeros((n,*self.state_size ))
@@ -102,7 +106,7 @@ class vector_agent_trainer(vector_agent_base):
                                             states[perm[i:i+minibatch_size]],
                                             target_values[perm[i:i+minibatch_size]],
                                             weights=is_weights[perm[i:i+minibatch_size]],
-                                            lr=self.settings["value_lr"].get_value(self.global_clock)
+                                            lr=self.settings["value_lr"].get_value(self.clock)
                                            )
         #Sometimes we do a reference update
         t_ref_update = time.time()
@@ -114,8 +118,7 @@ class vector_agent_trainer(vector_agent_base):
 
         #Update all samples! (priorities and target_value are re-computed using the default model)
         t_update_sample = time.time()
-        for i in filter:
-            sample[i].update_value(self.run_default_model)
+
         t_done = time.time()
 
         #Keep stats and tell the world
@@ -137,9 +140,9 @@ class vector_agent_trainer(vector_agent_base):
             print("\t{} : {}".format(x.rjust(15), self.train_time_log[x]))
         # print("---")
         # print("TAU:{}".format(self.avg_trajectory_length))
-        # print("EPSILON:{}".format(self.settings["epsilon"].get_value(self.global_clock)/self.avg_trajectory_length))
-        # print("curiosity_amount:{}".format(self.settings["curiosity_amount"].get_value(self.global_clock)))
-        # print("value_lr:{}".format(self.settings["value_lr"].get_value(self.global_clock)))
+        # print("EPSILON:{}".format(self.settings["epsilon"].get_value(self.clock)/self.avg_trajectory_length))
+        # print("curiosity_amount:{}".format(self.settings["curiosity_amount"].get_value(self.clock)))
+        # print("value_lr:{}".format(self.settings["value_lr"].get_value(self.clock)))
         # print("---")
 
     #Moves the reference model to be equal to the model, or changes their role (depending on setting)

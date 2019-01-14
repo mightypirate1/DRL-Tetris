@@ -6,6 +6,7 @@ import aux.utils as utils
 import threads
 from threads.worker_thread import worker_thread
 from threads.trainer_thread import trainer_thread
+from threads.wrangler_thread import wrangler_thread
 
 class threaded_runner:
     def __init__(self, settings=None):
@@ -19,8 +20,8 @@ class threaded_runner:
         manager = mp.Manager()
         self.shared_vars = {
                             #run_flag is up when a worker is running. run_time is the exectution-time of a worker.
-                             "run_flag"            : mp.Array("i", [0 for _ in range(settings["n_workers"])] ),
-                             "run_time"            : mp.Array("i", [0 for _ in range(settings["n_workers"])] ),
+                             "run_flag"            : mp.Array("i", [  0 for _ in range(settings["n_workers"])] ),
+                             "run_time"            : mp.Array("d", [0.0 for _ in range(settings["n_workers"])] ),
                             #Time
                              "global_clock"        : mp.Value("i", 0),
                             #Weights
@@ -28,6 +29,8 @@ class threaded_runner:
                              "update_weights_lock" : mp.Lock(),
                             #data_flag signals that a worker put something on it's data_bus
                              "data_queue"          : mp.Queue(),
+                             "trainer_feed"        : mp.Queue(),
+                             "trainer_return"      : mp.Queue(),
                            }
 
         #Init all threads!
@@ -50,6 +53,14 @@ class threaded_runner:
                                  patience=trainer_patience,
                                 )
         self.threads["trainer"] = trainer
+        #Add 1 wrangler
+        wrangler = wrangler_thread(
+                                   id=threads.WRANGLER_ID,
+                                   settings=settings,
+                                   shared_vars=self.shared_vars,
+                                   patience=trainer_patience,
+                                  )
+        self.threads["wrangler"] = wrangler
 
     def get_avg_runtime(self):
         ret = 0
@@ -65,6 +76,7 @@ class threaded_runner:
         while self.shared_vars["run_flag"][0] == 0:
             time.sleep(1);
         self.start_thread(self.threads["trainer"])
+        self.start_thread(self.threads["wrangler"])
 
     def start_thread(self, thread):
         print("Starting thread: {}".format(thread))
@@ -84,7 +96,7 @@ class threaded_runner:
         #         flag = False
 
         print("Tring to join...")
-        for thread in [self.threads["trainer"], *self.threads["workers"]]:
+        for thread in [self.threads["trainer"], self.threads["wrangler"], *self.threads["workers"]]:
             thread.join()
         print("join done!")
 
