@@ -5,7 +5,7 @@ class trajectory:
         self.length = 0
         self.s, self.r, self.d, self.p = [], [], [], []
 
-        self.max_len = 1 #infty!
+        self.max_len = 5
 
     def get_states(self):
         return [self.s[i] for i,a in enumerate(self.a) if a is not None]
@@ -27,7 +27,7 @@ class trajectory:
     def get_cumulative_reward(self, gamma_discount=0.999):
         return sum([x*gamma_discount**i for i,x in enumerate(self.r)])
 
-    def process_trajectory(self, model, gamma_discount=0.999, lambda_discount=0.95, player_adjusted=True, update=False):
+    def process_trajectory(self, model, gamma_discount=0.999, lambda_discount=0.9, player_adjusted=True, update=False):
         _v,_ = model(self.s, player=self.p)
         #Our default setting is that we invert the sign of every other value, since it represents the other players state...
         if player_adjusted:
@@ -64,7 +64,7 @@ class trajectory:
 
         data = []
         for i in range(self.length):
-            I = max(i+self.max_len, len(self)) #This makes sure that all processed pieces have a state-list that is one longer than the other data it holds (compare the row "td_errors = ...")
+            I = min(i+self.max_len, len(self)) #This makes sure that all processed pieces have a state-list that is one longer than the other data it holds (compare the row "td_errors = ...")
             d = processed_trajectory.processed_trajectory(
                                                           self.s[i:I+1],
                                                           self.r[i:I  ],
