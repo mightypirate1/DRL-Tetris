@@ -123,6 +123,8 @@ class experience_replay:
     def add_samples(self, data, prio):
         #Add time_stamps if needed, and filter the input if we are told to!
         time_stamps = [self.time_fcn(t) for t in range(self.time,self.time+len(data),1)]
+        if not self.prioritized:
+            prio = [None for _ in data]
         for d,p,t in zip(data,prio,time_stamps):
             if issubclass(type(d), replaybuffer_entry):
                 d.prio, d.time_stamp = p, t
