@@ -32,6 +32,7 @@ debug = docoptsettings["--debug"]
 settings = {
             #Project
             "run-id"            : "dev",
+            "experience_replay_size" :5e4,
 
             #Game settings
             "game_size"         : [10,5],
@@ -43,17 +44,19 @@ settings = {
             "trainer_type"      : vector_agent_trainer.vector_agent_trainer,
 
             #Threading
+            "run_standalone"    : True,
             "n_workers"         : n_workers,
             "n_envs_per_thread" : n_envs_per_thread,
             "worker_steps"      : total_steps // n_envs,
             "process_patience"  : [0.1,0.1, 10.0], #runner/trainer/process_manager
-            "worker_net_on_cpu" : True,
+            "worker_net_on_cpu" : False,
             "trainer_net_on_cpu": False,
 
             #Communication
-            "n_samples_each_update"     : 2048,
+            "n_samples_each_update" : 2048,
+            "n_train_epochs_per_update" : 15,
             "worker_data_send_fequency" : 100,
-            "weight_transfer_frequency" : 20,
+            "weight_transfer_frequency" : 5,
 
             #Misc.
             "render"            : render,
@@ -65,16 +68,14 @@ for x in docoptsettings:
     print("\t{} : {}".format(x,docoptsettings[x]))
 
 
-process_manager = threads.threaded_runner.threaded_runner(
-                                                           settings=settings
-                                                         )
+process_manager = threads.threaded_runner.threaded_runner(settings=settings)
 
 ##
 #Thread debugger
 #We get better error messages if we run just one process. Activate with "--debug"
 if debug:
     print("Executing only thread_0:")
-    process_manager.threads[0]()
+    process_manager.threads["workers"][0]()
     print("___")
     exit("thread debug run done.")
 

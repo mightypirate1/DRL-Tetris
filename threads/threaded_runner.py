@@ -31,10 +31,15 @@ class threaded_runner:
                              "data_queue"          : mp.Queue(),
                              "trainer_feed"        : mp.Queue(),
                              "trainer_return"      : mp.Queue(),
+                            #some stats...
+                             "trainer_stats"       : manager.dict(),
                            }
 
         #Init all threads!
-        self.threads = {"workers" : [], "trainer" : None}
+        if self.settings["run_standalone"]:
+            assert self.settings["n_workers"] == 1, "If you run standalone, just do one worker, please!"
+        self.threads = {"workers" : list(), "trainer" : None}
+        self.all_threads = list()
         #Add N workers
         for i in range(self.settings["n_workers"]):
             thread = worker_thread(
@@ -45,22 +50,24 @@ class threaded_runner:
                                   )
             thread.deamon = True
             self.threads["workers"].append(thread)
-        #Add 1 trainer
-        trainer = trainer_thread(
-                                 id=threads.TRAINER_ID,
-                                 settings=settings,
-                                 shared_vars=self.shared_vars,
-                                 patience=trainer_patience,
-                                )
-        self.threads["trainer"] = trainer
-        #Add 1 wrangler
-        wrangler = wrangler_thread(
-                                   id=threads.WRANGLER_ID,
-                                   settings=settings,
-                                   shared_vars=self.shared_vars,
-                                   patience=trainer_patience,
-                                  )
-        self.threads["wrangler"] = wrangler
+
+        if not self.settings["run_standalone"]:
+            #Add 1 trainer
+            trainer = trainer_thread(
+                                     id=threads.TRAINER_ID,
+                                     settings=settings,
+                                     shared_vars=self.shared_vars,
+                                     patience=trainer_patience,
+                                    )
+            self.threads["trainer"] = trainer
+            #Add 1 wrangler
+            wrangler = wrangler_thread(
+                                       id=threads.WRANGLER_ID,
+                                       settings=settings,
+                                       shared_vars=self.shared_vars,
+                                       patience=trainer_patience,
+                                      )
+            self.threads["wrangler"] = wrangler
 
     def get_avg_runtime(self):
         ret = 0
@@ -75,8 +82,9 @@ class threaded_runner:
             self.start_thread(thread)
         while self.shared_vars["run_flag"][0] == 0:
             time.sleep(1);
-        self.start_thread(self.threads["trainer"])
-        self.start_thread(self.threads["wrangler"])
+        if not self.settings["run_standalone"]:
+            self.start_thread(self.threads["trainer"])
+            self.start_thread(self.threads["wrangler"])
 
     def start_thread(self, thread):
         print("Starting thread: {}".format(thread))
@@ -96,7 +104,8 @@ class threaded_runner:
         #         flag = False
 
         print("Tring to join...")
-        for thread in [self.threads["trainer"], self.threads["wrangler"], *self.threads["workers"]]:
+        threads = self.threads["workers"] if self.settings["run_standalone"] else [self.threads["trainer"], self.threads["wrangler"], *self.threads["workers"]]
+        for thread in threads:
             thread.join()
         print("join done!")
 

@@ -20,6 +20,8 @@ class worker_thread(mp.Process):
         self.gpu_count = 0 if self.settings["worker_net_on_cpu"] else 1
         self.current_weights = 0 #I have really old weights
         self.last_global_clock = 0
+        self.print_frequency = 10 * settings["n_workers"]
+        self.last_print_out = 10 * (settings["n_workers"] - self.id) + time.time()
         if self.id > 0:
             self.settings["render"] = False #At most one worker renders stuff...
         self.running = False
@@ -36,8 +38,10 @@ class worker_thread(mp.Process):
         '''
         Main code [WORKER]:
         '''
-        myid=mp.current_process()._identity[0]
-        np.random.seed(myid^struct.unpack("<L",os.urandom(4))[0])
+        print("reactivate this!")
+        # myid=mp.current_process()._identity[0]
+        # np.random.seed(myid^struct.unpack("<L",os.urandom(4))[0])
+
         # Be Nice
         niceness=os.nice(0)
         os.nice(5-niceness)
@@ -52,7 +56,7 @@ class worker_thread(mp.Process):
             self.agent = self.settings["agent_type"](
                                                      self.settings["n_envs_per_thread"],
                                                      id=self.id,
-                                                     mode=threads.WORKER,
+                                                     mode=threads.WORKER if not self.settings["run_standalone"] else threads.STANDALONE,
                                                      sandbox=self.settings["env_type"](settings=self.settings),
                                                      session=session,
                                                      settings=self.settings,
@@ -80,13 +84,13 @@ class worker_thread(mp.Process):
                 reward, done = self.env.perform_action(action, player=current_player)
                 s_prime = self.env.get_state()
 
-                #Store to memory
-                experience = (state, action_idx, reward, s_prime, current_player,done)
-                self.agent.store_experience(experience)
-
                 #Render?
                 if self.settings["render"]:
                     self.env.render()
+
+                #Store to memory
+                experience = (state, action_idx, reward, s_prime, current_player ,done)
+                self.agent.store_experience(experience)
 
                 #Reset the envs that reach terminal states
                 for i,d in enumerate(done):
@@ -103,6 +107,9 @@ class worker_thread(mp.Process):
                 #Look for new weights from the trainer!
                 self.update_weights_and_clock()
 
+                #Print
+                self.print_stats()
+
             #Report when done!
             print("worker{} done".format(self.id))
             runtime = time.time() - t_thread_start
@@ -110,6 +117,8 @@ class worker_thread(mp.Process):
             self.shared_vars["run_time"][self.id] = runtime
 
     def update_weights_and_clock(self):
+        if self.settings["run_standalone"]:
+            return
         if self.shared_vars["global_clock"].value > self.last_global_clock:
             self.last_global_clock = self.shared_vars["global_clock"].value
             self.agent.update_clock(self.last_global_clock)
@@ -118,16 +127,22 @@ class worker_thread(mp.Process):
             w = self.shared_vars["update_weights"]["weights"]
             self.current_weights = self.shared_vars["update_weights"]["idx"]
             self.shared_vars["update_weights_lock"].release()
-            print("AGENT{} updates to weight_{}!!!".format(self.id, self.current_weights))
             self.agent.update_weights(w)
 
     def send_training_data(self):
-        t = time.time()
+        if self.settings["run_standalone"]:
+            return
         data = self.agent.transfer_data()
         t_wait = time.time()
         self.shared_vars["data_queue"].put(data)
-        t_done = time.time()
-        print("worker{} sent {} samples! ({}s total, with {}s wait)".format(self.id, len(data), t_done - t, t_done - t_wait))
+
+    def print_stats(self):
+        if time.time() < self.last_print_out + self.print_frequency:
+            return
+        self.last_print_out = time.time()
+        print("-------worker{} info-------".format(self.id))
+        print("current weights: {}".format(self.current_weights))
+        print("average trajectory length: {}".format(self.agent.avg_trajectory_length))
 
     def __str__(self):
         return "thread( type={}, ID={})".format(type(self), self.id)

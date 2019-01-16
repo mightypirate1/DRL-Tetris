@@ -27,8 +27,9 @@ def parse_arg(entry_idx, data, fill_up=None, indices=False):
 #We pass default settings around everywhere to ensure all hyper-parameters are uniformly customizable
 def parse_settings(settings):
     s = default_settings.copy()
-    for x in settings:
-        s[x] = settings[x]
+    if settings is not None:
+        for x in settings:
+            s[x] = settings[x]
     return s
 
 # This takes a bunch of lists: [a1,a2,...], [b1,..], [c1, ...] and maps onto [[a1,b1,c1,...], [a2,b2,c2,..]...]

@@ -6,7 +6,16 @@ import pickle
 import os
 
 class vector_agent_base:
-    def __init__(self, id=0, name="base_type!", session=None, sandbox=None, settings=None, mode=threads.STANDALONE):
+    def __init__(
+                  self,
+                  id=0,
+                  name="base_type!",
+                  session=None,
+                  sandbox=None,
+                  settings=None,
+                  mode=threads.STANDALONE
+                 ):
+
         #Parse settings
         self.settings = utils.parse_settings(settings)
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
@@ -60,6 +69,7 @@ class vector_agent_base:
         if not os.path.exists(folder):
             os.makedirs(folder)
         with open(file, 'wb') as f:
+            print("SAVED WEIGHTS TO ",file)
             pickle.dump(output, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load_weights(self, folder, file):  #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
@@ -74,7 +84,7 @@ class vector_agent_base:
                                             )
 
     # # # # #
-    # Helper fcns
+    # Helper fcns                        TODO: MOVE THES TO UTILS!!! <-------
     # # #
     def states_from_perspective(self, states, player):
         assert self.settings["n_players"] == 2, "only 2player mode as of yet..."
@@ -110,8 +120,9 @@ class vector_agent_base:
             ret = [self.state_to_vector(states, player_list=player_lists)]
         return np.concatenate(ret, axis=0)
 
-    def update_weights(self, w): #As passed by the trainer's export_weights-fcn..
-        self.model_dict["default"].set_weights(self.model_dict["default"].all_vars,w)
+    def update_weights(self, w, model=None): #As passed by the trainer's export_weights-fcn..
+        if model is None: model = self.model_dict["default"]
+        model.set_weights(model.all_vars,w)
 
     def process_settings(self):
         print("process_settings not implemented yet!")

@@ -27,27 +27,28 @@ class vector_agent(vector_agent_base):
 
         #Some general variable initialization etc...
         vector_agent_base.__init__(self, id=id, name="worker{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
-
         #Helper variables
         self.env_idxs = [i for i in range(n_envs)]
         self.n_envs = n_envs
 
+        #In any mode, we need a place to store transitions!
+        self.current_trajectory = [dt.trajectory() for _ in range(self.n_envs)]
+        self.avg_trajectory_length = 9 #tau is initialized to something...
+
         #If we do our own training, we prepare for that
         if self.mode is threads.STANDALONE:
-            self.trainer = self.settings["trainer_type"](settings=settings, sandbox=sandbox, mode=threads.PASSIVE)
-            self.experience_replay = trainer.experience_replay
+            #Create a trainer, and link their neural-net and experience-replay to us
+            self.trainer = self.settings["trainer_type"](id="trainer_{}".format(self.id),settings=settings, session=session, sandbox=sandbox, mode=threads.PASSIVE)
+            self.extrinsic_model = self.model_dict["default"] = self.trainer.extrinsic_model
+            self.experience_replay                            = self.trainer.experience_replay
             #STANDALONE agents have to keep track of their own training habits!
             self.time_to_training = self.settings['time_to_training']
 
-        if self.mode is threads.WORKER:
+        if self.mode is threads.WORKER: #If we are a WORKER, we bring our own equipment
             self.experience_replay = agent_utils.experience_replay(
                                                                     self.settings["experience_replay_size"],
                                                                     prioritized=False
                                                                   )
-
-        if self.mode in [threads.WORKER, threads.STANDALONE]: #This means everyone :)
-            self.current_trajectory = [dt.trajectory() for _ in range(self.n_envs)]
-            self.avg_trajectory_length = 5 #tau is initialized to something...
             #Create models
             self.extrinsic_model = value_net(
                                              self.id,
@@ -61,7 +62,6 @@ class vector_agent(vector_agent_base):
                                 "extrinsic_model" : self.extrinsic_model,
                                 "default"         : self.extrinsic_model,
                               }
-
 
     # # # # #
     # Agent interface fcns
@@ -124,14 +124,14 @@ class vector_agent(vector_agent_base):
         e_idxs, _ = utils.parse_arg(env, self.env_idxs, indices=True)
         for e in e_idxs:
             a = self.settings["tau_learning_rate"]
-            if len(self.current_trajectory[env]) > 0 and training:
+            if len(self.current_trajectory[env]) > 0 or training is False:
                 self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*len(self.current_trajectory[env])
         if not training: #If we for some reason call this method even while not training.
             return
-
         # Preprocess the trajectories specifiel to prepare them for training
         for e in e_idxs:
             #Add data to experience replay sorted by surprise factor
+            if self.
             self.experience_replay.data.append(self.current_trajectory[e])
 
             #Increment some counters to guide what we do
@@ -144,6 +144,7 @@ class vector_agent(vector_agent_base):
         if self.mode is threads.STANDALONE:
             if self.time_to_training < 1:
                 self.trainer.do_training()
+                self.extrinsic_model = self.model_dict["default"] = self.trainer.extrinsic_model
                 self.time_to_training = self.settings['time_to_training']
 
     #

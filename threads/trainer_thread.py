@@ -20,6 +20,8 @@ class trainer_thread(mp.Process):
         self.last_global_clock = 0
         self.running = False
         self.shared_vars = shared_vars
+        self.print_frequency = 10
+        self.last_print_out = 0
         self.stats = {
                         "t_start"          : None,
                         "t_stop"           : None,
@@ -71,6 +73,8 @@ class trainer_thread(mp.Process):
                 self.update_clock()
                 if self.trainer.n_train_steps % self.settings["weight_transfer_frequency"] == 0:
                     self.transfer_weights()
+                if self.trainer.n_train_steps % 1000 == 0:
+                    self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps))
 
             #Report when done!
             print("trainer done")
@@ -86,18 +90,24 @@ class trainer_thread(mp.Process):
         self.stats["t_training_total"] += t
 
     def print_stats(self):
+        if time.time() < self.last_print_out + self.print_frequency:
+            return
+        self.last_print_out = time.time()
         frac_load  = self.stats["t_loading_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"])
         frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"])
         print("-------trainer info-------")
         print("trained for {}s".format(self.stats["t_training"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
+        print("time to reference update / save: {}".format(self.trainer.time_to_reference_update))
+        # self.trainer.output_stats()
+        self.shared_vars["trainer_stats"]["Time loading"] = frac_load
 
     def get_sample(self):
         t = time.time()
-        print("requesting SAMPLE...")
+        # print("requesting SAMPLE...")
         sample = self.shared_vars["trainer_feed"].get()
-        print("found SAMPLE! :D")
+        # print("found SAMPLE! :D")
         t = time.time() - t
         self.stats["t_loading"] = t
         self.stats["t_loading_total"] += t

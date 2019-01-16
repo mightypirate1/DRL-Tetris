@@ -33,12 +33,12 @@ default_settings = {
                     "prioritized_replay_alpha" : constant_parameter(0.7),
                     "prioritized_replay_beta" : linear_parameter(0.5,final_val=1,time_horizon=10**7), #0.5, used in paper, then linear increase to 1...
                     #discount factors
-                    "gamma_extrinsic" : 0.998,
-                    "gamma_intrinsic" : 0.90,
+                    "gamma_extrinsic" : 0.998,   #Not in use...
+                    "gamma_intrinsic" : 0.90,  #Not in use...
 
                 ##VALUE NET:
                     "value_head_n_hidden" : 5,
-                    "value_head_hidden_size" : 512,
+                    "value_head_hidden_size" : 1024,
 
                 ##MULTIPROCESSING:
                     "worker_net_on_cpu" : True,
@@ -50,6 +50,10 @@ default_settings = {
                     "n_envs_per_thread" : 16,
                     "worker_steps"      : 1000,
                     "process_patience"  : [0.1,0.1, 10.0], #runner/trainer/process_manager
+                    #Division of labour
+                    "wrangler_unpacks" : False,
+                    "wrangler_update_mode" : "all", #"none", "budget"
+                    "wrangler_trainerfeed_target_length" : 20, #How many samples do we try to get into the que?
 
                 ##CURIOSITY NET:
                     "n_hidden_layers" : 3,
