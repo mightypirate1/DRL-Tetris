@@ -2,6 +2,7 @@ import random
 import random
 import numpy as np
 import tensorflow as tf
+from scipy.special import softmax
 
 import threads
 import aux
@@ -11,7 +12,7 @@ from agents.vector_agent.vector_agent_trainer import vector_agent_trainer
 import agents.agent_utils as agent_utils
 import agents.datatypes as dt
 from agents.tetris_agent import tetris_agent
-from agents.networks import value_net
+from agents.networks import prio_vnet
 from aux.parameter import *
 
 class vector_agent(vector_agent_base):
@@ -33,6 +34,7 @@ class vector_agent(vector_agent_base):
 
         #In any mode, we need a place to store transitions!
         self.current_trajectory = [dt.trajectory() for _ in range(self.n_envs)]
+        self.stored_trajectories = list()
         self.avg_trajectory_length = 9 #tau is initialized to something...
 
         #If we do our own training, we prepare for that
@@ -50,7 +52,7 @@ class vector_agent(vector_agent_base):
                                                                     prioritized=False
                                                                   )
             #Create models
-            self.extrinsic_model = value_net(
+            self.extrinsic_model = prio_vnet(
                                              self.id,
                                              "main_extrinsic",
                                              self.state_size,
@@ -91,7 +93,7 @@ class vector_agent(vector_agent_base):
             unflatten_dict[state_idx] = slice(temp,temp+len(future_states[state_idx]),1)
 
         #Run model!
-        extrinsic_values_flat, _ = self.run_model(self.extrinsic_model, future_states_flat, player=player_list_flat)
+        extrinsic_values_flat = self.run_model(self.extrinsic_model, future_states_flat, player=player_list_flat)
         values_flat = -extrinsic_values_flat #We flip the sign, since this is the evaluation from the perspective of our opponent!
 
         #Undo flatten
@@ -102,8 +104,14 @@ class vector_agent(vector_agent_base):
         action_idxs = argmax
         if training:
             for state_idx in range(len(state_vec)):
-                if "boltzmann" in self.settings["dithering_scheme"]:
-                    assert False, "use adaptive_epsilon as your dithering scheme with this agent!"
+                if "distribution" in self.settings["dithering_scheme"]:
+                    if "boltzman" in self.settings["dithering_scheme"]:
+                        theta = self.settings["action_temperature"]
+                        p = softmax(theta*values[state_idx]).ravel()
+                    elif "pareto" in self.settings["dithering_scheme"]:
+                        theta = self.avg_trajectory_length * 4 / self.settings["game_area"]
+                        p = utils.pareto(values[state_idx], temperature=theta)
+                    a_idx = np.random.choice(np.arange(values[state_idx].size), p=p)
                 if self.settings["dithering_scheme"] == "adaptive_epsilon":
                     dice = random.random()
                     #if random, change the action
@@ -114,7 +122,7 @@ class vector_agent(vector_agent_base):
 
         #Keep the clock going...
         if training:
-            self.clock += 1
+            self.clock += self.n_envs
         return action_idxs, actions
 
     #
@@ -126,25 +134,25 @@ class vector_agent(vector_agent_base):
             a = self.settings["tau_learning_rate"]
             if len(self.current_trajectory[env]) > 0 or training is False:
                 self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*len(self.current_trajectory[env])
-        if not training: #If we for some reason call this method even while not training.
-            return
+
         # Preprocess the trajectories specifiel to prepare them for training
         for e in e_idxs:
-            #Add data to experience replay sorted by surprise factor
-            if self.
-            self.experience_replay.data.append(self.current_trajectory[e])
-
-            #Increment some counters to guide what we do
-            if self.mode is threads.STANDALONE:
-                self.time_to_training  -= len(self.current_trajectory[e])
+            if training:
+                self.stored_trajectories.append(self.current_trajectory[e])
+                #Increment some counters to guide what we do
+                if self.mode is threads.STANDALONE:
+                    self.time_to_training  -= len(self.current_trajectory[e])
             #Clear trajectory
             self.current_trajectory[e] = dt.trajectory()
 
         #Standalone agents have to keep track of their training habits!
-        if self.mode is threads.STANDALONE:
+        if training and self.mode is threads.STANDALONE:
             if self.time_to_training < 1:
-                self.trainer.do_training()
-                self.extrinsic_model = self.model_dict["default"] = self.trainer.extrinsic_model
+                self.trainer.receive_data(self.stored_trajectories)
+                new_prio, filter = self.trainer.do_training()
+                self.stored_trajectories = []
+                if new_prio is not None: #This will be a None iff no training was done
+                    self.experience_replay.update_prios(new_prio,filter)
                 self.time_to_training = self.settings['time_to_training']
 
     #
@@ -163,8 +171,8 @@ class vector_agent(vector_agent_base):
         self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
 
     def transfer_data(self, keep_data=False):
-        #This function gives away the experience replay and replaces is with a new empty one...
-        ret = self.experience_replay.data
+        #This function gives away the data gathered
+        ret = self.stored_trajectories
         if not keep_data:
-            self.experience_replay.clear_buffer()
+            self.stored_trajectories = list()
         return ret

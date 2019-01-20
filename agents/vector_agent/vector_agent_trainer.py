@@ -5,7 +5,7 @@ import aux
 import aux.utils as utils
 from agents.vector_agent.vector_agent_base import vector_agent_base
 import agents.agent_utils as agent_utils
-from agents.networks import value_net
+from agents.networks import prio_vnet
 from agents.agent_utils.experience_replay import experience_replay
 from aux.parameter import *
 
@@ -26,20 +26,21 @@ class vector_agent_trainer(vector_agent_base):
         self.n_train_steps = 0
 
         #Bucket of data
-        self.experience_replay = agent_utils.experience_replay(self.settings["experience_replay_size"], prioritized=self.settings["prioritized_experience_replay"])
+        self.experience_replay = experience_replay(
+                                                    max_size=self.settings["experience_replay_size"],
+                                                    state_size=self.state_size,
+                                                   )
 
         #Models
-        self.reference_extrinsic_model = value_net(self.id, "reference_extrinsic", self.state_size, session, settings=self.settings, on_cpu=self.settings["worker_net_on_cpu"])
-        self.extrinsic_model = value_net(
+        self.extrinsic_model = prio_vnet(
                                          self.id,
-                                         "main_extrinsic",
+                                         "prio_vnet",
                                          self.state_size,
                                          session,
                                          settings=self.settings,
                                          on_cpu=self.settings["trainer_net_on_cpu"]
                                         )
         self.model_dict = {
-                            "reference_extrinsic_model" : self.reference_extrinsic_model,
                             "extrinsic_model"           : self.extrinsic_model,
                             "default"                   : self.extrinsic_model,
                           }
@@ -56,21 +57,23 @@ class vector_agent_trainer(vector_agent_base):
 
     #What if someone just sends us some experiences?! :D
     def receive_data(self, data_list):
+        if len(data_list) == 0: return
+        if type(data_list[0]) is list:
+            data = list()
+            for d in data_list:
+                data += d
+        else: data = data_list
+
         tot = 0
         n = 0
-        for d in data_list:
-            for trajectory in d: #entry is a replaybuffer_entry with a trajectory on it's .data member
+        for trajectory in data:
                 n += 1
-                data, prio = trajectory.process_trajectory(self.run_default_model)
+                data, prio = trajectory.process_trajectory(self.run_default_model, self.states_from_perspective) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
                 self.experience_replay.add_samples(data,prio)
                 tot += len(trajectory)
         self.clock += tot
         avg = tot/n if n>0 else 0
         return tot, avg
-
-    def export_weights(self):
-        return self.n_train_steps, self.model_dict["default"].get_weights(self.model_dict["default"].all_vars)
-        #return n_steps, (m_weight_dict, m_name)
 
     def unpack_sample(self, sample):
         #Put it in arrays
@@ -86,12 +89,11 @@ class vector_agent_trainer(vector_agent_base):
         return states, target_values, is_weights
 
     def do_training(self, sample=None):
-        print(len(self.experience_replay))
-        print(self.settings["n_samples_each_update"])
         if sample is None and len(self.experience_replay) < self.settings["n_samples_each_update"]:
             if not self.settings["run_standalone"]: time.sleep(1) #If we are a separate thread, we can be a little patient here
-            return
+            return None, None
         #Start!
+        # print("trainer: training starts!")
         t_sample = time.time()
         self.log.debug("trainer[{}] doing training".format(self.id))
 
@@ -103,28 +105,31 @@ class vector_agent_trainer(vector_agent_base):
         #Get a sample!
         t_unpack = time.time()
         if sample is None: #If no one gave us one, we get one ourselves!
-            sample, _ = self.experience_replay.get_random_sample(
-                                                                 self.settings["n_samples_each_update"],
-                                                                 alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
-                                                                 beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
-                                                                )
+            sample, is_weights, filter = self.experience_replay.get_random_sample(
+                                                                                  self.settings["n_samples_each_update"],
+                                                                                  alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
+                                                                                  beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
+                                                                                 )
 
-            states, target_values, is_weights = self.unpack_sample(sample)
-        else: #If someone gave us a sample, we figure out if we need to unpack to...
-            states, target_values, is_weights = sample if self.settings["wrangler_unpacks"] else self.unpack_sample(sample)
+        states, _, rewards, s_primes, dones = sample
+        new_prio = np.empty((n,1))
         #TRAIN!
         t_train = time.time()
         for t in range(n_epochs):
+            last_epoch = t+1 == n_epochs
             if self.verbose_training: print("[",end='',flush=False); last_print = 0
-            perm = np.random.permutation(n)
+            perm = np.random.permutation(n) if not last_epoch else np.arange(n)
             for i in range(0,n,minibatch_size):
-                self.extrinsic_model.train(
-                                            states[perm[i:i+minibatch_size]],
-                                            target_values[perm[i:i+minibatch_size]],
-                                            weights=is_weights[perm[i:i+minibatch_size]],
-                                            lr=self.settings["value_lr"].get_value(self.clock)
-                                           )
-                if self.verbose_training and (i-last_print)/n > 0.04: print("-",end='',flush=False); last_print = n
+                _new_prio = self.extrinsic_model.train(
+                                                      states[perm[i:i+minibatch_size]],
+                                                      rewards[perm[i:i+minibatch_size]],
+                                                      s_primes[perm[i:i+minibatch_size]],
+                                                      dones[perm[i:i+minibatch_size]],
+                                                      weights=is_weights[perm[i:i+minibatch_size]],
+                                                      lr=self.settings["value_lr"].get_value(self.clock)
+                                                     )
+                if last_epoch: new_prio[i:i+minibatch_size] = _new_prio
+                if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
             if self.verbose_training: print("]",flush=False)
         #Sometimes we do a reference update
         t_ref_update = time.time()
@@ -149,6 +154,7 @@ class vector_agent_trainer(vector_agent_base):
 
         #Count training
         self.n_train_steps += 1
+        return new_prio, filter
 
     def output_stats(self):
         print("----Trainer stats (step {})".format(self.n_train_steps))
@@ -166,11 +172,11 @@ class vector_agent_trainer(vector_agent_base):
     def reference_update(self):
         print("Updating agent{} reference model!".format(self.id))
         if self.settings["alternating_models"]:
-            #alternate extrinsic
-            tmp = self.reference_extrinsic_model
-            self.reference_extrinsic_model = self.extrinsic_model
-            self.extrinsic_model = tmp
-            self.model_dict["default"] = self.reference_extrinsic_model
+            self.extrinsic_model.swap_networks()
         else:
-            weights = self.extrinsic_model.get_weights(self.extrinsic_model.trainable_vars)
-            self.reference_extrinsic_model.set_weights(self.reference_extrinsic_model.trainable_vars,weights)
+            weights = self.extrinsic_model.get_weights(self.extrinsic_model.main_net_vars)
+            self.extrinsic_model.set_weights(self.extrinsic_model.main_net_assign_list,weights)
+
+    def export_weights(self):
+        return self.n_train_steps, self.model_dict["default"].get_weights(self.model_dict["default"].main_net_vars)
+        #return n_steps, (m_weight_dict, m_name)

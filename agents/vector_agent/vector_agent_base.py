@@ -64,8 +64,8 @@ class vector_agent_base:
         output = {}
         for net in self.model_dict:
             if net is "default": continue
-            weight_dict, model_name = self.model_dict[net].get_weights(self.model_dict[net].all_vars)
-            output[net] = weight_dict, model_name
+            weights = self.model_dict[net].get_weights(self.model_dict[net].main_net_vars), self.model_dict[net].get_weights(self.model_dict[net].reference_net_vars)
+            output[net] = weights
         if not os.path.exists(folder):
             os.makedirs(folder)
         with open(file, 'wb') as f:
@@ -77,10 +77,14 @@ class vector_agent_base:
             input_models = pickle.load(f)
         for net in self.model_dict:
             if net is "default": continue
-            weight_dict, model_name = input_models[net]
+            main_weights, ref_weights = input_models[net]
             self.model_dict[net].set_weights(
-                                             self.model_dict[net].all_vars,
-                                             input_models[net]
+                                             self.model_dict[net].main_net_assign_list,
+                                             main_weights
+                                            )
+            self.model_dict[net].set_weights(
+                                             self.model_dict[net].reference_net_assign_list,
+                                             ref_weights
                                             )
 
     # # # # #
@@ -122,7 +126,7 @@ class vector_agent_base:
 
     def update_weights(self, w, model=None): #As passed by the trainer's export_weights-fcn..
         if model is None: model = self.model_dict["default"]
-        model.set_weights(model.all_vars,w)
+        model.set_weights(model.main_net_assign_list,w)
 
     def process_settings(self):
         print("process_settings not implemented yet!")
