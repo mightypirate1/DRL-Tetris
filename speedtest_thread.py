@@ -2,6 +2,7 @@ from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer
 import threads.threaded_runner
+from aux.parameter import *
 
 import tensorflow as tf
 import docopt
@@ -31,8 +32,18 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id"            : "dev",
-            "experience_replay_size" :5e4,
+            "run-id"            : "threads_01-boltz",
+            "experience_replay_size" : 10**6,
+
+            #Train parameters
+            "n_samples_each_update" : 8192,
+            "minibatch_size"        : 256,
+            "epsilon" : constant_parameter(1.0),
+            # "value_lr"              : linear_parameter(5*10**-7, final_val=5*10**-8, time_horizon=10**7),
+
+            #Dithering
+            "dithering_scheme"    : "distribution_boltzman",
+            "action_temperature"  : 3.0,
 
             #Game settings
             "game_size"         : [10,5],
@@ -44,18 +55,17 @@ settings = {
             "trainer_type"      : vector_agent_trainer.vector_agent_trainer,
 
             #Threading
-            "run_standalone"    : True,
+            "run_standalone"    : False,
             "n_workers"         : n_workers,
             "n_envs_per_thread" : n_envs_per_thread,
             "worker_steps"      : total_steps // n_envs,
             "process_patience"  : [0.1,0.1, 10.0], #runner/trainer/process_manager
-            "worker_net_on_cpu" : False,
+            "worker_net_on_cpu" : True,
             "trainer_net_on_cpu": False,
-
             #Communication
-            "n_samples_each_update" : 2048,
+            "trainer_thread_save_freq"  : 100,
             "n_train_epochs_per_update" : 15,
-            "worker_data_send_fequency" : 100,
+            "worker_data_send_fequency" : 50,
             "weight_transfer_frequency" : 5,
 
             #Misc.
