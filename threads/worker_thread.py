@@ -5,6 +5,7 @@ import struct
 import time
 import os
 
+from aux.tf_hooks import quick_summary
 from aux.settings import default_settings
 import aux.utils as utils
 import threads
@@ -20,21 +21,23 @@ class worker_thread(mp.Process):
         self.gpu_count = 0 if self.settings["worker_net_on_cpu"] else 1
         self.current_weights = 0 #I have really old weights
         self.last_global_clock = 0
-        self.print_frequency = 10 * settings["n_workers"]
-        self.last_print_out = 10 * (settings["n_workers"] - self.id) + time.time()
+        self.print_frequency = 10 * self.settings["n_workers"]
+        self.last_print_out = 10 * (self.settings["n_workers"] - self.id - 1 )
         if self.id > 0:
             self.settings["render"] = False #At most one worker renders stuff...
         self.running = False
+
+
     def __call__(self, *args):
-        self.running = True
-        self.run(*args)
+        self.running = True #These flag-changes are not seen from the outside of this process I think...
+        self.thread_code(*args)
         self.running = False
 
-    # def join(self):
-    #     while self.running:
-    #         time.sleep(self.patience)
+    def join(self):
+        while self.running:
+            time.sleep(10)
 
-    def run(self, *args):
+    def thread_code(self, *args):
         '''
         Main code [WORKER]:
         '''
@@ -65,8 +68,9 @@ class worker_thread(mp.Process):
             #
             ##Run!
             #####
-            t_thread_start = time.time()
+            self.t_thread_start = time.time()
             s_prime = self.env.get_state()
+            self.quick_summary = quick_summary(settings=self.settings, session=session)
             current_player = np.random.choice([i for i in range(self.settings["n_players"])], size=(self.settings["n_envs_per_thread"])  )
             for t in range(0,self.n_steps):
                 #Say hi!
@@ -77,7 +81,7 @@ class worker_thread(mp.Process):
                 state = s_prime
 
                 #Get action from agent
-                action_idx, action    = self.agent.get_action(state, player=current_player)
+                action_idx, action    = self.agent.get_action(state, player=current_player, training=True)
                 # action = self.env.get_random_action(player=current_player)
 
                 #Perform action
@@ -112,12 +116,16 @@ class worker_thread(mp.Process):
 
             #Report when done!
             print("worker{} done".format(self.id))
-            runtime = time.time() - t_thread_start
+            runtime = time.time() - self.t_thread_start
             self.shared_vars["run_flag"][self.id] = 0
             self.shared_vars["run_time"][self.id] = runtime
 
     def update_weights_and_clock(self):
         if self.settings["run_standalone"]:
+            if self.agent.trainer.n_train_steps % 100 == 0 and self.agent.trainer.n_train_steps > self.current_weights:
+                print("Saving weights...")
+                self.agent.trainer.save_weights(*utils.weight_location(self.settings,idx=self.agent.trainer.n_train_steps))
+                self.current_weights = self.agent.trainer.n_train_steps
             return
         if self.shared_vars["global_clock"].value > self.last_global_clock:
             self.last_global_clock = self.shared_vars["global_clock"].value
@@ -133,16 +141,35 @@ class worker_thread(mp.Process):
         if self.settings["run_standalone"]:
             return
         data = self.agent.transfer_data()
-        t_wait = time.time()
-        self.shared_vars["data_queue"].put(data)
+        if len(data) > 0:
+            self.shared_vars["data_queue"].put(data)
 
     def print_stats(self):
-        if time.time() < self.last_print_out + self.print_frequency:
+        if self.walltime() < self.last_print_out + self.print_frequency:
             return
-        self.last_print_out = time.time()
+        t = self.walltime()
         print("-------worker{} info-------".format(self.id))
+        print("clock: {}".format(self.agent.clock))
         print("current weights: {}".format(self.current_weights))
         print("average trajectory length: {}".format(self.agent.avg_trajectory_length))
+        print("Epsilon: {}".format(self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1)))
+        self.last_print_out = t
+        if self.settings["run_standalone"]:
+            s = {
+                 "Average trajectory length" : self.agent.avg_trajectory_length,
+                 "Epsilon"                   : self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1),
+                 "Current speed"             : self.agent.trainer.experience_replay.total_samples/t,
+                }
+            self.quick_summary.update(s, time=self.agent.clock)
+
+    def walltime(self):
+        return time.time() - self.t_thread_start
+
+    def time():
+        if self.settings["run_standalone"]:
+            return self.agent.clock
+        else:
+            return self.shared_vars["global_clock"].value
 
     def __str__(self):
         return "thread( type={}, ID={})".format(type(self), self.id)

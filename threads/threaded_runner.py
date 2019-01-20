@@ -6,7 +6,6 @@ import aux.utils as utils
 import threads
 from threads.worker_thread import worker_thread
 from threads.trainer_thread import trainer_thread
-from threads.wrangler_thread import wrangler_thread
 
 class threaded_runner:
     def __init__(self, settings=None):
@@ -29,10 +28,6 @@ class threaded_runner:
                              "update_weights_lock" : mp.Lock(),
                             #data_flag signals that a worker put something on it's data_bus
                              "data_queue"          : mp.Queue(),
-                             "trainer_feed"        : mp.Queue(),
-                             "trainer_return"      : mp.Queue(),
-                            #some stats...
-                             "trainer_stats"       : manager.dict(),
                            }
 
         #Init all threads!
@@ -60,14 +55,6 @@ class threaded_runner:
                                      patience=trainer_patience,
                                     )
             self.threads["trainer"] = trainer
-            #Add 1 wrangler
-            wrangler = wrangler_thread(
-                                       id=threads.WRANGLER_ID,
-                                       settings=settings,
-                                       shared_vars=self.shared_vars,
-                                       patience=trainer_patience,
-                                      )
-            self.threads["wrangler"] = wrangler
 
     def get_avg_runtime(self):
         ret = 0
@@ -76,38 +63,35 @@ class threaded_runner:
         return ret / len(self.shared_vars["run_time"])
 
     def run(self, steps):
+        started = False
         if len(self.threads["workers"]) == 0:
             print("You have no workers employed. What do you want to run, even???");return
         for thread in self.threads["workers"]:
             self.start_thread(thread)
-        while self.shared_vars["run_flag"][0] == 0:
-            time.sleep(1);
+        while not started:
+            started = True
+            for flag in self.shared_vars["run_flag"]:
+                started = started and flag > 0
+            time.sleep(1)
         if not self.settings["run_standalone"]:
             self.start_thread(self.threads["trainer"])
-            self.start_thread(self.threads["wrangler"])
+        #Start checking if we are done
+        self.join_all_threads()
 
     def start_thread(self, thread):
         print("Starting thread: {}".format(thread))
         thread.start()
 
     def join_all_threads(self):
-
-        ##TODO: This code segment was meant to exit if the trainer crashes... but it doesnt work :(
-        # flag = True
-        # while flag:
-        #     time.sleep(self.patience)
-        #     if not self.threads["trainer"].is_alive():
-        #         if not self.threads["trainer"].running:
-        #             print("TRAINER IS DEAD!")
-        #             for thread in self.threads["workers"]:
-        #                 thread.terminate()
-        #         flag = False
-
+        # TODO: Make a watch dog thing here. (Check if workers die, if so: warning. Check if trainer dies, if so: terminate.)
         print("Tring to join...")
-        threads = self.threads["workers"] if self.settings["run_standalone"] else [self.threads["trainer"], self.threads["wrangler"], *self.threads["workers"]]
-        for thread in threads:
-            thread.join()
+        done = False
+        while not done:
+            done = True
+            for flag in self.shared_vars["run_flag"]:
+                done = done and flag == 0
+            time.sleep(10)
         print("join done!")
 
-    def join(self):
-        self.join_all_threads()
+    # def join(self):
+    #     self.join_all_threads()

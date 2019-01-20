@@ -5,6 +5,7 @@ import struct
 import time
 import os
 
+from aux.tf_hooks import quick_summary
 from aux.settings import default_settings
 import aux.utils as utils
 import threads
@@ -22,6 +23,7 @@ class trainer_thread(mp.Process):
         self.shared_vars = shared_vars
         self.print_frequency = 10
         self.last_print_out = 0
+        self.last_saved_weights = 0
         self.stats = {
                         "t_start"          : None,
                         "t_stop"           : None,
@@ -30,11 +32,17 @@ class trainer_thread(mp.Process):
                         "t_loading"        : None,
                         "t_training_total" : 0,
                         "t_loading_total"  : 0,
+
+                        "n_samples_total"  : 0,
                        }
     def __call__(self, *args):
         self.running = True
         self.run(*args)
         self.running = False
+
+    def join(self):
+        while self.running:
+            time.sleep(10)
 
     def run(self, *args):
         # self.var_test()
@@ -63,17 +71,16 @@ class trainer_thread(mp.Process):
             self.running = True
             #Init run
             self.stats["t_start"] = time.time()
-
+            self.quick_summary = quick_summary(settings=self.settings, session=session)
             #This is ALL we do. All day long.
             while self.workers_running():
-                sample = self.get_sample()
-                self.do_training(sample)
-                self.return_sample()
+                self.load_worker_data()
+                self.do_training()
                 self.print_stats()
-                self.update_clock()
+                self.update_global_clock()
                 if self.trainer.n_train_steps % self.settings["weight_transfer_frequency"] == 0:
                     self.transfer_weights()
-                if self.trainer.n_train_steps % 1000 == 0:
+                if self.trainer.n_train_steps % self.settings["trainer_thread_save_freq"] == 0 and self.trainer.n_train_steps > self.last_saved_weights:
                     self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps))
 
             #Report when done!
@@ -82,39 +89,51 @@ class trainer_thread(mp.Process):
             self.stats["t_total"] = self.stats["t_stop"] - self.stats["t_start"]
             runtime = self.stats["t_total"]
 
-    def do_training(self, sample):
+    def do_training(self):
         t = time.time()
-        self.trainer.do_training(sample=sample)
+        self.trainer.do_training()
         t = time.time() - t
         self.stats["t_training"] = t
         self.stats["t_training_total"] += t
+    def load_worker_data(self):
+        t = time.time() #Tick
+        data_from_workers = list()
+        while not self.shared_vars["data_queue"].empty():
+            try:
+                d = self.shared_vars["data_queue"].get()
+                data_from_workers.append(d)
+            except ValueError:
+                while True:
+                    print("really really bad")
+        if len(data_from_workers) == 0:
+            return
+        n_samples, avg_length = self.trainer.receive_data(data_from_workers)
+        t = time.time() - t #Tock
+        self.stats["n_samples_total"] += n_samples
+        self.stats["t_loading"] = t
+        self.stats["t_loading_total"] += t
+        if avg_length > 0:
+            frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
+            current_speed = self.stats["n_samples_total"] / self.walltime()
+            s = {
+                 "Average trajectory length" : avg_length,
+                 "Current speed"             : current_speed,
+                 "Time spent training"       : frac_train,
+                }
+            self.quick_summary.update(s, time=self.walltime())
+            # self.quick_summary.update(s, time=self.current_step())
 
     def print_stats(self):
         if time.time() < self.last_print_out + self.print_frequency:
             return
         self.last_print_out = time.time()
-        frac_load  = self.stats["t_loading_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"])
-        frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"])
+        frac_load  = self.stats["t_loading_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
+        frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
         print("-------trainer info-------")
         print("trained for {}s".format(self.stats["t_training"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
         print("time to reference update / save: {}".format(self.trainer.time_to_reference_update))
-        # self.trainer.output_stats()
-        self.shared_vars["trainer_stats"]["Time loading"] = frac_load
-
-    def get_sample(self):
-        t = time.time()
-        # print("requesting SAMPLE...")
-        sample = self.shared_vars["trainer_feed"].get()
-        # print("found SAMPLE! :D")
-        t = time.time() - t
-        self.stats["t_loading"] = t
-        self.stats["t_loading_total"] += t
-        return sample
-
-    def return_sample(self):
-        self.shared_vars["trainer_return"].put(1) #Thread language for "I ate a sample you gave me!"
 
     def transfer_weights(self):
         #Get some data
@@ -125,15 +144,19 @@ class trainer_thread(mp.Process):
         self.shared_vars["update_weights"]["weights"] = w
         self.shared_vars["update_weights_lock"].release()
 
-    def update_clock(self):
-        if self.shared_vars["global_clock"].value > self.last_global_clock:
-            self.last_global_clock = self.shared_vars["global_clock"].value
-            self.trainer.update_clock(self.last_global_clock)
+    def update_global_clock(self):
+        self.shared_vars["global_clock"].value = self.trainer.clock
 
     def workers_running(self):
         for i in self.shared_vars["run_flag"]:
             if i == 1: return True
         return False
+
+    def current_step(self):
+        return self.trainer.clock
+
+    def walltime(self):
+        return time.time() - self.stats["t_start"]
 
     def __str__(self):
         return "thread( type={}, ID={})".format(type(self), self.id)
