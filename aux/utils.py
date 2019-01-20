@@ -1,5 +1,6 @@
 from aux.settings import default_settings
 import numpy as np
+from scipy.stats import rankdata
 
 def parse_arg(entry_idx, data, fill_up=None, indices=False):
     #This tries to encapsulate the general pattern of passing data vectorized...
@@ -30,6 +31,8 @@ def parse_settings(settings):
     if settings is not None:
         for x in settings:
             s[x] = settings[x]
+        #Here we get a chance to add some derived properties
+        s["game_area"] = s["game_size"][0] * s["game_size"][1]
     return s
 
 # This takes a bunch of lists: [a1,a2,...], [b1,..], [c1, ...] and maps onto [[a1,b1,c1,...], [a2,b2,c2,..]...]
@@ -41,3 +44,7 @@ def weight_location(s, idx=""): #s is a settings dictionary
     folder = "models/"+project
     file   = folder+"/weights"+str(idx)+".w"
     return folder, file
+
+def pareto(x, temperature=1.0):
+    p_unnormalized = 1/rankdata(x, method='ordinal')**temperature
+    return p_unnormalized / p_unnormalized.sum()
