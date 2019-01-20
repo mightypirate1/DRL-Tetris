@@ -1,3 +1,1 @@
 from agents.datatypes.trajectory import trajectory
-from agents.datatypes.processed_trajectory import processed_trajectory
-from agents.datatypes.replaybuffer_entry import replaybuffer_entry

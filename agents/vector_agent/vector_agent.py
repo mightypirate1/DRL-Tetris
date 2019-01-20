@@ -47,10 +47,6 @@ class vector_agent(vector_agent_base):
             self.time_to_training = self.settings['time_to_training']
 
         if self.mode is threads.WORKER: #If we are a WORKER, we bring our own equipment
-            self.experience_replay = agent_utils.experience_replay(
-                                                                    self.settings["experience_replay_size"],
-                                                                    prioritized=False
-                                                                  )
             #Create models
             self.extrinsic_model = prio_vnet(
                                              self.id,
@@ -150,7 +146,7 @@ class vector_agent(vector_agent_base):
             if self.time_to_training < 1:
                 self.trainer.receive_data(self.stored_trajectories)
                 new_prio, filter = self.trainer.do_training()
-                self.stored_trajectories = []
+                self.stored_trajectories = list()
                 if new_prio is not None: #This will be a None iff no training was done
                     self.experience_replay.update_prios(new_prio,filter)
                 self.time_to_training = self.settings['time_to_training']
