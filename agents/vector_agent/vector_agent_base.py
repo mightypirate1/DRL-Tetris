@@ -1,9 +1,11 @@
-import threads
-import aux.utils as utils
 import numpy as np
 import logging
 import pickle
 import os
+
+import threads
+import aux.utils as utils
+from agents.agent_utils import state_fcns
 
 class vector_agent_base:
     def __init__(
@@ -50,7 +52,7 @@ class vector_agent_base:
             if player_list is not None: self.log.warning("run_model was called with an np.array as an argument, and non-None player list. THIS IS NOT MENT TO BE, AND IF YOU DONT KNOW WHAT YOU ARE DOING, EXPECT INCORRECT RESULTS!")
             states_vector = states
         else:
-            states_vector = self.states_from_perspective(states, player)
+            states_vector = agent_utils.states_from_perspective(states, player)
         return net.evaluate(states_vector)
 
     def run_default_model(self, states, player=None):
@@ -86,43 +88,6 @@ class vector_agent_base:
                                              self.model_dict[net].reference_net_assign_list,
                                              ref_weights
                                             )
-
-    # # # # #
-    # Helper fcns                        TODO: MOVE THES TO UTILS!!! <-------
-    # # #
-    def states_from_perspective(self, states, player):
-        assert self.settings["n_players"] == 2, "only 2player mode as of yet..."
-        p_list = utils.parse_arg(player, self.player_idxs)
-        return self.states_to_vectors(states, player_lists=[[p, 1-p] for p in p_list])
-
-    def state_from_perspective(self, state, player):
-        assert self.settings["n_players"] == 2, "only 2player mode as of yet..."
-        return self.state_to_vector(state, [player, 1-player])
-
-    def state_to_vector(self, state, player_list=None):
-        if isinstance(state,np.ndarray):
-            assert False, "This should not happen"
-            return state
-        def collect_data(state_dict):
-            tmp = []
-            for x in state_dict:
-                if not x in ["reward", "dead"]:
-                    tmp.append(state_dict[x].reshape((1,-1)))
-            return np.concatenate(tmp, axis=1)
-        if player_list is None: #If None is specified, we assume we want the state of all players!
-            player_list = [self.id] + [i for i in range(self.settings['n_players']) if not i==self.id]
-        data = [collect_data(state[player]) for player in player_list]
-        ret = np.concatenate(data, axis=1)
-        return ret
-
-    def states_to_vectors(self, states, player_lists=None):
-        assert len(player_lists) == len(states), "player_list:{}, states:{}".format(player_lists, states)
-        if type(states) is list:
-            ret = [self.state_to_vector(s, player_list=player_lists[i]) for i,s in enumerate(states)]
-        else:
-            #Assume it is a single state if it is not a list
-            ret = [self.state_to_vector(states, player_list=player_lists)]
-        return np.concatenate(ret, axis=0)
 
     def update_weights(self, w, model=None): #As passed by the trainer's export_weights-fcn..
         if model is None: model = self.model_dict["default"]
