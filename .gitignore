@@ -110,6 +110,8 @@ venv.bak/
 #Maintain models and results as empty folders
 models/*
 !models/.gitkeep
+summaries/*
+!summaries/.gitkeep
 logs/*
 results/*
 !results/.gitkeep
