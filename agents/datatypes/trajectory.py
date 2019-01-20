@@ -1,5 +1,4 @@
 import numpy as np
-from agents.datatypes import processed_trajectory
 
 class trajectory:
     def __init__(self, state_fcn=None):
