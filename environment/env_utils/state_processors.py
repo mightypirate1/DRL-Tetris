@@ -35,21 +35,9 @@ def state_dict(x, player, *parameters):
 		        "combo_time" : np.array(x[player].combo_time) / 10000,
 		        "combo_count" : np.array(x[player].combo_count),
 		        "nextpiece" : np.array([int(p==x[player].nextpiece) for p in piece_set]),
-		        "reward" : np.array(x[player].reward),
-		        "dead" : np.array(x[player].dead),
             }
-
-    ''' This should be fixed on the game back-end, but we provide a fix for now... '''
-    if x[player].dead[0] == 1:
-        r = -1
-    else:
-        r = 0
-        for i,p in enumerate(x):
-            if not i==player and p.dead[0] == 1:
-                r +=1
-    ret['reward'] = np.array([r])
-
     return ret
+    
 def raw(x, player, *parameters):
     return x[player]
 

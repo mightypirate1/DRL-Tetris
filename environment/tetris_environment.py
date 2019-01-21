@@ -90,7 +90,7 @@ class tetris_environment:
         a         = [data_types.null_action for _ in self.player_idxs]
         a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        reward = self.get_state()[player]["reward"]
+        reward = self.get_info()["reward"][player]
         done   = self.done
         return reward, done
 
@@ -98,7 +98,7 @@ class tetris_environment:
         if not self.done:
             return None
         for i in range(self.settings["n_players"]):
-            if not self.backend.states[i].dead:
+            if not self.backend.info[i].dead:
                 return i
         if self.debug: self.log.warning("get_winner: env returned done=True, no one was alive to win game. I returned winner=666 in the hopes that this will be noticed...")
         return 666 #This should never happen.
@@ -108,7 +108,25 @@ class tetris_environment:
         return self.simulate_actions(actions, player)
 
     def get_state(self):
+        #The state_processor is responsible for extracting the data from the backend that is part of the state
         return data_types.state(self.backend, self.state_processor)
+
+    def get_info(self):
+        # speed = [self.backend.info[i].speed for i in range(self.settings["n_players"])]
+        r = [0 for _ in range(self.settings["n_players"])]
+        for i in range(self.settings["n_players"]):
+            if self.backend.states[i].dead[0] == 1:
+                r[i] = -1
+            else:
+                r[i] = 0
+                for idx,states in enumerate(self.backend.states):
+                    if not idx==i and states.dead[0] == 1:
+                        r[i] +=1
+        ret = {
+                "reward" : np.array(r),
+                # "speed"  : np.array(speed),
+              }
+        return ret
 
     # # # # #
     # Somewhat hacky fcns for env handling
