@@ -46,7 +46,7 @@ settings = {
 
             #Dithering
             "dithering_scheme"    : "distribution_boltzman",
-            "action_temperature"  : 3.0,
+            "action_temperature"  : constant_parameter(3.0),
 
             #Game settings
             "game_size"                : [10,5],

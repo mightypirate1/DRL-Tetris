@@ -102,7 +102,7 @@ class vector_agent(vector_agent_base):
             for state_idx in range(len(state_vec)):
                 if "distribution" in self.settings["dithering_scheme"]:
                     if "boltzman" in self.settings["dithering_scheme"]:
-                        theta = self.settings["action_temperature"]
+                        theta = self.settings["action_temperature"].get_value(self.clock)
                         p = softmax(theta*values[state_idx]).ravel()
                     elif "pareto" in self.settings["dithering_scheme"]:
                         theta = self.avg_trajectory_length * 4 / self.settings["game_area"]
