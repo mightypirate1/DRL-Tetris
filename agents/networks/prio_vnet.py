@@ -108,8 +108,8 @@ class prio_vnet:
 
     def create_prio_vnet(self, states, rewards, s_primes, dones):
         with tf.variable_scope("prio_vnet") as vs:
-            values_tf, main_scope = self.create_value_net(states - 0.5, "main") #"normalize" by -.5
-            v_sprime_tf, ref_scope = self.create_value_net(s_primes - 0.5, "reference")
+            values_tf, main_scope = self.create_value_net(states, "main")
+            v_sprime_tf, ref_scope = self.create_value_net(s_primes, "reference")
             target_values_tf = rewards -tf.multiply(
                                                     tf.stop_gradient(
                                                                      self.settings["gamma_extrinsic"]*v_sprime_tf #we treat the target values as constant!
