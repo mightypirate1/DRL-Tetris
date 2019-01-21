@@ -147,8 +147,6 @@ class vector_agent(vector_agent_base):
                 self.trainer.receive_data(self.stored_trajectories)
                 new_prio, filter = self.trainer.do_training()
                 self.stored_trajectories = list()
-                if new_prio is not None: #This will be a None iff no training was done
-                    self.experience_replay.update_prios(new_prio,filter)
                 self.time_to_training = self.settings['time_to_training']
 
     #

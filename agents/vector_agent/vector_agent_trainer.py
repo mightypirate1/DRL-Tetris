@@ -104,12 +104,13 @@ class vector_agent_trainer(vector_agent_base):
 
         #Get a sample!
         if sample is None: #If no one gave us one, we get one ourselves!
+            update_prio_flag = True
             sample, is_weights, filter = self.experience_replay.get_random_sample(
                                                                                   self.settings["n_samples_each_update"],
                                                                                   alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
                                                                                   beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
                                                                                  )
-
+        else: update_prio_flag = False
         states, _, rewards, s_primes, dones = sample
         new_prio = np.empty((n,1))
         #TRAIN!
@@ -138,7 +139,12 @@ class vector_agent_trainer(vector_agent_base):
 
         #Count training
         self.n_train_steps += 1
-        return new_prio, filter
+
+        #Update prios if we sampled the sample ourselves...
+        if update_prio_flag:
+            self.experience_replay.update_prios(new_prio, filter)
+
+        return new_prio, filter #In case someone sent a particular sample for us to train on, they might want to know the new prios etc..
 
     def output_stats(self):
         print("----Trainer stats (step {}, clock {})".format(self.n_train_steps, self.clock))
