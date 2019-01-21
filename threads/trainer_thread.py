@@ -82,7 +82,6 @@ class trainer_thread(mp.Process):
                     self.transfer_weights()
                 if self.trainer.n_train_steps % self.settings["trainer_thread_save_freq"] == 0 and self.trainer.n_train_steps > self.last_saved_weights:
                     self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps))
-
             #Report when done!
             print("trainer done")
             self.stats["t_stop"] = time.time()
@@ -95,6 +94,7 @@ class trainer_thread(mp.Process):
         t = time.time() - t
         self.stats["t_training"] = t
         self.stats["t_training_total"] += t
+
     def load_worker_data(self):
         t = time.time() #Tick
         data_from_workers = list()
@@ -120,8 +120,7 @@ class trainer_thread(mp.Process):
                  "Current speed"             : current_speed,
                  "Time spent training"       : frac_train,
                 }
-            self.quick_summary.update(s, time=self.walltime())
-            # self.quick_summary.update(s, time=self.current_step())
+            self.quick_summary.update(s, time=self.current_step())
 
     def print_stats(self):
         if time.time() < self.last_print_out + self.print_frequency:
@@ -130,6 +129,7 @@ class trainer_thread(mp.Process):
         frac_load  = self.stats["t_loading_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
         frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
         print("-------trainer info-------")
+        print("clock: {}".format(self.current_step()))
         print("trained for {}s".format(self.stats["t_training"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))

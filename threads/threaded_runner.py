@@ -75,14 +75,12 @@ class threaded_runner:
             time.sleep(1)
         if not self.settings["run_standalone"]:
             self.start_thread(self.threads["trainer"])
-        #Start checking if we are done
-        self.join_all_threads()
 
     def start_thread(self, thread):
         print("Starting thread: {}".format(thread))
         thread.start()
 
-    def join_all_threads(self):
+    def join(self):
         # TODO: Make a watch dog thing here. (Check if workers die, if so: warning. Check if trainer dies, if so: terminate.)
         print("Tring to join...")
         done = False
