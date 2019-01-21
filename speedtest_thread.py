@@ -30,16 +30,19 @@ n_envs = n_workers * n_envs_per_thread
 render = not docoptsettings["--no-rendering"]
 debug = docoptsettings["--debug"]
 
+
 settings = {
             #Project
-            "run-id"            : "threads_01-boltz",
-            "experience_replay_size" : 10**6,
+            "run-id" : "threads_02-boltz",
 
             #Train parameters
-            "n_samples_each_update" : 8192,
-            "minibatch_size"        : 256,
-            "epsilon" : constant_parameter(1.0),
-            # "value_lr"              : linear_parameter(5*10**-7, final_val=5*10**-8, time_horizon=10**7),
+            "n_samples_each_update"    : 8192,
+            "minibatch_size"           : 256,
+            "epsilon"                  : constant_parameter(1.0),
+            "value_lr"                 : linear_parameter(5*10**-8, final_val=5*10**-9, time_horizon=total_steps),
+            "prioritized_replay_alpha" : constant_parameter(0.7),
+            "prioritized_replay_beta"  : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
+            "experience_replay_size"   : 10**6,
 
             #Dithering
             "dithering_scheme"    : "distribution_boltzman",
@@ -47,7 +50,7 @@ settings = {
 
             #Game settings
             "game_size"         : [10,5],
-            "pieces"            : [4,6],
+            # "pieces"            : [4,6],
             #Types
             "env_vector_type"   : tetris_environment_vector,
             "env_type"          : tetris_environment,
