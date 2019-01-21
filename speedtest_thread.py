@@ -33,13 +33,13 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id" : "threads_02-boltz",
+            "run-id" : "threads_02-boltz-re1",
 
             #Train parameters
             "n_samples_each_update"    : 8192,
             "minibatch_size"           : 256,
             "epsilon"                  : constant_parameter(1.0),
-            "value_lr"                 : linear_parameter(5*10**-8, final_val=5*10**-9, time_horizon=total_steps),
+            "value_lr"                 : linear_parameter(1e-6, final_val=1e-8, time_horizon=total_steps),
             "prioritized_replay_alpha" : constant_parameter(0.7),
             "prioritized_replay_beta"  : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"   : 10**6,
@@ -49,8 +49,9 @@ settings = {
             "action_temperature"  : 3.0,
 
             #Game settings
-            "game_size"         : [10,5],
-            # "pieces"            : [4,6],
+            "game_size"                : [10,5],
+            # "pieces"                   : [4,6],
+            "time_elapsed_each_action" : 400,
             #Types
             "env_vector_type"   : tetris_environment_vector,
             "env_type"          : tetris_environment,
