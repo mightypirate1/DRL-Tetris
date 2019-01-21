@@ -144,9 +144,8 @@ class vector_agent(vector_agent_base):
         #Standalone agents have to keep track of their training habits!
         if training and self.mode is threads.STANDALONE:
             if self.time_to_training < 1:
-                self.trainer.receive_data(self.stored_trajectories)
+                self.trainer.receive_data(self.transfer_data())
                 new_prio, filter = self.trainer.do_training()
-                self.stored_trajectories = list()
                 self.time_to_training = self.settings['time_to_training']
 
     #
