@@ -33,7 +33,7 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id" : "threads_02-boltz-re1",
+            "run-id" : "threads_03-boltz",
 
             #Train parameters
             "n_samples_each_update"    : 8192,
