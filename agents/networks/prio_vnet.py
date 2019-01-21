@@ -152,12 +152,6 @@ class prio_vnet:
     def get_weights(self, collection):
         ret = self.session.run(collection)
         return ret
-    # def get_weights(self, collection):
-    #     output = self.session.run(collection)
-    #     ret = {}
-    #     for i,var in enumerate(collection):
-    #         ret[var.name] = output[i]
-    #     return (ret, self.scope_name)
 
     def set_weights(self, assign_list, weights):
         run_list = []

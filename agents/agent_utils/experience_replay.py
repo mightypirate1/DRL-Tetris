@@ -35,13 +35,14 @@ class experience_replay:
 
         #Sample indices to make a batch out of!
         idx_dict = {}
-        indices = np.random.choice(all_indices, size=n_samples, p=p).tolist()
+        indices = np.random.choice(all_indices, replace=True, size=n_samples, p=p).tolist()
 
         ##Data collection, and index-tracking
         for i, idx in enumerate(indices):
             idx_dict[idx]         = i #This makes sure that idx_dict keeps track of the position of the last occurance of each index in the sample
-        filter = idx_dict #The filter is a list containing the last occurance of each unique sample. This means, that if we add back as many samples as is in the filter, the number of samples in the buffer is unchanged.
-        # filter = list(idx_dict.values()) #The filter is a list containing the last occurance of each unique sample. This means, that if we add back as many samples as is in the filter, the number of samples in the buffer is unchanged.
+
+        #Return values!
+        filter = idx_dict
         is_weights = is_weights_all[indices]
         data = (
                 self.states[indices,:],
@@ -50,7 +51,6 @@ class experience_replay:
                 self.s_primes[indices,:],
                 self.dones[indices,:],
                 )
-
         return data, is_weights, filter
 
     def add_samples(self, data, prio):
@@ -63,19 +63,8 @@ class experience_replay:
         self.dones[idxs,:]    = d
         self.prios[idxs,:]    = prio
         self.current_idx += n
-        # self.sort()
         self.current_size = min(self.current_size+n, self.max_size)
         self.total_samples += n
-    # def add_samples(self, data, prio):
-    #     s,_,r,sp,d = data
-    #     n = prio.size
-    #     self.states[-n:,:]   = s
-    #     self.rewards[-n:,:]  = r
-    #     self.s_primes[-n:,:] = sp
-    #     self.dones[-n:,:]    = d
-    #     self.prios[-n:,:]    = prio
-    #     # self.sort()
-    #     self.current_size = min(self.current_size+n, self.max_size)
 
     def sort(self):
         new_idxs = self.prios[:,0].argsort()

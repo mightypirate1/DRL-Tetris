@@ -11,12 +11,10 @@ import aux.utils as utils
 
 # # #
 def states_from_perspective( states, player):
-    assert settings["n_players"] == 2, "only 2player mode as of yet..."
-    p_list = utils.parse_arg(player, player_idxs)
+    p_list = utils.parse_arg(player, [0, 1])
     return states_to_vectors(states, player_lists=[[p, 1-p] for p in p_list])
 
 def state_from_perspective( state, player):
-    assert settings["n_players"] == 2, "only 2player mode as of yet..."
     return state_to_vector(state, [player, 1-player])
 
 def state_to_vector( state, player_list=None):
@@ -26,8 +24,7 @@ def state_to_vector( state, player_list=None):
     def collect_data(state_dict):
         tmp = []
         for x in state_dict:
-            if not x in ["reward", "dead"]:
-                tmp.append(state_dict[x].reshape((1,-1)))
+            tmp.append(state_dict[x].reshape((1,-1)))
         return np.concatenate(tmp, axis=1)
     if player_list is None: #If None is specified, we assume we want the state of all players!
         player_list = [0, 1] #only 2player mode as of yet!

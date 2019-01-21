@@ -8,6 +8,7 @@ import agents.agent_utils as agent_utils
 from agents.networks import prio_vnet
 from agents.agent_utils.experience_replay import experience_replay
 from aux.parameter import *
+from agents.agent_utils import state_fcns
 
 
 class vector_agent_trainer(vector_agent_base):
@@ -68,7 +69,7 @@ class vector_agent_trainer(vector_agent_base):
         n = 0
         for trajectory in data:
                 n += 1
-                data, prio = trajectory.process_trajectory(self.run_default_model, self.states_from_perspective) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
+                data, prio = trajectory.process_trajectory(self.run_default_model, state_fcns.states_from_perspective) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
                 self.experience_replay.add_samples(data,prio)
                 tot += len(trajectory)
         self.clock += tot
@@ -92,9 +93,8 @@ class vector_agent_trainer(vector_agent_base):
         if sample is None and len(self.experience_replay) < self.settings["n_samples_each_update"]:
             if not self.settings["run_standalone"]: time.sleep(1) #If we are a separate thread, we can be a little patient here
             return None, None
+
         #Start!
-        # print("trainer: training starts!")
-        t_sample = time.time()
         self.log.debug("trainer[{}] doing training".format(self.id))
 
         #Some values:
@@ -103,7 +103,6 @@ class vector_agent_trainer(vector_agent_base):
         n = self.settings["n_samples_each_update"]
 
         #Get a sample!
-        t_unpack = time.time()
         if sample is None: #If no one gave us one, we get one ourselves!
             sample, is_weights, filter = self.experience_replay.get_random_sample(
                                                                                   self.settings["n_samples_each_update"],
@@ -114,7 +113,6 @@ class vector_agent_trainer(vector_agent_base):
         states, _, rewards, s_primes, dones = sample
         new_prio = np.empty((n,1))
         #TRAIN!
-        t_train = time.time()
         for t in range(n_epochs):
             last_epoch = t+1 == n_epochs
             if self.verbose_training: print("[",end='',flush=False); last_print = 0
@@ -132,32 +130,18 @@ class vector_agent_trainer(vector_agent_base):
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
             if self.verbose_training: print("]",flush=False)
         #Sometimes we do a reference update
-        t_ref_update = time.time()
         if self.time_to_reference_update == 0:
             self.reference_update()
             self.time_to_reference_update = self.settings["time_to_reference_update"]
         else:
             self.time_to_reference_update -= 1
 
-        #Update all samples! (priorities and target_value are re-computed using the default model)
-        t_update_sample = time.time()
-
-        t_done = time.time()
-
-        #Keep stats and tell the world
-        self.train_time_log["sample"]         +=  t_unpack        -  t_sample
-        self.train_time_log["unpack"]         +=  t_train         -  t_unpack
-        self.train_time_log["train"]          +=  t_ref_update    -  t_train
-        self.train_time_log["ref_update"]     +=  t_update_sample -  t_ref_update
-        self.train_time_log["update_sample"]  +=  t_done          -  t_update_sample
-        self.train_time_log["total"]          +=  t_done          -  t_sample
-
         #Count training
         self.n_train_steps += 1
         return new_prio, filter
 
     def output_stats(self):
-        print("----Trainer stats (step {})".format(self.n_train_steps))
+        print("----Trainer stats (step {}, clock {})".format(self.n_train_steps, self.clock))
         print("train time log:")
         for x in self.train_time_log:
             print("\t{} : {}".format(x.rjust(15), self.train_time_log[x]))

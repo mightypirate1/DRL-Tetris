@@ -37,12 +37,12 @@ class vector_agent_base:
 
         #Some basic core functionality
         self.sandbox = sandbox.copy()
-        self.state_size = self.state_to_vector(self.sandbox.get_state(), player_list=[0,0]).shape[1:]
+        self.state_size = state_fcns.state_to_vector(self.sandbox.get_state(), player_list=[0,0]).shape[1:]
         self.model_dict = {}
 
     def update_clock(self, clock):
-        old_clock = self.experience_replay.time
-        self.experience_replay.time = self.clock = clock
+        old_clock = self.clock
+        self.clock = clock
         print("{} UPDATED CLOCK {} -> {}".format(self.id,old_clock,clock))
 
     def run_model(self, net, states, player=None):
@@ -52,7 +52,7 @@ class vector_agent_base:
             if player_list is not None: self.log.warning("run_model was called with an np.array as an argument, and non-None player list. THIS IS NOT MENT TO BE, AND IF YOU DONT KNOW WHAT YOU ARE DOING, EXPECT INCORRECT RESULTS!")
             states_vector = states
         else:
-            states_vector = agent_utils.states_from_perspective(states, player)
+            states_vector = state_fcns.states_from_perspective(states, player)
         return net.evaluate(states_vector)
 
     def run_default_model(self, states, player=None):
