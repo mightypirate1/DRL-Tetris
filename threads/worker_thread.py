@@ -41,8 +41,9 @@ class worker_thread(mp.Process):
         '''
         Main code [WORKER]:
         '''
-        myid=mp.current_process()._identity[0]
-        np.random.seed(myid^struct.unpack("<L",os.urandom(4))[0])
+        if not self.settings["run_standalone"]:
+            myid=mp.current_process()._identity[0]
+            np.random.seed(myid^struct.unpack("<L",os.urandom(4))[0])
 
         # Be Nice
         niceness=os.nice(0)
