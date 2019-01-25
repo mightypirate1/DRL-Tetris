@@ -58,7 +58,7 @@ class prio_vnet:
                 return True
         return False
 
-    def evaluate(self, input_states, temperature=1.0):
+    def evaluate(self, input_states):
         run_list = self.output_values_tf
         feed_dict = {
                         self.input_states_tf : input_states,
@@ -72,6 +72,7 @@ class prio_vnet:
         run_list = [
                     self.training_ops,
                     self.new_prios_tf,
+                    self.value_loss_tf,
                     ]
         feed_dict = {
                         self.input_states_tf : states,
@@ -81,8 +82,8 @@ class prio_vnet:
                         self.learning_rate_tf : lr,
                         self.loss_weights_tf : weights,
                     }
-        _, new_prios = self.session.run(run_list, feed_dict=feed_dict)
-        return new_prios
+        _, new_prios, loss = self.session.run(run_list, feed_dict=feed_dict)
+        return new_prios, loss
 
     def create_value_net(self,x, name):
         with tf.variable_scope("value_net_"+name, reuse=tf.AUTO_REUSE) as vs:
@@ -120,8 +121,8 @@ class prio_vnet:
         return values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
-        value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.output_values_tf, weights=self.loss_weights_tf)
-        training_ops = tf.train.AdamOptimizer(learning_rate=self.learning_rate_tf).minimize(value_loss_tf)
+        self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.output_values_tf, weights=self.loss_weights_tf)
+        training_ops = tf.train.AdamOptimizer(learning_rate=self.learning_rate_tf).minimize(self.value_loss_tf)
         return training_ops
 
     def create_weight_setting_ops(self, collection):
@@ -148,6 +149,10 @@ class prio_vnet:
         ref_weights  = self.get_weights(self.reference_net_vars)
         self.set_weights(self.reference_net_assign_list, main_weights)
         self.set_weights(self.main_net_assign_list, ref_weights )
+
+    def reference_update(self):
+        main_weights = self.get_weights(self.main_net_vars)
+        self.set_weights(self.reference_net_assign_list,main_weights)
 
     def get_weights(self, collection):
         ret = self.session.run(collection)
