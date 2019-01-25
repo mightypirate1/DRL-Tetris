@@ -24,6 +24,7 @@ class vector_agent_trainer(vector_agent_base):
         #Some general variable initialization etc...
         vector_agent_base.__init__(self, id=id, name="trainer{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
         self.verbose_training = self.settings["run_standalone"]
+        self.train_stats_raw = list()
         self.n_train_steps = 0
 
         #Bucket of data
@@ -69,8 +70,8 @@ class vector_agent_trainer(vector_agent_base):
         n = 0
         for trajectory in data:
                 n += 1
-                data, prio = trajectory.process_trajectory(self.run_default_model, state_fcns.states_from_perspective) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
-                self.experience_replay.add_samples(data,prio)
+                d, p = trajectory.process_trajectory(self.run_default_model, state_fcns.states_from_perspective) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
+                self.experience_replay.add_samples(d,p)
                 tot += len(trajectory)
         self.clock += tot
         avg = tot/n if n>0 else 0
@@ -92,9 +93,10 @@ class vector_agent_trainer(vector_agent_base):
     def do_training(self, sample=None):
         if sample is None and len(self.experience_replay) < self.settings["n_samples_each_update"]:
             if not self.settings["run_standalone"]: time.sleep(1) #If we are a separate thread, we can be a little patient here
-            return None, None
+            return False
 
         #Start!
+        self.train_stats_raw = list()
         self.log.debug("trainer[{}] doing training".format(self.id))
 
         #Some values:
@@ -119,14 +121,15 @@ class vector_agent_trainer(vector_agent_base):
             if self.verbose_training: print("[",end='',flush=False); last_print = 0
             perm = np.random.permutation(n) if not last_epoch else np.arange(n)
             for i in range(0,n,minibatch_size):
-                _new_prio = self.extrinsic_model.train(
-                                                      states[perm[i:i+minibatch_size]],
-                                                      rewards[perm[i:i+minibatch_size]],
-                                                      s_primes[perm[i:i+minibatch_size]],
-                                                      dones[perm[i:i+minibatch_size]],
-                                                      weights=is_weights[perm[i:i+minibatch_size]],
-                                                      lr=self.settings["value_lr"].get_value(self.clock)
-                                                     )
+                _new_prio, loss = self.extrinsic_model.train(
+                                                             states[perm[i:i+minibatch_size]],
+                                                             rewards[perm[i:i+minibatch_size]],
+                                                             s_primes[perm[i:i+minibatch_size]],
+                                                             dones[perm[i:i+minibatch_size]],
+                                                             weights=is_weights[perm[i:i+minibatch_size]],
+                                                             lr=self.settings["value_lr"].get_value(self.clock)
+                                                            )
+                self.train_stats_raw.append(loss)
                 if last_epoch: new_prio[i:i+minibatch_size] = _new_prio
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
             if self.verbose_training: print("]",flush=False)
@@ -144,19 +147,11 @@ class vector_agent_trainer(vector_agent_base):
         if update_prio_flag:
             self.experience_replay.update_prios(new_prio, filter)
 
-        return new_prio, filter #In case someone sent a particular sample for us to train on, they might want to know the new prios etc..
+        return True
 
     def output_stats(self):
-        print("----Trainer stats (step {}, clock {})".format(self.n_train_steps, self.clock))
-        print("train time log:")
-        for x in self.train_time_log:
-            print("\t{} : {}".format(x.rjust(15), self.train_time_log[x]))
-        # print("---")
-        # print("TAU:{}".format(self.avg_trajectory_length))
-        # print("EPSILON:{}".format(self.settings["epsilon"].get_value(self.clock)/self.avg_trajectory_length))
-        # print("curiosity_amount:{}".format(self.settings["curiosity_amount"].get_value(self.clock)))
-        # print("value_lr:{}".format(self.settings["value_lr"].get_value(self.clock)))
-        # print("---")
+        lossval = sum(self.train_stats_raw)/len(self.train_stats_raw)
+        return {"Value loss" : lossval}
 
     #Moves the reference model to be equal to the model, or changes their role (depending on setting)
     def reference_update(self):
@@ -164,8 +159,7 @@ class vector_agent_trainer(vector_agent_base):
         if self.settings["alternating_models"]:
             self.extrinsic_model.swap_networks()
         else:
-            weights = self.extrinsic_model.get_weights(self.extrinsic_model.main_net_vars)
-            self.extrinsic_model.set_weights(self.extrinsic_model.main_net_assign_list,weights)
+            self.extrinsic_model.reference_update()
 
     def export_weights(self):
         return self.n_train_steps, self.model_dict["default"].get_weights(self.model_dict["default"].main_net_vars)
