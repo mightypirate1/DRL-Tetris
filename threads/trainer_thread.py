@@ -90,8 +90,10 @@ class trainer_thread(mp.Process):
 
     def do_training(self):
         t = time.time()
-        self.trainer.do_training()
+        trained = self.trainer.do_training()
         t = time.time() - t
+        if trained:
+            self.quick_summary.update(self.trainer.output_stats(), time=self.current_step())
         self.stats["t_training"] = t
         self.stats["t_training_total"] += t
 
@@ -133,7 +135,7 @@ class trainer_thread(mp.Process):
         print("trained for {}s".format(self.stats["t_training"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
-        print("time to reference update / save: {}".format(self.trainer.time_to_reference_update))
+        # print("time to reference update / save: {}".format(self.trainer.time_to_reference_update))
 
     def transfer_weights(self):
         #Get some data
