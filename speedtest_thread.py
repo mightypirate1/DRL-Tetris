@@ -1,21 +1,22 @@
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer
-import threads.threaded_runner
+from agents.pg_vector_agent import pg_vector_agent, pg_vector_agent_trainer
 from aux.parameter import *
+import threads.threaded_runner
 
-import tensorflow as tf
-import docopt
-import time
 import sys
+import time
+import docopt
+import tensorflow as tf
 
 total_steps = 1000
-n_envs  = 64
+n_envs = 64
 
 docoptstring = \
 '''Speedcheck!
 Usage:
-  Speedcheck.py [--n N] [--m M] [--steps S]  [--no-rendering] [--debug]
+  Speedcheck.py [--n N] [--m M] [--steps S]  [--no-rendering] [--debug] [--pg]
 
 Options:
     --n N      N envs per thread. [default: 16]
@@ -33,33 +34,35 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id" : "threads_03-boltz",
+            "run-id" : "threads_04",
 
             #Train parameters
-            "n_samples_each_update"    : 8192,
-            "minibatch_size"           : 256,
+            "n_samples_each_update"    : 8192 if not docoptsettings["--pg"] else 16384,
+            "minibatch_size"           : 128 if not docoptsettings["--pg"] else 1024,
             "epsilon"                  : constant_parameter(1.0),
-            "value_lr"                 : linear_parameter(1e-6, final_val=1e-8, time_horizon=total_steps),
+            "value_lr"                 : linear_parameter(1e-6, final_val=1e-7, time_horizon=total_steps),
             "prioritized_replay_alpha" : constant_parameter(0.7),
             "prioritized_replay_beta"  : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
-            "experience_replay_size"   : 10**6,
+            "experience_replay_size"   : 10**6 if not docoptsettings["--pg"] else 2*10**4,
+            "alternating_models"       : False,
+            "time_to_training"         : 10**3 if not docoptsettings["--pg"] else 1,
 
             #Dithering
             "dithering_scheme"    : "distribution_boltzman",
-            "action_temperature"  : constant_parameter(3.0),
+            "action_temperature"  : exp_parameter(1.0, final_val=16, time_horizon=total_steps),
 
             #Game settings
-            "game_size"                : [10,5],
+            # "game_size"                : [10,5],
             # "pieces"                   : [4,6],
             "time_elapsed_each_action" : 400,
             #Types
             "env_vector_type"   : tetris_environment_vector,
             "env_type"          : tetris_environment,
-            "agent_type"        : vector_agent.vector_agent,
-            "trainer_type"      : vector_agent_trainer.vector_agent_trainer,
+            "agent_type"        : vector_agent.vector_agent                 if not docoptsettings["--pg"] else pg_vector_agent.pg_vector_agent,
+            "trainer_type"      : vector_agent_trainer.vector_agent_trainer if not docoptsettings["--pg"] else pg_vector_agent_trainer.pg_vector_agent_trainer,
 
             #Threading
-            "run_standalone"    : False,
+            "run_standalone"    : docoptsettings["--debug"],
             "n_workers"         : n_workers,
             "n_envs_per_thread" : n_envs_per_thread,
             "worker_steps"      : total_steps // n_envs,
@@ -70,11 +73,25 @@ settings = {
             "trainer_thread_save_freq"  : 100,
             "n_train_epochs_per_update" : 15,
             "worker_data_send_fequency" : 50,
-            "weight_transfer_frequency" : 5,
+            "weight_transfer_frequency" : 5 if not docoptsettings["--pg"] else 1,
 
             #Misc.
             "render"            : render,
             "bar_null_moves"    : True,
+
+            ###
+            ###  PG
+            ###
+            "n_actions"              : 25,
+            "state_head_n_hidden"    : 2,
+            "state_head_hidden_size" : 512,
+            "state_head_output_size" : 10,
+            "joined_n_hidden"        : 2,
+            "joined_hidden_size"     : 512,
+            "weight_loss_policy"     : 1.0,
+            "weight_loss_entropy"    : 0.1,
+            "weight_loss_value"      : 0.5,
+            "clipping_parameter"     : constant_parameter(0.2),
            }
 
 print("Speedcheck:")
