@@ -28,7 +28,7 @@ class trajectory:
         prios = np.abs(td_errors)
         s  = state_fcn(self.s[:-1], player=self.p[:-1])
         sp = state_fcn(self.s[1:], player=self.p[1:])
-        data = (s,None,r,sp,d)
+        data = (s, sp,None,r,d)
         return data, prios
 
     def __len__(self):

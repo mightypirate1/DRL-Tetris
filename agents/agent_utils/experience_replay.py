@@ -7,9 +7,11 @@ class experience_replay:
     def __init__(self, max_size=None, state_size=None, log=None):
         self.log        = log
         self.max_size   = max_size
-        self.state_size = state_size
-        self.states   = np.zeros((max_size,*state_size))
-        self.s_primes = np.zeros((max_size,*state_size))
+        self.vector_state_size, self.visual_state_size = state_size
+        self.vector_states   = [np.zeros((max_size,*s[1:])) for s in self.vector_state_size]
+        self.visual_states   = [np.zeros((max_size,*s[1:])) for s in self.visual_state_size]
+        self.vector_s_primes = [np.zeros((max_size,*s[1:])) for s in self.vector_state_size]
+        self.visual_s_primes = [np.zeros((max_size,*s[1:])) for s in self.visual_state_size]
         self.rewards  = np.zeros((max_size,1))
         self.dones    = np.zeros((max_size,1))
         self.prios    = -np.ones((max_size,1))
@@ -45,34 +47,34 @@ class experience_replay:
         filter = idx_dict
         is_weights = is_weights_all[indices]
         data = (
-                self.states[indices,:],
+                ([vs[indices,:] for vs in self.vector_states],   [vs[indices,:] for vs in self.visual_states]),
+                ([vs[indices,:] for vs in self.vector_s_primes], [vs[indices,:] for vs in self.visual_s_primes]),
                 None,
                 self.rewards[indices,:],
-                self.s_primes[indices,:],
                 self.dones[indices,:],
                 )
         return data, is_weights, filter
 
     def add_samples(self, data, prio):
-        s,_,r,sp,d = data
+        s, sp,_,r,d = data
+        vec_s, vis_s   = s
+        vec_sp, vis_sp = sp
         n = prio.size
         idxs = [x%self.max_size for x in range(self.current_idx, self.current_idx+n)]
-        self.states[idxs,:]   = s
+        for i,vs in enumerate(self.vector_states):
+            vs[idxs,:]   = vec_s[i]
+        for i,vs in enumerate(self.visual_states):
+            vs[idxs,:]   = vis_s[i]
+        for i,vs in enumerate(self.vector_s_primes):
+            vs[idxs,:]   = vec_sp[i]
+        for i,vs in enumerate(self.visual_s_primes):
+            vs[idxs,:]   = vis_sp[i]
         self.rewards[idxs,:]  = r
-        self.s_primes[idxs,:] = sp
         self.dones[idxs,:]    = d
         self.prios[idxs,:]    = prio
         self.current_idx += n
         self.current_size = min(self.current_size+n, self.max_size)
         self.total_samples += n
-
-    def sort(self):
-        new_idxs = self.prios[:,0].argsort()
-        self.states[:,:] = self.states[new_idxs,:]
-        self.rewards[:,:] = self.rewards[new_idxs,:]
-        self.s_primes[:,:] = self.s_primes[new_idxs,:]
-        self.dones[:,:] = self.dones[new_idxs,:]
-        self.prios[:,:] = self.prios[new_idxs,:]
 
     def update_prios(self, new_prios, filter):
         self.prios[list(filter.keys()),:] = new_prios[list(filter.values()),:]
