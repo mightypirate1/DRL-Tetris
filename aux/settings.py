@@ -20,11 +20,6 @@ default_settings = {
                     #exploration
                     "dithering_scheme" : "adaptive_epsilon",
                     "epsilon" : constant_parameter(1.0),
-                    #curiosity
-                    "use_curiosity" : False,
-                    "curiosity_during_testing" : False,
-                    "curiosity_reward_multiplier" : 0.3,
-                    "curiosity_amount" : linear_parameter(1, final_val=0, time_horizon=0.6*10**7),
                     #avg_trajectory_length_learning:
                     "tau_learning_rate" : 0.001,
                     #experience replay:
@@ -36,9 +31,22 @@ default_settings = {
                     "gamma_extrinsic" : 0.998,   #Not in use...
                     "gamma_intrinsic" : 0.90,  #Not in use...
 
-                ##VALUE NET:
-                    "value_head_n_hidden" : 5,
-                    "value_head_hidden_size" : 1024,
+                ##NEURAL NET:
+                    #Preprocessing
+                    "relative_state"   : True,  #This means that both players sees themselves as the player to the left, and the other on the right
+                    "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
+                    "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
+                    #Value net:
+                    "vectorencoder_n_hidden" : 2,
+                    "vectorencoder_hidden_size" : 256,
+                    "vectorencoder_output_size" : 256,
+                    "visualencoder_n_convs" : 3,
+                    "visualencoder_n_filters" : (32,32,16),
+                    "visualencoder_filter_sizes" : ((3,3), (3,3), (5,5)),
+                    "visualencoder_poolings" : [2,], #Pooling after layer numbers in this list
+                    "valuenet_n_hidden" : 1,
+                    "valuenet_hidden_size" : 1024,
+                    "nn_regularizer" : 0.001,
 
                 ##MULTIPROCESSING:
                     "worker_net_on_cpu" : True,
