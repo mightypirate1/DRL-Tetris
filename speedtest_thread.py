@@ -34,16 +34,16 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id" : "threads_04",
+            "run-id" : "threads_06_conv-re1",
 
             #Train parameters
             "n_samples_each_update"    : 8192 if not docoptsettings["--pg"] else 16384,
-            "minibatch_size"           : 128 if not docoptsettings["--pg"] else 1024,
+            "minibatch_size"           : 32 if not docoptsettings["--pg"] else 1024,
             "epsilon"                  : constant_parameter(1.0),
             "value_lr"                 : linear_parameter(1e-6, final_val=1e-7, time_horizon=total_steps),
             "prioritized_replay_alpha" : constant_parameter(0.7),
             "prioritized_replay_beta"  : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
-            "experience_replay_size"   : 10**6 if not docoptsettings["--pg"] else 2*10**4,
+            "experience_replay_size"   : 5*10**5 if not docoptsettings["--pg"] else 2*10**4,
             "alternating_models"       : False,
             "time_to_training"         : 10**3 if not docoptsettings["--pg"] else 1,
 
@@ -62,18 +62,24 @@ settings = {
             "trainer_type"      : vector_agent_trainer.vector_agent_trainer if not docoptsettings["--pg"] else pg_vector_agent_trainer.pg_vector_agent_trainer,
 
             #Threading
-            "run_standalone"    : docoptsettings["--debug"],
-            "n_workers"         : n_workers,
-            "n_envs_per_thread" : n_envs_per_thread,
-            "worker_steps"      : total_steps // n_envs,
-            "process_patience"  : [0.1,0.1, 10.0], #runner/trainer/process_manager
-            "worker_net_on_cpu" : True,
-            "trainer_net_on_cpu": False,
+            "run_standalone"       : docoptsettings["--debug"],
+            "n_workers"            : n_workers,
+            "n_envs_per_thread"    : n_envs_per_thread,
+            "worker_steps"         : total_steps // n_envs,
+            "process_patience"     : [0.1,0.1, 10.0], #runner/trainer/process_manager
+            "worker_net_on_cpu"    : True,
+            "trainer_net_on_cpu"   : False,
             #Communication
             "trainer_thread_save_freq"  : 100,
             "n_train_epochs_per_update" : 15,
             "worker_data_send_fequency" : 50,
             "weight_transfer_frequency" : 5 if not docoptsettings["--pg"] else 1,
+
+            #NN preprocessing
+            #Preprocessing
+            "relative_state"   : True,  #This means that both players sees themselves as the player to the left, and the other on the right
+            "field_as_image"   : False, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
+            "players_separate" : False, #This keeps each players part of the state separate when passed to the neural net
 
             #Misc.
             "render"            : render,
