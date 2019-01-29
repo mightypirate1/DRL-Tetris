@@ -62,11 +62,11 @@ class tetris_environment:
     def get_actions(self,player=None):
         if self.debug: self.log.debug("get_action invoked: player={}".format(player))
         assert type(player)  is int,  "tetris_environment.get_actions(int player) was called with type(player)={}".format(type(player))
-        if self.settings["action_type"] is "place_block":
+        if self.settings["action_type"] == "place_block":
             self.backend.get_actions(player) #This ensures that the backend is in a sound state (i.e. did not currupt due to pickling. If you think you can fix pickling better, please contact me //mightypirate1)
             return data_types.action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
-        if self.settings["action_type"] is "press_key":
-            return action_list([[0],[1],[2],[3],[4],[5],[6],[7],[8],[9],[10]]) #This is not error-tested (but "should work")
+        if self.settings["action_type"] == "press_key":
+            return data_types.action_list([[0],[1],[2],[3],[4],[5],[6],[7],[8],[9],[10]]) #This is not error-tested (but "should work")
 
     def simulate_actions(self,actions, player=None):
         if self.debug: self.log.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))

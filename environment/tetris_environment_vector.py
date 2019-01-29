@@ -65,7 +65,6 @@ class tetris_environment_vector:
         env_list = utils.parse_arg(env,    self.envs       )
         p_list   = utils.parse_arg(player, self.player_idxs, fill_up=len(env_list))
         assert len(env_list) == len(p_list), "You want to specify one player per tetris_environment that the tetris_environment_vector manages"
-        ret = [None for _ in env_list]
         return [e.get_actions(player=p) for e,p in zip(env_list, p_list)]
 
     def get_random_action(self, env=None, player=None):
@@ -78,7 +77,6 @@ class tetris_environment_vector:
         env_list = utils.parse_arg(env,    self.envs       )
         p_list   = utils.parse_arg(player, self.player_idxs, fill_up=len(env_list))
         assert len(env_list) == len(p_list)
-        ret = [None for _ in env_idxs]
         return [e.simulate_actions(a,player=p) for e,a,p in zip(env_list, actions, p_list)]
 
     def perform_action(self,actions, env=None, player=None, render=None):
