@@ -1,6 +1,7 @@
 from aux.settings import default_settings
 import numpy as np
 from scipy.stats import rankdata
+import pickle
 
 def parse_arg(entry_idx, data, fill_up=None, indices=False):
     #This tries to encapsulate the general pattern of passing data vectorized...
@@ -34,6 +35,10 @@ def parse_settings(settings):
         #Here we get a chance to add some derived properties
         s["game_area"] = s["game_size"][0] * s["game_size"][1]
     return s
+
+def load_settings(file):
+    with open(file, 'rb') as f:
+        return parse_settings(pickle.load(f))
 
 # This takes a bunch of lists: [a1,a2,...], [b1,..], [c1, ...] and maps onto [[a1,b1,c1,...], [a2,b2,c2,..]...]
 def merge_lists(*e):
