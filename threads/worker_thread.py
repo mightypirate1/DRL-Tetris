@@ -49,6 +49,7 @@ class worker_thread(mp.Process):
         niceness=os.nice(0)
         os.nice(5-niceness)
         self.shared_vars["run_flag"][self.id] = 1
+        # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=self.settings["trainer_gpu_fraction"])
         with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})) as session:
             #Initialize!
             self.env = self.settings["env_vector_type"](

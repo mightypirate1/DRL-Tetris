@@ -54,6 +54,8 @@ class trainer_thread(mp.Process):
         # Be Nice
         niceness=os.nice(0)
         # os.nice(niceness-3) #Not allowed it seems :)
+
+        # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=self.settings["trainer_gpu_fraction"])
         with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})) as session:
             #Initialize!
             self.trainer = self.settings["trainer_type"](
