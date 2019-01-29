@@ -70,7 +70,7 @@ class vector_agent_trainer(vector_agent_base):
         n = 0
         for trajectory in data:
                 n += 1
-                d, p = trajectory.process_trajectory(self.run_default_model, state_fcns.states_from_perspective) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
+                d, p = trajectory.process_trajectory(self.run_default_model, self.unpack) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
                 self.experience_replay.add_samples(d,p)
                 tot += len(trajectory)
         self.clock += tot
@@ -113,8 +113,13 @@ class vector_agent_trainer(vector_agent_base):
                                                                                   beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
                                                                                  )
         else: update_prio_flag = False
-        states, _, rewards, s_primes, dones = sample
+
+        #Unpack a little...
+        states, s_primes, _, rewards, dones = sample
+        vector_states, visual_states = states
+        vector_s_primes, visual_s_primes = s_primes
         new_prio = np.empty((n,1))
+
         #TRAIN!
         for t in range(n_epochs):
             last_epoch = t+1 == n_epochs
@@ -122,9 +127,11 @@ class vector_agent_trainer(vector_agent_base):
             perm = np.random.permutation(n) if not last_epoch else np.arange(n)
             for i in range(0,n,minibatch_size):
                 _new_prio, loss = self.extrinsic_model.train(
-                                                             states[perm[i:i+minibatch_size]],
+                                                             [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
+                                                             [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
+                                                             [vec_sp[perm[i:i+minibatch_size]] for vec_sp in vector_s_primes],
+                                                             [vis_sp[perm[i:i+minibatch_size]] for vis_sp in visual_s_primes],
                                                              rewards[perm[i:i+minibatch_size]],
-                                                             s_primes[perm[i:i+minibatch_size]],
                                                              dones[perm[i:i+minibatch_size]],
                                                              weights=is_weights[perm[i:i+minibatch_size]],
                                                              lr=self.settings["value_lr"].get_value(self.clock)
@@ -150,8 +157,14 @@ class vector_agent_trainer(vector_agent_base):
         return True
 
     def output_stats(self):
-        lossval = sum(self.train_stats_raw)/len(self.train_stats_raw)
-        return {"Value loss" : lossval}
+        tot_loss, v_loss, reg_loss = zip(*self.train_stats_raw)
+        ret = {
+                "Total loss"       : sum(tot_loss)/len(self.train_stats_raw),
+                "Value loss"       : sum(v_loss  )/len(self.train_stats_raw),
+                "Regularizer loss" : sum(reg_loss)/len(self.train_stats_raw),
+              }
+        self.train_stats_raw.clear()
+        return ret
 
     #Moves the reference model to be equal to the model, or changes their role (depending on setting)
     def reference_update(self):

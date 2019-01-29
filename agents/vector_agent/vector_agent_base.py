@@ -5,7 +5,7 @@ import os
 
 import threads
 import aux.utils as utils
-from agents.agent_utils import state_fcns
+from agents.agent_utils import state_unpack
 
 class vector_agent_base:
     def __init__(
@@ -37,7 +37,14 @@ class vector_agent_base:
 
         #Some basic core functionality
         self.sandbox = sandbox.copy()
-        self.state_size = state_fcns.state_to_vector(self.sandbox.get_state(), player_list=[0,0]).shape[1:]
+        self.unpack = state_unpack.unpacker(
+                                            self.sandbox.get_state(),
+                                            observation_mode='separate' if self.settings["field_as_image"] else 'vector',
+                                            player_mode='separate' if self.settings["players_separate"] else 'vector',
+                                            state_from_perspective=self.settings["relative_state"],
+                                            )
+        self.state_size = self.unpack.get_shapes()
+        self.n_vec, self.n_vis = len(self.state_size[0]), len(self.state_size[1])
         self.model_dict = {}
 
     def update_clock(self, clock):
@@ -47,13 +54,8 @@ class vector_agent_base:
 
     def run_model(self, net, states, player=None):
         assert player is not None, "Specify a player to run the model for!"
-        if isinstance(states, np.ndarray):
-            assert False, "This should not ever happen"
-            if player_list is not None: self.log.warning("run_model was called with an np.array as an argument, and non-None player list. THIS IS NOT MENT TO BE, AND IF YOU DONT KNOW WHAT YOU ARE DOING, EXPECT INCORRECT RESULTS!")
-            states_vector = states
-        else:
-            states_vector = state_fcns.states_from_perspective(states, player)
-        return net.evaluate(states_vector)
+        states_np = self.unpack(states, player)
+        return net.evaluate(states_np)
 
     def run_default_model(self, states, player=None):
         return self.run_model(self.model_dict["default"], states, player=player)
@@ -73,6 +75,8 @@ class vector_agent_base:
         with open(file, 'wb') as f:
             print("SAVED WEIGHTS TO ",file)
             pickle.dump(output, f, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(folder+"/settings", 'wb') as f:
+            pickle.dump(self.settings, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load_weights(self, folder, file):  #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
         with open(file, 'rb') as f:
