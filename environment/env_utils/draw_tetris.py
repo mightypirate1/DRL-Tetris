@@ -68,7 +68,7 @@ class _renderer:
         if field is None:
             return
         d = 0.5 * self.border_width
-        fg_size = self.piece_size - 2*d
+        fg_size = max(1, self.piece_size - 2*d)
 
         bg_rect = pg.Rect(x,y,self.piece_size,self.piece_size)
         fg_rect = pg.Rect(x+d,y+d, fg_size,fg_size)
