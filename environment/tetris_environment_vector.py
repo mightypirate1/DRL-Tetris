@@ -109,9 +109,7 @@ class tetris_environment_vector:
     def get_winner(self, env=None, player=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.get_winner(player=player) for e in env_list]
-    def copy(self):
-        exit("!NOT IMPLEMENTED")
-        return tetris_environment(settings=self.settings, init_env=self.backend)
+        
     def copy(self, env=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.copy(actions, player=player) for e in env_list]
