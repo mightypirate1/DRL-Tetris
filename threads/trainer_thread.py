@@ -80,10 +80,10 @@ class trainer_thread(mp.Process):
                 self.do_training()
                 self.print_stats()
                 self.update_global_clock()
-                if self.trainer.n_train_steps % self.settings["weight_transfer_frequency"] == 0:
+                if self.trainer.n_train_steps["total"] % self.settings["weight_transfer_frequency"] == 0:
                     self.transfer_weights()
-                if self.trainer.n_train_steps % self.settings["trainer_thread_save_freq"] == 0 and self.trainer.n_train_steps > self.last_saved_weights:
-                    self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps))
+                if self.trainer.n_train_steps["total"] % self.settings["trainer_thread_save_freq"] == 0 and self.trainer.n_train_steps["total"] > self.last_saved_weights:
+                    self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps["total"]))
             #Report when done!
             print("trainer done")
             self.stats["t_stop"] = time.time()
@@ -92,7 +92,12 @@ class trainer_thread(mp.Process):
 
     def do_training(self):
         t = time.time()
-        trained = self.trainer.do_training()
+        if self.settings["single_policy"]:
+            trained = self.trainer.do_training()
+        else:
+            trained0 = self.trainer.do_training(policy=0)
+            trained1 = self.trainer.do_training(policy=1)
+            trained = trained0 or trained1
         t = time.time() - t
         if trained:
             self.quick_summary.update(self.trainer.output_stats(), time=self.current_step())

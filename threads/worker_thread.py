@@ -69,20 +69,29 @@ class worker_thread(mp.Process):
             #
             ##Run!
             #####
+            self.quick_summary = quick_summary(settings=self.settings, session=session)
             self.t_thread_start = time.time()
             s_prime = self.env.get_state()
-            self.quick_summary = quick_summary(settings=self.settings, session=session)
+
             current_player = np.random.choice([i for i in range(self.settings["n_players"])], size=(self.settings["n_envs_per_thread"])  )
+            if not self.settings["single_policy"]:
+                c = current_player[0]
+                for idx in range(current_player.size):
+                    current_player[idx] = c
+
+            if not self.settings["single_policy"]:
+                stash = {"experience" : None}
+
             for t in range(0,self.n_steps):
                 #Say hi!
-                if t % 100 == 0: print("worker{}:{}".format(self.id,t))
+                if t % 100 == 0: print("worker{}:{}/{}".format(self.id,t,self.n_steps))
 
                 #Take turns...
                 current_player = 1 - current_player
-                state = s_prime
+                state = self.env.get_state()
 
                 #Get action from agent
-                action_idx, action    = self.agent.get_action(state, player=current_player, training=True)
+                action_idx, action = self.agent.get_action(state, player=current_player, training=True)
                 # action = self.env.get_random_action(player=current_player)
 
                 #Perform action
@@ -93,17 +102,51 @@ class worker_thread(mp.Process):
                 if self.settings["render"]:
                     self.env.render()
 
-                #Store to memory
-                experience = (state, action_idx, reward, s_prime, current_player ,done)
-                self.agent.store_experience(experience)
+                #Record what just happened!
+                experience = self.make_experience(state, action_idx, reward, s_prime, current_player ,done)
+                if self.settings["single_policy"]:
+                    #Store to memory
+                    self.agent.store_experience(experience)
+                else:
+                    #Complete the previous player's experience-tuple and store that
+                    if stash["experience"] is not None:
+                        e    = stash["experience"] #In two-policy mode, each agent completes the other's experience by adding their action/result to it, then store
+                        e[2] = [self.merge_rewards(r1,r2) for r1,r2 in zip(e[2], reward)]
+                        e[3] = s_prime
+                        e[5] = done
+                        self.agent.store_experience(e)
 
                 #Reset the envs that reach terminal states
-                for i,d in enumerate(done):
-                    if d:
-                        self.env.reset(env=i)
-                        self.agent.store_experience((s_prime[i], None, None, None, 1-current_player[i],d), env=i)
-                        self.agent.ready_for_new_round(training=True, env=i)
-                        current_player[i] = np.random.choice([0,1])
+                reset_list = [ idx for idx,d in [(_idx,_d) for _idx,_d in enumerate(done)] if d]
+                ref = [(_idx,_d) for _idx,_d in enumerate(done)]
+                self.env.reset(env=reset_list)
+                for e_idx in reset_list: #TODO: come up with a way of writing this without the loop. (prettier)
+                    if self.settings["single_policy"]:
+                        self.agent.store_experience( self.make_experience([s_prime[e_idx]], [None], [None], [None], [1-current_player[e_idx]],[True]), env=e_idx)
+                    else:
+                        self.agent.store_experience( self.make_experience(state, action_idx, reward, s_prime, current_player ,done, env=e_idx), env=e_idx)
+                self.agent.ready_for_new_round(training=True, env=reset_list)
+                # for i,d in enumerate(done):
+                #     if d:
+                #         self.env.reset(env=i)
+                #         if not self.settings["single_policy"] and stash["experience"] is not None:
+                #                 print(tuple(zip(*experience))[i])
+                #                 self.agent.store_experience( self.make_experience(state, action_idx, reward, s_prime, current_player ,done, env=i), env=i)
+                #                 experience[0][i] = self.env.get_state(env=i)[0]
+                #                 experience[2][i] = 0
+                #                 experience[5][i] = False
+                #                 print(tuple(zip(*experience))[i])
+                #                 print("---")
+                #         if self.settings["single_policy"]:
+                #             self.agent.store_experience((s_prime[i], None, None, None, 1-current_player[i],d), env=i)
+                #             current_player[i] = np.random.choice([0,1])
+                #         self.agent.ready_for_new_round(training=True, env=i)
+
+                #Store this
+                if not self.settings["single_policy"]:
+                    #If there were resets, the stashed experience should get the new state
+                    experience = self.experience_reset_update(experience, reset_list, self.env.get_state())
+                    stash["experience"] = experience
 
                 #Periodically send data to the trainer thread!
                 if (t+1) % self.settings["worker_data_send_fequency"] == 0:
@@ -123,14 +166,15 @@ class worker_thread(mp.Process):
 
     def update_weights_and_clock(self):
         if self.settings["run_standalone"]:
-            if self.agent.trainer.n_train_steps % 100 == 0 and self.agent.trainer.n_train_steps > self.current_weights:
+            if self.agent.trainer.n_train_steps["total"] % 100 == 0 and self.agent.trainer.n_train_steps["total"] > self.current_weights:
                 print("Saving weights...")
-                self.agent.trainer.save_weights(*utils.weight_location(self.settings,idx=self.agent.trainer.n_train_steps))
-                self.current_weights = self.agent.trainer.n_train_steps
+                self.agent.trainer.save_weights(*utils.weight_location(self.settings,idx=self.agent.trainer.n_train_steps["total"]))
+                self.current_weights = self.agent.trainer.n_train_steps["total"]
             return
         if self.shared_vars["global_clock"].value > self.last_global_clock:
             self.last_global_clock = self.shared_vars["global_clock"].value
             self.agent.update_clock(self.last_global_clock)
+
         if self.shared_vars["update_weights"]["idx"] > self.current_weights:
             self.shared_vars["update_weights_lock"].acquire()
             w = self.shared_vars["update_weights"]["weights"]
@@ -153,6 +197,8 @@ class worker_thread(mp.Process):
         print("clock: {}".format(self.agent.clock))
         print("current weights: {}".format(self.current_weights))
         print("average trajectory length: {}".format(self.agent.avg_trajectory_length))
+        print("action temperature: {}".format(self.agent.theta))
+        print("action entropy: {}".format(self.agent.action_entropy))
         print("Epsilon: {}".format(self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1)))
         self.last_print_out = t
         if self.settings["run_standalone"]:
@@ -160,6 +206,8 @@ class worker_thread(mp.Process):
                  "Average trajectory length" : self.agent.avg_trajectory_length,
                  "Epsilon"                   : self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1),
                  "Current speed"             : self.agent.trainer.experience_replay.total_samples/t,
+                 "Action entropy"            : self.agent.action_entropy,
+                 "Action temperature"        : self.agent.theta,
                 }
             self.quick_summary.update(s, time=self.agent.clock)
 
@@ -171,6 +219,33 @@ class worker_thread(mp.Process):
             return self.agent.clock
         else:
             return self.shared_vars["global_clock"].value
+
+    def experience_reset_update(self, experience, reset_list, newstate):
+        state, action_idx, reward, s_prime, current_player, done = experience
+        _state          = [ ns if i   in reset_list else s for s,ns,i in zip(state,newstate,range(len(state))) ]
+        _action_idxs    = [ 0  if idx in reset_list else a for idx, a in enumerate(action_idx)                 ]
+        _reward         = [ 0  if idx in reset_list else r for idx, r in enumerate(reward)                     ]
+        _s_prime        = [ None                           for _      in state                                 ]
+        _current_player = [ c                              for c      in current_player                        ]
+        _done           = [ False                          for _      in state                                 ]
+        return self.make_experience(_state, _action_idxs, _reward, _s_prime, _current_player, _done)
+
+    def make_experience(self, state, action_idx, reward, s_prime, current_player ,done, env=None):
+        if env is None:
+            return [state, action_idx, reward, s_prime, current_player, done]
+        else:
+            return [[state[env]], [action_idx[env]], [reward[env]], [s_prime[env]], [current_player[env]], [done[env]]]
+
+    def merge_rewards(self,r1,r2):
+        # flag = False
+        # if r1 != 0 or r2 != 0: print("r1/r2: ",r1,r2, end=' -> ', flush=True); flag = True
+        assert r1 > -1, "r1==-1 !!!!!!!!!!\n\n\n\n"
+        if r1 > 0:
+            assert r2 < 0, "if I win, you should lose\n\n\n\n"
+            # if flag: print(r1, " (case1)")
+            return r1
+        # if flag: print(r1-r2, " (case2)")
+        return r1-r2
 
     def __str__(self):
         return "thread( type={}, ID={})".format(type(self), self.id)
