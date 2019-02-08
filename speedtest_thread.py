@@ -34,7 +34,7 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id" : "threads_06_conv-re1",
+            "run-id" : "onepolicy_01_conv",
 
             #Train parameters
             "n_samples_each_update"    : 8192 if not docoptsettings["--pg"] else 16384,
@@ -46,6 +46,7 @@ settings = {
             "experience_replay_size"   : 5*10**5 if not docoptsettings["--pg"] else 2*10**4,
             "alternating_models"       : False,
             "time_to_training"         : 10**3 if not docoptsettings["--pg"] else 1,
+            "single_policy"            : False,
 
             #Dithering
             "dithering_scheme"    : "distribution_boltzman",
@@ -73,13 +74,14 @@ settings = {
             "trainer_thread_save_freq"  : 100,
             "n_train_epochs_per_update" : 15,
             "worker_data_send_fequency" : 50,
-            "weight_transfer_frequency" : 5 if not docoptsettings["--pg"] else 1,
+            "weight_transfer_frequency" : 1 if not docoptsettings["--pg"] else 1,
+            "workers_do_processing"     : True,
 
             #NN preprocessing
             #Preprocessing
-            "relative_state"   : True,  #This means that both players sees themselves as the player to the left, and the other on the right
-            "field_as_image"   : False, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
-            "players_separate" : False, #This keeps each players part of the state separate when passed to the neural net
+            "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
+            "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
+            "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
 
             #Misc.
             "render"            : render,
