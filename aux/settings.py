@@ -9,6 +9,9 @@ default_settings = {
                 ## AGENT:
                     "agent_type"   : None,
                     "trainer_type" : None,
+                    #Policy type
+                    "single_policy" : True,
+                    "adversarial_training" : True,
                     #Training:
                     "minibatch_size" : 32,
                     "time_to_training" : 10**3,
@@ -17,6 +20,9 @@ default_settings = {
                     "n_train_epochs_per_update" : 5,
                     "value_lr" : linear_parameter(5*10**-6, final_val=5*10**-8, time_horizon=10**7),
                     "alternating_models" : True, #This means that instead of using a reference-model to produce target values for the model, we instead make the two models switch roles periodically. Empirically this seems to maybe have advantages.
+                    "balance_winrate" : True,
+                    "winrate_tolerance" : 0.15, #0.15 means that a player does not train if it's winrate is above 0.65
+                    "winrate_learningrate" : 0.01,
                     #exploration
                     "dithering_scheme" : "adaptive_epsilon",
                     "epsilon" : constant_parameter(1.0),
@@ -39,11 +45,11 @@ default_settings = {
                     #Value net:
                     "vectorencoder_n_hidden" : 2,
                     "vectorencoder_hidden_size" : 256,
-                    "vectorencoder_output_size" : 256,
+                    "vectorencoder_output_size" : 64,
                     "visualencoder_n_convs" : 3,
                     "visualencoder_n_filters" : (32,32,16),
-                    "visualencoder_filter_sizes" : ((3,3), (3,3), (5,5)),
-                    "visualencoder_poolings" : [2,], #Pooling after layer numbers in this list
+                    "visualencoder_filter_sizes" : ((5,5), (5,5), (5,5)),
+                    "visualencoder_poolings" : [], #Pooling after layer numbers in this list
                     "valuenet_n_hidden" : 1,
                     "valuenet_hidden_size" : 1024,
                     "nn_regularizer" : 0.001,
@@ -91,8 +97,4 @@ default_settings = {
 
                 ##GAME CONTROLLER:
                     "max_round_time" : None,
-                    "balance_winrate" : True,
-                    "winrate_tolerance" : 1.2,
-                    "winrate_learningrate" : 0.04,
-
                     }
