@@ -59,8 +59,8 @@ class threaded_runner:
 
     def get_avg_runtime(self):
         ret = 0
-        for queue in self.shared_vars["run_time"]:
-            ret += queue.get()
+        for t in self.shared_vars["run_time"]:
+            ret += t
         return ret / len(self.shared_vars["run_time"])
 
     def run(self, steps):
