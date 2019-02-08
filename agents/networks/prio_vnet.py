@@ -1,3 +1,4 @@
+
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 import numpy as np
@@ -157,8 +158,8 @@ class prio_vnet:
                                 1,
                                 name='valuenet_layer{}'.format(self.settings['valuenet_n_hidden']+1),
                                 activation=self.output_activation,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer(),
+                                kernel_initializer=tf.zeros_initializer,
+                                bias_initializer=tf.zeros_initializer,
                                )
 
             ret = x
