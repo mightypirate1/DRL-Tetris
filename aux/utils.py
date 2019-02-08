@@ -3,22 +3,22 @@ import numpy as np
 from scipy.stats import rankdata
 import pickle
 
-def parse_arg(entry_idx, data, fill_up=None, indices=False):
+def parse_arg(_entry_idx, data, fill_up=None, indices=False):
     #This tries to encapsulate the general pattern of passing data vectorized...
     #TODO: Write a more thorough comment on the two ways this method can be usedself.
-    #TODO: Move this function to some utility plays (maybe) if e.g. vector_agent needs it too...
 
     #Depending on what the indexing was: int, [int_0, ... , int_k] or None (None is alias for ALL), we get the data vector and possibly indices too
-    if entry_idx is None:
+    if _entry_idx is None:
         ret = data if type(data) is list else [d for d in data]
         entry_idx = [idx for idx in range(len(data))]
-    elif type(entry_idx) in [list, np.ndarray]:
-        ret = [data[i] for i in entry_idx]
+    elif type(_entry_idx) in [list, np.ndarray]:
+        ret = [data[i] for i in _entry_idx]
+        entry_idx = _entry_idx
     else:
         if fill_up is None:
-            entry_idx = [entry_idx]
+            entry_idx = [_entry_idx]
         else:
-            entry_idx = [entry_idx for _ in range(fill_up)]
+            entry_idx = [_entry_idx for _ in range(fill_up)]
         ret = [data[i] for i in entry_idx]
     if indices:
         #Output is indices and data as lists...
@@ -53,3 +53,6 @@ def weight_location(s, idx=""): #s is a settings dictionary
 def pareto(x, temperature=1.0):
     p_unnormalized = 1/rankdata(x, method='ordinal')**temperature
     return p_unnormalized / p_unnormalized.sum()
+
+def entropy(x):
+    return -np.sum(x * np.log(x))
