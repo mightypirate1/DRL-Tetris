@@ -33,33 +33,35 @@ class vector_agent(vector_agent_base):
         self.n_envs = n_envs
 
         #In any mode, we need a place to store transitions!
-        self.current_trajectory = [dt.trajectory() for _ in range(self.n_envs)]
+        self.trajectory_type = dt.trajectory if self.settings["single_policy"] else dt.trajectory_dualpolicy
+        self.current_trajectory = [self.trajectory_type() for _ in range(self.n_envs if self.settings["single_policy"] else 2*self.n_envs)]
         self.stored_trajectories = list()
         self.avg_trajectory_length = 9 #tau is initialized to something...
+        self.action_entropy = 0
+        self.theta = 0
 
         #If we do our own training, we prepare for that
         if self.mode is threads.STANDALONE:
             #Create a trainer, and link their neural-net and experience-replay to us
             self.trainer = self.settings["trainer_type"](id="trainer_{}".format(self.id),settings=settings, session=session, sandbox=sandbox, mode=threads.PASSIVE)
-            self.extrinsic_model = self.model_dict["default"] = self.trainer.extrinsic_model
-            self.experience_replay                            = self.trainer.experience_replay
+            self.model_dict["default"] = self.trainer.model_dict
             #STANDALONE agents have to keep track of their own training habits!
             self.time_to_training = self.settings['time_to_training']
 
         if self.mode is threads.WORKER: #If we are a WORKER, we bring our own equipment
             #Create models
-            self.extrinsic_model = prio_vnet(
-                                             self.id,
-                                             "main_extrinsic",
-                                             self.state_size,
-                                             session,
-                                             settings=self.settings,
-                                             on_cpu=self.settings["worker_net_on_cpu"]
-                                            )
-            self.model_dict = {
-                                "extrinsic_model" : self.extrinsic_model,
-                                "default"         : self.extrinsic_model,
-                              }
+            self.model_dict = {}
+            models = ["extrinsic_model"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
+            for model in models:
+                m = prio_vnet(
+                              self.id,
+                              model,
+                              self.state_size,
+                              session,
+                              settings=self.settings,
+                              on_cpu=self.settings["worker_net_on_cpu"]
+                             )
+                self.model_dict[model] = m
 
     # # # # #
     # Agent interface fcns
@@ -74,13 +76,24 @@ class vector_agent(vector_agent_base):
         player_list_flat, future_states, future_states_flat = [], {}, []
         all_actions = [None for _ in range(len(state_vec))]
 
+        #Set up some stuff that depends on what type of training we do...
+        if self.settings["single_policy"]:
+            model = self.model_dict["extrinsic_model"]
+            perspective = lambda x:1-x
+            k = -1
+        else:
+            assert p_list[0] == p_list[-1], "{} ::: In dual-policy mode we require queries to be for one policy at a time... (for speed)".format(p_list)
+            model = self.model_dict["policy_{}".format(p_list[0])]
+            perspective = lambda x:x
+            k = 1
+
         #Simulate future states
         for state_idx, state in enumerate(state_vec):
             self.sandbox.set(state)
             player_action            = self.sandbox.get_actions(                    player=p_list[state_idx])
             future_states[state_idx] = self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
             all_actions[state_idx]   = player_action
-            player_list_flat        += [ 1-p_list[state_idx] for _ in range(len(player_action)) ] #View the state from the perspective of the enemy!
+            player_list_flat        += [ perspective(p_list[state_idx]) for _ in range(len(player_action)) ]
 
         #Flatten (kinda like ravel for np.arrays)
         unflatten_dict, temp = {}, 0
@@ -89,8 +102,8 @@ class vector_agent(vector_agent_base):
             unflatten_dict[state_idx] = slice(temp,temp+len(future_states[state_idx]),1)
 
         #Run model!
-        extrinsic_values_flat = self.run_model(self.extrinsic_model, future_states_flat, player=player_list_flat)
-        values_flat = -extrinsic_values_flat #We flip the sign, since this is the evaluation from the perspective of our opponent!
+        extrinsic_values_flat = self.run_model(model, future_states_flat, player=player_list_flat)
+        values_flat = k * extrinsic_values_flat
 
         #Undo flatten
         values = [values_flat[unflatten_dict[state_idx]] for state_idx in range(len(state_vec))]
@@ -99,21 +112,23 @@ class vector_agent(vector_agent_base):
         #Epsilon rolls
         action_idxs = argmax
         if training:
+            a_idx = action_idxs[state_idx]
             for state_idx in range(len(state_vec)):
                 if "distribution" in self.settings["dithering_scheme"]:
                     if "boltzman" in self.settings["dithering_scheme"]:
-                        theta = self.settings["action_temperature"].get_value(self.clock)
+                        theta = self.theta = self.settings["action_temperature"].get_value(self.clock)
                         p = softmax(theta*values[state_idx]).ravel()
                     elif "pareto" in self.settings["dithering_scheme"]:
                         theta = self.avg_trajectory_length * 4 / self.settings["game_area"]
                         p = utils.pareto(values[state_idx], temperature=theta)
+                    self.action_entropy = utils.entropy(p)
                     a_idx = np.random.choice(np.arange(values[state_idx].size), p=p)
                 if self.settings["dithering_scheme"] == "adaptive_epsilon":
                     dice = random.random()
                     #if random, change the action
                     if dice < self.settings["epsilon"].get_value(self.clock) * self.avg_trajectory_length**(-1):
                         a_idx = np.random.choice(np.arange(values[state_idx].size))
-                        action_idxs[state_idx] = a_idx
+                action_idxs[state_idx] = a_idx
         actions = [all_actions[state_idx][action_idxs[state_idx]] for state_idx in range(len(state_vec)) ]
 
         #Keep the clock going...
@@ -125,21 +140,35 @@ class vector_agent(vector_agent_base):
     ###
     #####
     def ready_for_new_round(self, training=False, env=None):
+        # print(env, self.env_idxs)
         e_idxs, _ = utils.parse_arg(env, self.env_idxs, indices=True)
+        if not self.settings["single_policy"]:
+            e_idxs += [e_idx + self.n_envs for e_idx in e_idxs]
         for e in e_idxs:
             a = self.settings["tau_learning_rate"]
-            if len(self.current_trajectory[env]) > 0 or training is False:
-                self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*len(self.current_trajectory[env])
+            if len(self.current_trajectory[e]) > 0 or training is False:
+                self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*len(self.current_trajectory[e])
 
         # Preprocess the trajectories specifiel to prepare them for training
         for e in e_idxs:
-            if training:
-                self.stored_trajectories.append(self.current_trajectory[e])
+            if training and len(self.current_trajectory[e]) > 0:
+                t = self.current_trajectory[e]
+                if self.settings["workers_do_processing"]:
+                    model = self.model_dict["extrinsic_model"] if self.settings["single_policy"] else self.model_dict["policy_{}".format(int(e>=self.n_envs))]
+                    data = t.process_trajectory(self.model_runner(model), self.unpack, gamma_discount=self.settings["gamma_extrinsic"])
+                else:
+                    data = t
+                metadata = {
+                            "policy" : int(e>=self.n_envs),
+                            "winner" : t.get_winner(),
+                            "length" : len(t),
+                            }
+                self.stored_trajectories.append((metadata,data))
                 #Increment some counters to guide what we do
                 if self.mode is threads.STANDALONE:
                     self.time_to_training  -= len(self.current_trajectory[e])
             #Clear trajectory
-            self.current_trajectory[e] = dt.trajectory()
+            self.current_trajectory[e] = self.trajectory_type()
 
         #Standalone agents have to keep track of their training habits!
         if training and self.mode is threads.STANDALONE:
@@ -152,15 +181,18 @@ class vector_agent(vector_agent_base):
     ###
     #####
     def store_experience(self, experience, env=None):
-        if env is not None:
-            assert type(env) is int, "This funtion only works for env=None or env=integer"
-            #We assume this is only ever used for the last state.
-            self.current_trajectory[env].add(experience, end_of_trajectory=True)
-            return
+        if env is None: endflag = False
+        else:           endflag = True
+        env_list = utils.parse_arg(env, self.env_idxs)
         #Turn a list of experience ingredients into one list of experiences:
         es = utils.merge_lists(*experience)
-        for i,e in enumerate(es):
-            self.current_trajectory[i].add(e)
+        assert len(env_list) == len(es), "WTF!!!! {} != {}".format(len(env_list), len(es))
+        for i,e in zip(env_list, es):
+            if self.settings["single_policy"]:
+                self.current_trajectory[i].add(e, end_of_trajectory=endflag)
+            if not self.settings["single_policy"]:
+                self.current_trajectory[i + self.n_envs*e[4]].add(e, end_of_trajectory=endflag)
+
         self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
 
     def transfer_data(self, keep_data=False):

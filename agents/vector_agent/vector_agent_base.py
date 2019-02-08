@@ -57,8 +57,14 @@ class vector_agent_base:
         states_np = self.unpack(states, player)
         return net.evaluate(states_np)
 
-    def run_default_model(self, states, player=None):
-        return self.run_model(self.model_dict["default"], states, player=player)
+    def model_runner(self, net):
+        if type(net) is str:
+            _net = self.model_dict["net"]
+        else:
+            _net = net
+        def runner(states, player=None):
+            return self.run_model(_net, states, player=player)
+        return runner
 
     # # # # #
     # Memory management fcns
@@ -93,9 +99,11 @@ class vector_agent_base:
                                              ref_weights
                                             )
 
-    def update_weights(self, w, model=None): #As passed by the trainer's export_weights-fcn..
-        if model is None: model = self.model_dict["default"]
-        model.set_weights(model.main_net_assign_list,w)
+    def update_weights(self, weight_list): #As passed by the trainer's export_weights-fcn..
+        models = sorted([x for x in self.model_dict])
+        for m,w in zip(models, weight_list):
+            model = self.model_dict[m]
+            model.set_weights(model.main_net_assign_list,w)
 
     def process_settings(self):
         print("process_settings not implemented yet!")
