@@ -14,9 +14,9 @@ total_steps = 1000
 n_envs = 64
 
 docoptstring = \
-'''Speedcheck!
+'''Threaded trainer!
 Usage:
-  Speedcheck.py [--n N] [--m M] [--steps S]  [--no-rendering] [--debug] [--pg]
+  thread_train.py [--n N] [--m M] [--steps S]  [--no-rendering] [--debug] [--pg]
 
 Options:
     --n N      N envs per thread. [default: 16]
@@ -34,7 +34,7 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id" : "onepolicy_01_conv",
+            "run-id" : "example_project",
 
             #Train parameters
             "n_samples_each_update"    : 8192 if not docoptsettings["--pg"] else 16384,
@@ -46,7 +46,7 @@ settings = {
             "experience_replay_size"   : 5*10**5 if not docoptsettings["--pg"] else 2*10**4,
             "alternating_models"       : False,
             "time_to_training"         : 10**3 if not docoptsettings["--pg"] else 1,
-            "single_policy"            : False,
+            "single_policy"            : True,
 
             #Dithering
             "dithering_scheme"    : "distribution_boltzman",
@@ -87,19 +87,19 @@ settings = {
             "render"            : render,
             "bar_null_moves"    : True,
 
-            ###
-            ###  PG
-            ###
-            "n_actions"              : 25,
-            "state_head_n_hidden"    : 2,
-            "state_head_hidden_size" : 512,
-            "state_head_output_size" : 10,
-            "joined_n_hidden"        : 2,
-            "joined_hidden_size"     : 512,
-            "weight_loss_policy"     : 1.0,
-            "weight_loss_entropy"    : 0.1,
-            "weight_loss_value"      : 0.5,
-            "clipping_parameter"     : constant_parameter(0.2),
+            # ###
+            # ###  PG (This is for an experimental agent that is currently not functioning)
+            # ###
+            # "n_actions"              : 25,
+            # "state_head_n_hidden"    : 2,
+            # "state_head_hidden_size" : 512,
+            # "state_head_output_size" : 10,
+            # "joined_n_hidden"        : 2,
+            # "joined_hidden_size"     : 512,
+            # "weight_loss_policy"     : 1.0,
+            # "weight_loss_entropy"    : 0.1,
+            # "weight_loss_value"      : 0.5,
+            # "clipping_parameter"     : constant_parameter(0.2),
            }
 
 print("Speedcheck:")
@@ -128,45 +128,49 @@ sys.stdout.flush()
 print("Multi-processes finished")
 #Done!
 
-###########################
 
+###
+# Saving this code for now, but it will be removed later.
+
+# ###########################
 #
-##Init SERIAL
-with tf.Session() as session:
-    env = settings["env_vector_type"](
-                                      1,
-                                      settings["env_type"],
-                                      settings=settings
-                                     )
-    agent = settings["agent_type"](
-                                   1,
-                                   id=0,
-                                   sandbox=settings["env_type"](settings=settings),
-                                   session=session,
-                                   settings=settings,
-                                  )
-    print("Starting serial")
-    T_serial_start = time.time()
-    current_player = 1
-    s = env.get_state()
-    print("Go!")
-    for t in range(total_steps):
-        current_player = 1 - current_player
-        _,a = agent.get_action(s, player=current_player)
-        # a = env.get_random_action()
-        r, ds = env.perform_action(a, player=current_player)
-        s = env.get_state()
-        for i,d in enumerate(ds):
-            if d: env.reset(env=i)
-        if render:
-            env.render(env=0)
-        print("Step {}".format((t+1)))
-    T_serial_stop = time.time()
-    print("Serial done")
-    #Done!
-
-#Show what we collected (parallel)!
-print("[Parallel] Collected {} trajectories:".format(None))
-print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_parallel, total_steps/T_parallel))
-print("[Serial] Collected {} trajectories:".format(None))
-print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_serial_stop - T_serial_start, total_steps/(T_serial_stop - T_serial_start) ))
+# #
+# ##Init SERIAL
+# with tf.Session() as session:
+#     env = settings["env_vector_type"](
+#                                       1,
+#                                       settings["env_type"],
+#                                       settings=settings
+#                                      )
+#     agent = settings["agent_type"](
+#                                    1,
+#                                    id=0,
+#                                    sandbox=settings["env_type"](settings=settings),
+#                                    session=session,
+#                                    settings=settings,
+#                                   )
+#     print("Starting serial")
+#     T_serial_start = time.time()
+#     current_player = 1
+#     s = env.get_state()
+#     print("Go!")
+#     for t in range(total_steps):
+#         current_player = 1 - current_player
+#         _,a = agent.get_action(s, player=current_player)
+#         # a = env.get_random_action()
+#         r, ds = env.perform_action(a, player=current_player)
+#         s = env.get_state()
+#         for i,d in enumerate(ds):
+#             if d: env.reset(env=i)
+#         if render:
+#             env.render(env=0)
+#         print("Step {}".format((t+1)))
+#     T_serial_stop = time.time()
+#     print("Serial done")
+#     #Done!
+#
+# #Show what we collected (parallel)!
+# print("[Parallel] Collected {} trajectories:".format(None))
+# print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_parallel, total_steps/T_parallel))
+# print("[Serial] Collected {} trajectories:".format(None))
+# print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_serial_stop - T_serial_start, total_steps/(T_serial_stop - T_serial_start) ))

@@ -25,6 +25,7 @@ default_settings = {
                     "winrate_learningrate" : 0.01,
                     #exploration
                     "dithering_scheme" : "adaptive_epsilon",
+                    "action_temperature"  : constant_parameter(1.0),
                     "epsilon" : constant_parameter(1.0),
                     #avg_trajectory_length_learning:
                     "tau_learning_rate" : 0.001,
@@ -57,9 +58,12 @@ default_settings = {
                 ##MULTIPROCESSING:
                     "worker_net_on_cpu" : True,
                     "trainer_net_on_cpu" : False,
+                    "trainer_thread_save_freq"  : 100,
                     "worker_data_send_fequency" : 100,
                     "weight_transfer_frequency" : 100,
+                    "workers_do_processing"     : True,
                     #Threading
+                    "run_standalone"    : True,
                     "n_workers"         : 4,
                     "n_envs_per_thread" : 16,
                     "worker_steps"      : 1000,
@@ -94,6 +98,11 @@ default_settings = {
                     "render_screen_dims" : (860,400),
                     "render_simulation" : False,    #This renders the outcomes of the first 4 non-empty action sequences when simulating.
                     "bar_null_moves" : False,
+                    #Preprocessing
+                    "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
+                    "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
+                    "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
+
 
                 ##GAME CONTROLLER:
                     "max_round_time" : None,
