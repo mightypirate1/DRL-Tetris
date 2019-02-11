@@ -72,5 +72,8 @@ If you want to get involved in this project and want to know what needs to be do
 
 If you have concrete ideas for improvement, or think something is lacking, or have any other suggestion, I will be glad to hear about it, but won't guarantee that it happens :-)
 
+## Contact:
+yfflan at gmail dot com
+
 [SpeedBlocks]: <https://github.com/kroyee/SpeedBlocks>
 [tensorflow]: <https://www.tensorflow.org/install/>
