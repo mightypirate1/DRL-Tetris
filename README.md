@@ -59,7 +59,7 @@ python3 eval.py project_name NNN project_name NNN
 As you might guess, you could make any weight version of any project play against any other, given that they both use the same environment settings.
 
 ## Customization:
-The entire repository uses a settings-dictionary (the default values of which are found in aux/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation.
+The entire repository uses a settings-dictionary (the default values of which are found in aux/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation. For examples of how to create such a dictionary, see "thread_train.py", and for how to pass it to the environment constructor, see "threads/worker_thread.py".
 
 For minor customizations, you can just edit the settings-dictionary in thread_train.py.
 To change the size of the field used, just find the game_field entry and put a new value there. Any option that is in aux/settings.py can be overridden this way.
