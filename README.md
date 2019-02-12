@@ -11,6 +11,8 @@ These two components may be separated into different repositories at some time i
 * Install dependencies (see "Dependencies").
 * Build the backend module (see "Build backend").
 
+Once these steps are done, you should be able to use the environment, and to train your own agents (see "Usage").
+
 #### Dependencies:
 The versions specified are the version used on the test system.
 
@@ -64,7 +66,12 @@ To change the size of the field used, just find the game_field entry and put a n
 
 If you wish to customizations that are not obvious how to do, just contact me and I will produce the documentation needed asap. To write your own agent and/or customize the training procedure, you will have to write code. Probably the best way to get into the code is to look at the function "thread_code" in threads/worker_thread.py where the main training loop is located.
 
-## API-documentation:
+## On the horizon:
+
+#### Network play:
+So far no official client exists for playing against the agents you train. Coming soon is a closer integration of the environmnet backend and the game itself. This will allow for an evaluation mode where an agent plays versus a human player online in the same way that two human play against each other. Stay tuned!
+
+#### API-documentation:
 The environment documentation is next on the todo-list. For now I will say that the functionality is similar conceptually to the OpenAI gym environments, and should be quite understandable from reading the code (check out the function "thread_code" in threads/worker_thread.py). Having said that, if you would like to see documentation happen faster, or if you have any question regarding this, contact me and I will happily answer.
 
 ## Contribute!
