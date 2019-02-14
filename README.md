@@ -56,7 +56,7 @@ To test these weights out against itself, run
 ```
 python3 eval.py project_name NNN project_name NNN
 ```
-As you might guess, you could make any weight version of any project play against any other, given that they both use the same environment settings.
+As you might guess, you could make any weight-version of any project play against any other, given that they both use the same environment settings.
 
 ## Customization:
 The entire repository uses a settings-dictionary (the default values of which are found in aux/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation. For examples of how to create such a dictionary, see "thread_train.py", and for how to pass it to the environment constructor, see "threads/worker_thread.py".
@@ -73,6 +73,17 @@ So far no official client exists for playing against the agents you train. Comin
 
 #### API-documentation:
 The environment documentation is next on the todo-list. For now I will say that the functionality is similar conceptually to the OpenAI gym environments, and should be quite understandable from reading the code (check out the function "thread_code" in threads/worker_thread.py). Having said that, if you would like to see documentation happen faster, or if you have any question regarding this, contact me and I will happily answer.
+
+#### Standardized environment configurations:
+A few standard configurations will be decided on and made official so that they are easily and reliable recreated. Basically replacing
+```
+settings = {...}
+env = tetris_environment(...,...,...,...,settings=settings)
+```
+with
+```
+env = environment.make("FullSize-v0")
+```
 
 ## Contribute!
 If you want to get involved in this project and want to know what needs to be done, feel free to contact me and I will be happy to discuss this!
