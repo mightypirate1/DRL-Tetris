@@ -22,9 +22,8 @@ class experience_replay:
     def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False):
         #Create the sampling distribution (see paper for details)
         n = self.current_size
-        # all_indices = np.arange(n)
         all_indices = np.arange(n)
-        sort_idxs = self.prios[:n].argsort(axis=0).ravel()
+        # sort_idxs = self.prios[:n].argsort(axis=0).ravel()
 
         #make ranking
         rank = 1+n-scipy.stats.rankdata(self.prios[:n].ravel(), method='ordinal')
