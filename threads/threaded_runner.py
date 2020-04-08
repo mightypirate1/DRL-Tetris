@@ -18,9 +18,10 @@ class threaded_runner:
 
         #Set up some shared variables to use for inter-thread communications (data transfer etc)
         manager = mp.Manager()
+        n_threads = self.settings["n_workers"] + int(not self.settings["run_standalone"])
         self.shared_vars = {
                             #run_flag is up when a worker is running. run_time is the exectution-time of a worker.
-                             "run_flag"            : mp.Array("i", [  0 for _ in range(settings["n_workers"])] ),
+                             "run_flag"            : mp.Array("i", [  0 for _ in range(n_threads)] ),
                              "run_time"            : mp.Array("d", [0.0 for _ in range(settings["n_workers"])] ),
                             #Time
                              "global_clock"        : mp.Value("i", 0),
@@ -46,6 +47,7 @@ class threaded_runner:
                                   )
             thread.deamon = True
             self.threads["workers"].append(thread)
+            self.all_threads.append(thread)
 
         if not self.settings["run_standalone"]:
             #Add 1 trainer
@@ -56,7 +58,7 @@ class threaded_runner:
                                      patience=trainer_patience,
                                     )
             self.threads["trainer"] = trainer
-
+            self.all_threads.append(trainer)
     def get_avg_runtime(self):
         ret = 0
         for t in self.shared_vars["run_time"]:
@@ -64,18 +66,21 @@ class threaded_runner:
         return ret / len(self.shared_vars["run_time"])
 
     def run(self, steps):
-        started = False
         if len(self.threads["workers"]) == 0:
             print("You have no workers employed. What do you want to run, even???");return
-        for thread in self.threads["workers"]:
+        for thread in self.all_threads:
             self.start_thread(thread)
-        while not started:
-            started = True
-            for flag in self.shared_vars["run_flag"]:
-                started = started and flag > 0
-            time.sleep(1)
-        if not self.settings["run_standalone"]:
-            self.start_thread(self.threads["trainer"])
+
+        ''' REMOVE? '''
+        # started = False
+        # ...... [Code block above was here]
+        # while not started:
+        #     started = True
+        #     for flag in self.shared_vars["run_flag"]:
+        #         started = started and flag > 0
+        #     time.sleep(1)
+        # if not self.settings["run_standalone"]:
+        #     self.start_thread(self.threads["trainer"])
 
     def start_thread(self, thread):
         print("Starting thread: {}".format(thread))
@@ -89,7 +94,7 @@ class threaded_runner:
             done = True
             for flag in self.shared_vars["run_flag"]:
                 done = done and flag == 0
-            time.sleep(10)
+            time.sleep(1)
         print("join done!")
 
     # def join(self):
