@@ -108,16 +108,15 @@ class vector_agent_trainer(vector_agent_base):
         else:
             assert policy is not None, "In multi-policy mode you must specify which model to train!"
             policy = "policy_{}".format(policy)
+            if self.scoreboard[policy] > 0.5 + self.settings["winrate_tolerance"]:
+                print("Policy \"{}\" did NOT TRAIN, due to too much winning! ({})".format(policy, self.scoreboard[policy]))
+                return False
         exp_rep = self.experience_replay_dict[policy]
         model = self.model_dict[policy]
 
         #If we dont have enough samples yet we quit early...
         if sample is None and len(exp_rep) < self.settings["n_samples_each_update"]:
             if not self.settings["run_standalone"]: time.sleep(1) #If we are a separate thread, we can be a little patient here
-            return False
-
-        if self.scoreboard[policy] > 0.5 + self.settings["winrate_tolerance"]:
-            print("Policy \"{}\" did NOT TRAIN, due to too much winning! ({})".format(policy, self.scoreboard[policy]))
             return False
 
         #Start!
@@ -133,10 +132,10 @@ class vector_agent_trainer(vector_agent_base):
         if sample is None: #If no one gave us one, we get one ourselves!
             update_prio_flag = True
             sample, is_weights, filter = exp_rep.get_random_sample(
-                                                                                  self.settings["n_samples_each_update"],
-                                                                                  alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
-                                                                                  beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
-                                                                                 )
+                                                                   self.settings["n_samples_each_update"],
+                                                                   alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
+                                                                   beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
+                                                                  )
         else: update_prio_flag = False
 
         #Unpack a little...
