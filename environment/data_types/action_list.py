@@ -27,6 +27,8 @@ class action_list(list):
     def __getitem__(self, key):
         if key > len(self.container):
             print("I HOPE THAT ACTION WAS NOT NECESSARY......")
+            print("actions:", self.container)
+            print("requested idx:", key)
             return null_action
         return self.container[key]
     def __len__(self):
