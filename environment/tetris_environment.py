@@ -90,7 +90,7 @@ class tetris_environment:
         a         = [data_types.null_action for _ in self.player_idxs]
         a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        reward = self.get_info()["reward"][player]
+        reward = self.get_info(internal_call=True)["reward"][player]
         done   = self.done
         return reward, done
 
@@ -111,10 +111,15 @@ class tetris_environment:
         #The state_processor is responsible for extracting the data from the backend that is part of the state
         return data_types.state(self.backend, self.state_processor)
 
-    def get_info(self):
-        # speed = [self.backend.info[i].speed for i in range(self.settings["n_players"])]
+    def get_info(self, internal_call=False):
+        ret = {}
         r = [0 for _ in range(self.settings["n_players"])]
+        if not internal_call:
+            # speed = [self.backend.info[i].speed for i in range(self.settings["n_players"])]
+            is_dead = [0 for _ in range(self.settings["n_players"])]
         for i in range(self.settings["n_players"]):
+            if not internal_call:
+                is_dead[i] = self.backend.states[i].dead[0]
             if self.backend.states[i].dead[0] == 1:
                 r[i] = -1
             else:
@@ -122,10 +127,10 @@ class tetris_environment:
                 for idx,states in enumerate(self.backend.states):
                     if not idx==i and states.dead[0] == 1:
                         r[i] +=1
-        ret = {
-                "reward" : np.array(r),
-                # "speed"  : np.array(speed),
-              }
+        ret["reward"] = np.array(r)
+        if not internal_call:
+            ret["is_dead"] = is_dead
+            # ret["speed"] = speed
         return ret
 
     # # # # #
