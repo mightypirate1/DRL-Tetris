@@ -19,6 +19,7 @@ class vector_agent(vector_agent_base):
     def __init__(
                  self,
                  n_envs,                    # How many envs in the vector-env?
+                 n_workers=1,               # How many workers run in parallel? If you don't know, guess it's just 1
                  id=0,                      # What's this trainers name?
                  session=None,              # The session to operate in
                  sandbox=None,              # Sandbox to play in!
@@ -31,12 +32,15 @@ class vector_agent(vector_agent_base):
         #Helper variables
         self.env_idxs = [i for i in range(n_envs)]
         self.n_envs = n_envs
+        self.n_workers = n_workers
+
+        self.send_count = 0
 
         #In any mode, we need a place to store transitions!
         self.trajectory_type = dt.trajectory if self.settings["single_policy"] else dt.trajectory_dualpolicy
         self.current_trajectory = [self.trajectory_type() for _ in range(self.n_envs if self.settings["single_policy"] else 2*self.n_envs)]
         self.stored_trajectories = list()
-        self.avg_trajectory_length = 9 #tau is initialized to something...
+        self.avg_trajectory_length = 12 #tau is initialized to something...
         self.action_entropy = 0
         self.theta = 0
 
@@ -107,13 +111,12 @@ class vector_agent(vector_agent_base):
 
         #Undo flatten
         values = [values_flat[unflatten_dict[state_idx]] for state_idx in range(len(state_vec))]
-        argmax = [ np.argmax( values_flat[unflatten_dict[state_idx]]) for state_idx in range(len(state_vec))]
+        action_idxs = [ np.argmax( values_flat[unflatten_dict[state_idx]]) for state_idx in range(len(state_vec))]
 
-        #Epsilon rolls
-        action_idxs = argmax
+        #Choose an action . . .
         if training:
-            a_idx = action_idxs[state_idx]
             for state_idx in range(len(state_vec)):
+                a_idx = action_idxs[state_idx]
                 if "distribution" in self.settings["dithering_scheme"]:
                     if "boltzman" in self.settings["dithering_scheme"]:
                         theta = self.theta = self.settings["action_temperature"].get_value(self.clock)
@@ -125,7 +128,6 @@ class vector_agent(vector_agent_base):
                     a_idx = np.random.choice(np.arange(values[state_idx].size), p=p)
                 if self.settings["dithering_scheme"] == "adaptive_epsilon":
                     dice = random.random()
-                    #if random, change the action
                     if dice < self.settings["epsilon"].get_value(self.clock) * self.avg_trajectory_length**(-1):
                         a_idx = np.random.choice(np.arange(values[state_idx].size))
                 action_idxs[state_idx] = a_idx
@@ -133,14 +135,13 @@ class vector_agent(vector_agent_base):
 
         #Keep the clock going...
         if training:
-            self.clock += self.n_envs
+            self.clock += self.n_envs * self.n_workers
         return action_idxs, actions
 
     #
     ###
     #####
     def ready_for_new_round(self, training=False, env=None):
-        # print(env, self.env_idxs)
         e_idxs, _ = utils.parse_arg(env, self.env_idxs, indices=True)
         if not self.settings["single_policy"]:
             e_idxs += [e_idx + self.n_envs for e_idx in e_idxs]
@@ -159,12 +160,15 @@ class vector_agent(vector_agent_base):
                 else:
                     data = t
                 metadata = {
-                            "policy" : int(e>=self.n_envs),
-                            "winner" : t.get_winner(),
-                            "length" : len(t),
+                            "policy"    : int(e>=self.n_envs),
+                            "winner"    : t.get_winner(),
+                            "length"    : len(t),
+                            "worker"    : self.id,
+                            "packet_id" : self.send_count,
                             }
                 self.stored_trajectories.append((metadata,data))
                 #Increment some counters to guide what we do
+                self.send_count += 1
                 if self.mode is threads.STANDALONE:
                     self.time_to_training  -= len(self.current_trajectory[e])
             #Clear trajectory

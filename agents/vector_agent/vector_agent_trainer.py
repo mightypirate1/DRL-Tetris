@@ -69,9 +69,8 @@ class vector_agent_trainer(vector_agent_base):
             for d in data_list:
                 input_data += d
         else: input_data = data_list
+        n, tot = 0, 0
 
-        tot = 0
-        n = 0
         for metadata,data in input_data:
                 n += 1
                 if not self.settings["workers_do_processing"]:
@@ -84,7 +83,7 @@ class vector_agent_trainer(vector_agent_base):
                     exp_rep = self.experience_replay_dict["policy_{}".format(metadata["policy"])]
                 exp_rep.add_samples(d,p)
                 self.update_scoreboard(metadata["winner"])
-                tot += metadata["length"]
+                tot += metadata["length"] + 1 #Is this correct?
         self.clock += tot
         avg = tot/n if n>0 else 0
         return tot, avg

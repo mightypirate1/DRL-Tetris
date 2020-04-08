@@ -85,6 +85,7 @@ class vector_agent_base:
             pickle.dump(self.settings, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load_weights(self, folder, file):  #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
+        assert folder in file, "folder is supposed to be a substring of file"
         with open(file, 'rb') as f:
             input_models = pickle.load(f)
         for net in self.model_dict:
