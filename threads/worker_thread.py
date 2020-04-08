@@ -59,6 +59,7 @@ class worker_thread(mp.Process):
                                                        )
             self.agent = self.settings["agent_type"](
                                                      self.settings["n_envs_per_thread"],
+                                                     n_workers=self.settings["n_workers"],
                                                      id=self.id,
                                                      mode=threads.WORKER if not self.settings["run_standalone"] else threads.STANDALONE,
                                                      sandbox=self.settings["env_type"](settings=self.settings),
@@ -159,6 +160,7 @@ class worker_thread(mp.Process):
                 self.print_stats()
 
             #Report when done!
+            self.report_wasted_data()
             print("worker{} done".format(self.id))
             runtime = time.time() - self.t_thread_start
             self.shared_vars["run_flag"][self.id] = 0
@@ -213,6 +215,10 @@ class worker_thread(mp.Process):
 
     def walltime(self):
         return time.time() - self.t_thread_start
+
+    def report_wasted_data(self):
+        waste = sum([len(t) for t in self.agent.current_trajectory])
+        print( "worker{} discards".format(self.id), waste, "samples")
 
     def time():
         if self.settings["run_standalone"]:
