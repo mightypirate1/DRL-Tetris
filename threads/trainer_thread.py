@@ -54,9 +54,12 @@ class trainer_thread(mp.Process):
         # Be Nice
         niceness=os.nice(0)
         # os.nice(niceness-3) #Not allowed it seems :)
-
+        self.shared_vars["run_flag"][-1] = 1
         # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=self.settings["trainer_gpu_fraction"])
-        with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})) as session:
+
+        config = tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})
+        config.gpu_options.allow_growth = True
+        with tf.Session(config=config) as session:
             #Initialize!
             self.trainer = self.settings["trainer_type"](
                                                          id=self.id,
@@ -69,8 +72,6 @@ class trainer_thread(mp.Process):
             #
             ##Run!
             #####
-            #Thread-logics
-            self.running = True
             #Init run
             self.stats["t_start"] = time.time()
             self.quick_summary = quick_summary(settings=self.settings, session=session)
@@ -85,10 +86,12 @@ class trainer_thread(mp.Process):
                 if self.trainer.n_train_steps["total"] % self.settings["trainer_thread_save_freq"] == 0 and self.trainer.n_train_steps["total"] > self.last_saved_weights:
                     self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps["total"]))
             #Report when done!
-            print("trainer done")
+            self.load_worker_data()
+            print("trainer done. {} data processed.".format(self.trainer.clock))
             self.stats["t_stop"] = time.time()
             self.stats["t_total"] = self.stats["t_stop"] - self.stats["t_start"]
             runtime = self.stats["t_total"]
+            self.shared_vars["run_flag"][-1] = 0
 
     def do_training(self):
         t = time.time()
@@ -157,7 +160,7 @@ class trainer_thread(mp.Process):
         self.shared_vars["global_clock"].value = self.trainer.clock
 
     def workers_running(self):
-        for i in self.shared_vars["run_flag"]:
+        for i in self.shared_vars["run_flag"][:-1]: #Don't check the last one.. that is the trainer-thread!
             if i == 1: return True
         return False
 
