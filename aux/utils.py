@@ -1,7 +1,10 @@
-from aux.settings import default_settings
-import numpy as np
-from scipy.stats import rankdata
+import os
 import pickle
+import numpy as np
+import itertools
+from scipy.stats import rankdata
+
+from aux.settings import default_settings
 
 def parse_arg(_entry_idx, data, fill_up=None, indices=False):
     #This tries to encapsulate the general pattern of passing data vectorized...
@@ -36,6 +39,25 @@ def parse_settings(settings):
         s["game_area"] = s["game_size"][0] * s["game_size"][1]
     return s
 
+def find_weight_settings(weight_str):
+    for name in reversed(weight_str.split("/")):
+        path,_,_ = weight_str.rpartition(name)
+        if os.path.exists(path+"settings"):
+            return path+"settings"
+    assert False, "No settings-file found for " + weight_str
+
+def test_setting_compatibility(*settings):
+    def test(y,x):
+        equals = ["game_size"]
+        for field in equals:
+            if x[field] != y[field]:
+                print(field," is required to be equal for all settings")
+                return False
+        return True
+    for pair in itertools.product(settings,settings):
+        if not test(*pair): return False
+    return True
+
 def load_settings(file):
     with open(file, 'rb') as f:
         return parse_settings(pickle.load(f))
@@ -44,11 +66,17 @@ def load_settings(file):
 def merge_lists(*e):
     return list(zip(*e))
 
-def weight_location(s, idx=""): #s is a settings dictionary
-    project = s["run-id"]
-    folder = "models/"+project
-    file   = folder+"/weights"+str(idx)+".w"
-    return folder, file
+def weight_location(s, idx=""):
+    if type(s) is dict: #s is a settings dictionary
+        project = s["run-id"]
+        folder = "models/"+project
+        file   = folder+"/weights"+str(idx)+".w"
+        return folder, file
+    if type(s) is str: #s is a string
+        #assume s is path to weight file... (.../.../*.w)
+        f = s.split("/")[-1]
+        folder,_,_ = s.rpartition(f)
+        return folder, s
 
 def pareto(x, temperature=1.0):
     p_unnormalized = 1/rankdata(x, method='ordinal')**temperature
