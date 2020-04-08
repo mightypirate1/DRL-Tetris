@@ -28,7 +28,7 @@ default_settings = {
                     "action_temperature"  : constant_parameter(1.0),
                     "epsilon" : constant_parameter(1.0),
                     #avg_trajectory_length_learning:
-                    "tau_learning_rate" : 0.001,
+                    "tau_learning_rate" : 0.01,
                     #experience replay:
                     "experience_replay_size" : 10**5,
                     "prioritized_experience_replay" : True,
@@ -73,16 +73,6 @@ default_settings = {
                     "wrangler_update_mode" : "all", #"none", "budget"
                     "wrangler_trainerfeed_target_length" : 20, #How many samples do we try to get into the que?
 
-                ##CURIOSITY NET:
-                    "n_hidden_layers" : 3,
-                    "layer_size" : 2500,
-                    "output_size" : 10,
-                    "RDN_activation" : tf.nn.tanh,
-                    "curiosity_norm" : 2,
-                    "input_normalization_lr" : 0.05,
-                    "output_mu_lr" : 0.05,
-                    "curiosity_lr" : constant_parameter(0.000001),
-
                 ##ENV:
                     "environment_logging" : True,
                     "env_type" : None,
@@ -95,7 +85,7 @@ default_settings = {
                     "action_type" : "place_block",  #This determines if an action represents pressing a key or placing a block. Allowd values is "press_key" and "place_block"
                     "render" : True,                 #Gfx on?,
                     "pause_on_keypress" : True,
-                    "render_screen_dims" : (860,400),
+                    "render_screen_dims" : (1720,800),
                     "render_simulation" : False,    #This renders the outcomes of the first 4 non-empty action sequences when simulating.
                     "bar_null_moves" : False,
                     #Preprocessing
