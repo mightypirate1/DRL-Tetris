@@ -20,9 +20,10 @@ class trajectory:
     def get_cumulative_reward(self, gamma_discount=0.999):
         return sum([x*gamma_discount**i for i,x in enumerate(self.r)])
 
-    def process_trajectory(self, model, state_fcn, gamma_discount=0.99):
+    def process_trajectory(self, model, state_fcn, reward_shaper=None, gamma_discount=0.99):
+        r = self.r if reward_shaper is None else reward_shaper(r)
         v = model(self.s, player=self.p)
-        r = np.array(self.r).reshape((-1,1))
+        r = np.array(     r).reshape((-1,1))
         d = np.array(self.d).reshape((-1,1))
         td_errors = -v[:-1] + r -gamma_discount * v[1:] * (1-d)
         prios = np.abs(td_errors)
