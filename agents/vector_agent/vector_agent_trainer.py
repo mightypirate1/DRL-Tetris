@@ -32,7 +32,7 @@ class vector_agent_trainer(vector_agent_base):
         self.n_train_steps = {}
         self.time_to_reference_update = {}
         self.scoreboard = {}
-        models = ["extrinsic_model"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
+        models = ["value_net"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
         for model in models:
             m = prio_vnet(
                           "TRAINER",
@@ -78,7 +78,7 @@ class vector_agent_trainer(vector_agent_base):
                 else:
                     d, p = data
                 if self.settings["single_policy"]:
-                    exp_rep = self.experience_replay_dict["extrinsic_model"]
+                    exp_rep = self.experience_replay_dict["value_net"]
                 else:
                     exp_rep = self.experience_replay_dict["policy_{}".format(metadata["policy"])]
                 exp_rep.add_samples(d,p)
@@ -104,7 +104,7 @@ class vector_agent_trainer(vector_agent_base):
     def do_training(self, sample=None, policy=None):
         #Figure out what policy, model, and experience replay to use...
         if self.settings["single_policy"]:
-            policy = "extrinsic_model"
+            policy = "value_net"
         else:
             assert policy is not None, "In multi-policy mode you must specify which model to train!"
             policy = "policy_{}".format(policy)
@@ -183,7 +183,7 @@ class vector_agent_trainer(vector_agent_base):
 
     def output_stats(self):
         tot_loss, v_loss, reg_loss = zip(*self.train_stats_raw)
-        output_policy = "extrinsic_model" if self.settings["single_policy"] else "policy_0"
+        output_policy = "value_net" if self.settings["single_policy"] else "policy_0"
         ret = {
                 "Total loss"       : sum(tot_loss)/len(self.train_stats_raw),
                 "Value loss"       : sum(v_loss  )/len(self.train_stats_raw),

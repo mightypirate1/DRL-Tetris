@@ -48,14 +48,14 @@ class vector_agent(vector_agent_base):
         if self.mode is threads.STANDALONE:
             #Create a trainer, and link their neural-net and experience-replay to us
             self.trainer = self.settings["trainer_type"](id="trainer_{}".format(self.id),settings=settings, session=session, sandbox=sandbox, mode=threads.PASSIVE)
-            self.model_dict["default"] = self.trainer.model_dict
+            self.model_dict = self.trainer.model_dict
             #STANDALONE agents have to keep track of their own training habits!
             self.time_to_training = self.settings['time_to_training']
 
         if self.mode is threads.WORKER: #If we are a WORKER, we bring our own equipment
             #Create models
             self.model_dict = {}
-            models = ["extrinsic_model"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
+            models = ["value_net"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
             for model in models:
                 m = prio_vnet(
                               self.id,
@@ -82,7 +82,7 @@ class vector_agent(vector_agent_base):
 
         #Set up some stuff that depends on what type of training we do...
         if self.settings["single_policy"]:
-            model = self.model_dict["extrinsic_model"]
+            model = self.model_dict["value_net"]
             perspective = lambda x:1-x
             k = -1
         else:
@@ -155,7 +155,7 @@ class vector_agent(vector_agent_base):
             if training and len(self.current_trajectory[e]) > 0:
                 t = self.current_trajectory[e]
                 if self.settings["workers_do_processing"]:
-                    model = self.model_dict["extrinsic_model"] if self.settings["single_policy"] else self.model_dict["policy_{}".format(int(e>=self.n_envs))]
+                    model = self.model_dict["value_net"] if self.settings["single_policy"] else self.model_dict["policy_{}".format(int(e>=self.n_envs))]
                     data = t.process_trajectory(
                                                 self.model_runner(model),
                                                 self.unpack,
