@@ -156,7 +156,12 @@ class vector_agent(vector_agent_base):
                 t = self.current_trajectory[e]
                 if self.settings["workers_do_processing"]:
                     model = self.model_dict["extrinsic_model"] if self.settings["single_policy"] else self.model_dict["policy_{}".format(int(e>=self.n_envs))]
-                    data = t.process_trajectory(self.model_runner(model), self.unpack, gamma_discount=self.settings["gamma_extrinsic"])
+                    data = t.process_trajectory(
+                                                self.model_runner(model),
+                                                self.unpack,
+                                                reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock))
+                                                gamma_discount=self.settings["gamma_extrinsic"]
+                                                )
                 else:
                     data = t
                 metadata = {

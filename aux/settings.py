@@ -9,6 +9,8 @@ default_settings = {
                 ## AGENT:
                     "agent_type"   : None,
                     "trainer_type" : None,
+                    #Reward shaping
+                    "reward_shaper" : None,
                     #Policy type
                     "single_policy" : True,
                     "adversarial_training" : True,

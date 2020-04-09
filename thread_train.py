@@ -2,6 +2,7 @@ from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer
 from agents.pg_vector_agent import pg_vector_agent, pg_vector_agent_trainer
+from agents.agent_utils.reward_shapers import *
 from aux.parameter import *
 import threads.threaded_runner
 
@@ -31,29 +32,35 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id" : "first_boltz_lr5-6",
+            "run-id" : "FIRST_16_30_128_4_5-0",
 
             #Train parameters
-            "n_samples_each_update"    : 8192,
-            "minibatch_size"           : 32,
-            "epsilon"                  : constant_parameter(1.0),
-            "value_lr"                 : linear_parameter(1e-5, final_val=1e-6, time_horizon=total_steps),
-            "prioritized_replay_alpha" : constant_parameter(0.7),
-            "prioritized_replay_beta"  : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
-            "experience_replay_size"   : 5*10**5,
-            "alternating_models"       : False,
-            "time_to_training"         : 10**3,
-            "single_policy"            : True,
+            "n_samples_each_update"     : 2*8192,
+            "n_train_epochs_per_update" : 30,
+            "minibatch_size"            : 128,
+            "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
+            "epsilon"                   : linear_parameter(5, final_val=0, time_horizon=total_steps),
+            "value_lr"                  : linear_parameter(1e-5, final_val=1e-6, time_horizon=total_steps),
+            "prioritized_replay_alpha"  : constant_parameter(0.7),
+            "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
+            "experience_replay_size"    : 5*10**5,
+            "alternating_models"        : False,
+            "time_to_training"          : 10**3,
+            "single_policy"             : True,
 
             #Dithering
-            "dithering_scheme"    : "distribution_boltzman",
-            "action_temperature"  : exp_parameter(1.0, final_val=16, time_horizon=total_steps),
-            # "dithering_scheme"    : "adaptive_epsilon",
-            # "epsilon"  : linear_parameter(2.5, final_val=0.5, time_horizon=total_steps),
+            # "dithering_scheme"    : "distribution_boltzman",
+            # "action_temperature"  : exp_parameter(1.0, final_val=16, time_horizon=total_steps),
+            "dithering_scheme"    : "adaptive_epsilon",
+            "epsilon"  : linear_parameter(2.5, final_val=0.5, time_horizon=total_steps),
+
+            #Reward shaping
+            "reward_shaper" :  linear_reshaping,
+            "reward_shaper_param" : linear_parameter(0.5, final_val=0, time_horizon=0.8*total_steps)
 
             #Game settings
             "pieces" : [0,6],
-            "game_size" : [12,6],
+            "game_size" : [22,10],
             "time_elapsed_each_action" : 400,
             #Types
             "env_vector_type"   : tetris_environment_vector,
@@ -71,7 +78,6 @@ settings = {
             "trainer_net_on_cpu"   : False,
             #Communication
             "trainer_thread_save_freq"  : 10,
-            "n_train_epochs_per_update" : 15,
             "worker_data_send_fequency" : 150,
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
