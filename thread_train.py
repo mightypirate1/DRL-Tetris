@@ -32,7 +32,7 @@ debug = docoptsettings["--debug"]
 
 settings = {
             #Project
-            "run-id" : "FIRST_16_30_128_4_5-0",
+            "run-id" : "FIRST_16_30_128_4_5-0_lin0.5-0_0.8",
 
             #Train parameters
             "n_samples_each_update"     : 2*8192,
@@ -56,7 +56,7 @@ settings = {
 
             #Reward shaping
             "reward_shaper" :  linear_reshaping,
-            "reward_shaper_param" : linear_parameter(0.5, final_val=0, time_horizon=0.8*total_steps)
+            "reward_shaper_param" : linear_parameter(0.5, final_val=0, time_horizon=0.8*total_steps),
 
             #Game settings
             "pieces" : [0,6],

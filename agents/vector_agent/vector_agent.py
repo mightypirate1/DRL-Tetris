@@ -159,7 +159,7 @@ class vector_agent(vector_agent_base):
                     data = t.process_trajectory(
                                                 self.model_runner(model),
                                                 self.unpack,
-                                                reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock))
+                                                reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock)),
                                                 gamma_discount=self.settings["gamma_extrinsic"]
                                                 )
                 else:

@@ -21,7 +21,7 @@ class trajectory:
         return sum([x*gamma_discount**i for i,x in enumerate(self.r)])
 
     def process_trajectory(self, model, state_fcn, reward_shaper=None, gamma_discount=0.99):
-        r = self.r if reward_shaper is None else reward_shaper(r)
+        r = self.r if reward_shaper is None else reward_shaper(self.r)
         v = model(self.s, player=self.p)
         r = np.array(     r).reshape((-1,1))
         d = np.array(self.d).reshape((-1,1))

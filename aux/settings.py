@@ -10,7 +10,8 @@ default_settings = {
                     "agent_type"   : None,
                     "trainer_type" : None,
                     #Reward shaping
-                    "reward_shaper" : None,
+                    "reward_shaper" : lambda x : None,
+                    "reward_shaper_param" : 0,
                     #Policy type
                     "single_policy" : True,
                     "adversarial_training" : True,
