@@ -23,12 +23,12 @@ Options:
 '''
 
 docoptsettings = docopt.docopt(docoptstring)
+debug = docoptsettings["--debug"]
 total_steps = int(docoptsettings["--steps"])
-n_workers = int(docoptsettings["--m"])
+n_workers = int(docoptsettings["--m"]) if not debug else 1
 n_envs_per_thread = int(docoptsettings["--n"])
 n_envs = n_workers * n_envs_per_thread
 render = not docoptsettings["--no-rendering"]
-debug = docoptsettings["--debug"]
 
 settings = {
             #Project
