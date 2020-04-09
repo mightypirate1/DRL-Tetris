@@ -7,6 +7,8 @@ class parameter:
         self.time_horizon = time_horizon
     def __eval__(self, t):
         return self.get_value(t)
+    def __call__(self, t):
+        return self.get_value(t)
     def get_value(self, t):
         return self.init_val
     def __str__(self):
