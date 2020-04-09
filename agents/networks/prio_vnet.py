@@ -121,8 +121,10 @@ class prio_vnet:
 
     def create_visualencoder(self, x):
         with tf.variable_scope("visualencoder", reuse=tf.AUTO_REUSE) as vs:
+            if self.settings["pad_visuals"]:
+                x = self.apply_visual_pad(x)
             for n in range(self.settings['visualencoder_n_convs']):
-                x = tf.layers.conv2d(
+                y = tf.layers.conv2d(
                                         x,
                                         self.settings["visualencoder_n_filters"][n],
                                         self.settings["visualencoder_filter_sizes"][n],
@@ -133,7 +135,20 @@ class prio_vnet:
                                         bias_initializer=tf.zeros_initializer(),
                                     )
                 if n in self.settings["visualencoder_poolings"]:
-                    x = tf.layers.max_pooling2d(x, 2, 2, padding='same')
+                    assert not selt.settings["peephole_convs"], "visualencoder_poolings and peephole_convs are currently incompatible. if you want it, e-mail me and i might fix it :)"
+                    y = tf.layers.max_pooling2d(y, 2, 2, padding='same')
+                if self.settings["peephole_convs"]:
+                    x = tf.concat([y,x], axis=-1)
+                else:
+                    x = y
+        return x
+
+    def apply_visual_pad(self, x):
+        #Apply zero-padding on top:
+        x = tf.pad(x, [[0,0],[1,0],[0,0],[0,0]], constant_values=0.0)
+        #Apply one-padding left, right and bottom:
+        x = tf.pad(x, [[1,1],[0,1],[1,1],[0,0]], constant_values=1.0)
+        # This makes floor and walls look like it's a piece, and cieling like its free space
         return x
 
     def create_value_net(self,vectors, visuals, name):
