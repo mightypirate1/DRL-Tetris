@@ -46,17 +46,18 @@ default_settings = {
                     "relative_state"   : True,  #This means that both players sees themselves as the player to the left, and the other on the right
                     "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
                     "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
-                    "pad_visuals"      : True,
-                    "peephole_convs"   : True,
+                    "pad_visuals"      : False,
+                    "peephole_convs"   : False,
                     #Value net:
                     "vectorencoder_n_hidden" : 2,
                     "vectorencoder_hidden_size" : 256,
                     "vectorencoder_output_size" : 64,
-                    "visualencoder_n_convs" : 3,
-                    "visualencoder_n_filters" : (32,32,16),
-                    "visualencoder_filter_sizes" : ((5,5), (5,5), (5,5)),
+                    "visualencoder_n_convs" : 4,
+                    "visualencoder_n_filters" : (32,32,32, 16),
+                    "visualencoder_filter_sizes" : ((5,5), (5,5), (5,5), (5,5)),
                     "visualencoder_poolings" : [], #Pooling after layer numbers in this list
-                    "valuenet_n_hidden" : 1,
+                    "visualencoder_peepholes" : [0,1,],
+                    "valuenet_n_hidden" : 2,
                     "valuenet_hidden_size" : 1024,
                     "nn_regularizer" : 0.001,
 
