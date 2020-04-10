@@ -137,7 +137,7 @@ class prio_vnet:
                 if n in self.settings["visualencoder_poolings"]:
                     assert not selt.settings["peephole_convs"], "visualencoder_poolings and peephole_convs are currently incompatible. if you want it, e-mail me and i might fix it :)"
                     y = tf.layers.max_pooling2d(y, 2, 2, padding='same')
-                if self.settings["peephole_convs"]:
+                if n in self.settings["visualencoder_peepholes"] and self.settings["peephole_convs"]:
                     x = tf.concat([y,x], axis=-1)
                 else:
                     x = y
@@ -147,7 +147,7 @@ class prio_vnet:
         #Apply zero-padding on top:
         x = tf.pad(x, [[0,0],[1,0],[0,0],[0,0]], constant_values=0.0)
         #Apply one-padding left, right and bottom:
-        x = tf.pad(x, [[1,1],[0,1],[1,1],[0,0]], constant_values=1.0)
+        x = tf.pad(x, [[0,0],[0,1],[1,1],[0,0]], constant_values=1.0)
         # This makes floor and walls look like it's a piece, and cieling like its free space
         return x
 
