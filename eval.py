@@ -69,7 +69,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
     current_player = np.random.choice([i for i in range(s["n_players"])], size=n_envs )
 
     # Game loop!
-    for t in range(0,1000):
+    for t in range(0,5000):
         #Take turns...
         current_player = 1 - current_player
         state = s_prime
