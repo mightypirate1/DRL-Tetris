@@ -20,6 +20,7 @@ class trainer_thread(mp.Process):
         self.gpu_count = 0 if self.settings["trainer_net_on_cpu"] else 1
         self.last_global_clock = 0
         self.running = False
+        self.trainer = None
         self.shared_vars = shared_vars
         self.print_frequency = 10
         self.last_print_out = 0
@@ -35,17 +36,24 @@ class trainer_thread(mp.Process):
 
                         "n_samples_total"  : 0,
                        }
-    def __call__(self, *args):
-        self.running = True
-        self.run(*args)
-        self.running = False
+
+    def run(self, *args):
+        try:
+            self.shared_vars["run_flag"][-1] = self.running = 1
+            self.thread_code(*args)
+        except Exception as e:
+            print("TRAINER PANIC:", e)
+            raise e
+        else:
+            print("trainer done. {} data processed.".format(self.trainer.clock))
+        finally:
+            self.shared_vars["run_flag"][-1] = self.running = 0
 
     def join(self):
         while self.running:
             time.sleep(10)
 
-    def run(self, *args):
-        # self.var_test()
+    def thread_code(self, *args):
         '''
         Main code [TRAINER]:
         '''
@@ -54,13 +62,14 @@ class trainer_thread(mp.Process):
         # Be Nice
         niceness=os.nice(0)
         # os.nice(niceness-3) #Not allowed it seems :)
-        self.shared_vars["run_flag"][-1] = 1
         # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=self.settings["trainer_gpu_fraction"])
 
         config = tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as session:
             #Initialize!
+            self.stats["t_start"] = time.time()
+            self.quick_summary = quick_summary(settings=self.settings, session=session)
             self.trainer = self.settings["trainer_type"](
                                                          id=self.id,
                                                          mode=threads.ACTIVE,
@@ -69,29 +78,28 @@ class trainer_thread(mp.Process):
                                                          settings=self.settings,
                                                         )
 
-            #
-            ##Run!
-            #####
-            #Init run
-            self.stats["t_start"] = time.time()
-            self.quick_summary = quick_summary(settings=self.settings, session=session)
-            #This is ALL we do. All day long.
-            while self.workers_running():
-                self.load_worker_data()
-                self.do_training()
-                self.print_stats()
-                self.update_global_clock()
-                if self.trainer.n_train_steps["total"] % self.settings["weight_transfer_frequency"] == 0:
+            ### ## ## # # #
+            ## Run!
+            try:
+                #This is ALL we do. All day long.
+                while self.workers_running():
+                    self.load_worker_data()
+                    self.do_training()
+                    self.print_stats()
+                    self.update_global_clock()
                     self.transfer_weights()
-                if self.trainer.n_train_steps["total"] % self.settings["trainer_thread_save_freq"] == 0 and self.trainer.n_train_steps["total"] > self.last_saved_weights:
-                    self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps["total"]))
-            #Report when done!
-            self.load_worker_data()
-            print("trainer done. {} data processed.".format(self.trainer.clock))
-            self.stats["t_stop"] = time.time()
-            self.stats["t_total"] = self.stats["t_stop"] - self.stats["t_start"]
-            runtime = self.stats["t_total"]
-            self.shared_vars["run_flag"][-1] = 0
+                    self.save_weights()
+            ### ## ## # # #
+            ## In case of a crash:
+            except Exception as e:
+                self.trainer.save_weights(*utils.weight_location(self.settings,idx="CRASH_t={}".format(self.trainer.clock)))
+                raise e
+            else:
+                self.trainer.save_weights(*utils.weight_location(self.settings,idx="FINAL"))
+            finally:
+                #Report when done!
+                self.stats["t_stop"] = time.time()
+                self.stats["t_total"] = self.stats["t_stop"] - self.stats["t_start"]
 
     def do_training(self):
         t = time.time()
@@ -101,6 +109,7 @@ class trainer_thread(mp.Process):
             trained0 = self.trainer.do_training(policy=0)
             trained1 = self.trainer.do_training(policy=1)
             trained = trained0 or trained1
+            print("You might want to look at this code and think.")
         t = time.time() - t
         if trained:
             self.quick_summary.update(self.trainer.output_stats(), time=self.current_step())
@@ -148,13 +157,20 @@ class trainer_thread(mp.Process):
         # print("time to reference update / save: {}".format(self.trainer.time_to_reference_update))
 
     def transfer_weights(self):
-        #Get some data
-        n, w = self.trainer.export_weights()
-        #Make it the worlds
-        self.shared_vars["update_weights_lock"].acquire()
-        self.shared_vars["update_weights"]["idx"] = n
-        self.shared_vars["update_weights"]["weights"] = w
-        self.shared_vars["update_weights_lock"].release()
+        if self.trainer.n_train_steps["total"] % self.settings["weight_transfer_frequency"] == 0:
+            #Get some data
+            n, w = self.trainer.export_weights()
+            #Make it the worlds
+            self.shared_vars["update_weights_lock"].acquire()
+            self.shared_vars["update_weights"]["idx"] = n
+            self.shared_vars["update_weights"]["weights"] = w
+            self.shared_vars["update_weights_lock"].release()
+
+    def save_weights(self):
+        if self.trainer.n_train_steps["total"] % self.settings["trainer_thread_save_freq"] == 0 and self.trainer.n_train_steps["total"] > self.last_saved_weights:
+            self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps["total"]))
+        if self.trainer.n_train_steps["total"] % self.settings["trainer_thread_backup_freq"] == 0 and self.trainer.n_train_steps["total"] > self.last_saved_weights:
+            self.trainer.save_weights(*utils.weight_location(self.settings,idx="LATEST"))
 
     def update_global_clock(self):
         self.shared_vars["global_clock"].value = self.trainer.clock

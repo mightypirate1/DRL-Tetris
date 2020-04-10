@@ -71,17 +71,6 @@ class threaded_runner:
         for thread in self.all_threads:
             self.start_thread(thread)
 
-        ''' REMOVE? '''
-        # started = False
-        # ...... [Code block above was here]
-        # while not started:
-        #     started = True
-        #     for flag in self.shared_vars["run_flag"]:
-        #         started = started and flag > 0
-        #     time.sleep(1)
-        # if not self.settings["run_standalone"]:
-        #     self.start_thread(self.threads["trainer"])
-
     def start_thread(self, thread):
         print("Starting thread: {}".format(thread))
         thread.start()

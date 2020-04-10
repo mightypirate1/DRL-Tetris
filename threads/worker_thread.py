@@ -28,10 +28,21 @@ class worker_thread(mp.Process):
         self.running = False
 
 
-    def __call__(self, *args):
-        self.running = True #These flag-changes are not seen from the outside of this process I think...
-        self.thread_code(*args)
-        self.running = False
+    def run(self, *args):
+        try:
+            self.shared_vars["run_flag"][self.id] = self.running = 1
+            if not self.settings["run_standalone"]:
+                self.await_trainer()
+            self.thread_code(*args)
+        except Exception as e:
+            print("WORKER{} PANIC: aborting!\n-----------------")
+            raise e
+        else:
+            print("worker{} done".format(self.id))
+        finally:
+            runtime = time.time() - self.t_thread_start
+            self.shared_vars["run_flag"][self.id] = 0
+            self.shared_vars["run_time"][self.id] = runtime
 
     def join(self):
         while self.running:
@@ -48,7 +59,6 @@ class worker_thread(mp.Process):
         # Be Nice
         niceness=os.nice(0)
         os.nice(5-niceness)
-        self.shared_vars["run_flag"][self.id] = 1
         # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=self.settings["trainer_gpu_fraction"])
         with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})) as session:
             #Initialize!
@@ -127,21 +137,6 @@ class worker_thread(mp.Process):
                     else:
                         self.agent.store_experience( self.make_experience(state, action_idx, reward, s_prime, current_player ,done, env=e_idx), env=e_idx)
                 self.agent.ready_for_new_round(training=True, env=reset_list)
-                # for i,d in enumerate(done):
-                #     if d:
-                #         self.env.reset(env=i)
-                #         if not self.settings["single_policy"] and stash["experience"] is not None:
-                #                 print(tuple(zip(*experience))[i])
-                #                 self.agent.store_experience( self.make_experience(state, action_idx, reward, s_prime, current_player ,done, env=i), env=i)
-                #                 experience[0][i] = self.env.get_state(env=i)[0]
-                #                 experience[2][i] = 0
-                #                 experience[5][i] = False
-                #                 print(tuple(zip(*experience))[i])
-                #                 print("---")
-                #         if self.settings["single_policy"]:
-                #             self.agent.store_experience((s_prime[i], None, None, None, 1-current_player[i],d), env=i)
-                #             current_player[i] = np.random.choice([0,1])
-                #         self.agent.ready_for_new_round(training=True, env=i)
 
                 #Store this
                 if not self.settings["single_policy"]:
@@ -154,6 +149,7 @@ class worker_thread(mp.Process):
                     self.send_training_data()
 
                 #Look for new weights from the trainer!
+                self.check_thread_status()
                 self.update_weights_and_clock()
 
                 #Print
@@ -161,10 +157,14 @@ class worker_thread(mp.Process):
 
             #Report when done!
             self.report_wasted_data()
-            print("worker{} done".format(self.id))
-            runtime = time.time() - self.t_thread_start
-            self.shared_vars["run_flag"][self.id] = 0
-            self.shared_vars["run_time"][self.id] = runtime
+
+    def await_trainer(self):
+        while self.shared_vars["run_flag"][-1] == 0:
+            print("worker{} waiting for a trainer to come online.".format(self.id), self.shared_vars["run_flag"][-1])
+            time.sleep(2)
+    def check_thread_status(self):
+        if self.shared_vars["run_flag"][-1] == 0:
+            raise Exception("worker{} thinks it's trainer is dead. ABORTING.".format(self.id))
 
     def update_weights_and_clock(self):
         if self.settings["run_standalone"]:
