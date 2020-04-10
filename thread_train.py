@@ -32,7 +32,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "FIRST_16_30_128_4_5-0_lin0.5-0_0.8",
+            "run-id" : "THIRDeye_0",
 
             #Train parameters
             "n_samples_each_update"     : 2*8192,
@@ -77,12 +77,15 @@ settings = {
             "worker_net_on_cpu"    : True,
             "trainer_net_on_cpu"   : False,
             #Communication
-            "trainer_thread_save_freq"  : 10,
+            "trainer_thread_save_freq"  : 100,
+            "trainer_thread_backup_freq"  : 10,
             "worker_data_send_fequency" : 150,
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
 
-            #NN preprocessing
+            #NN
+            "pad_visuals"      : True,
+            "peephole_convs"   : True,
             #Preprocessing
             "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
             "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
