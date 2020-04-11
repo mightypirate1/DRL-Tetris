@@ -52,12 +52,12 @@ default_settings = {
                     "vectorencoder_n_hidden" : 2,
                     "vectorencoder_hidden_size" : 256,
                     "vectorencoder_output_size" : 64,
-                    "visualencoder_n_convs" : 4,
-                    "visualencoder_n_filters" : (32,32,32, 16),
+                    "visualencoder_n_convs" : 3,
+                    "visualencoder_n_filters" : (32,32, 16),
                     "visualencoder_filter_sizes" : ((5,5), (5,5), (5,5), (5,5)),
                     "visualencoder_poolings" : [], #Pooling after layer numbers in this list
                     "visualencoder_peepholes" : [0,1,],
-                    "valuenet_n_hidden" : 2,
+                    "valuenet_n_hidden" : 1,
                     "valuenet_hidden_size" : 1024,
                     "nn_regularizer" : 0.001,
 
