@@ -32,7 +32,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "THIRDeye_1_oldarch_rewardshapersignflip_0.8-0",
+            "run-id" : "THIRDeye_2_oldarch_rewardshapersignflip_0.8-0_comboreward",
 
             #Train parameters
             "n_samples_each_update"     : 2048,
@@ -54,6 +54,8 @@ settings = {
             "epsilon"  : linear_parameter(2.5, final_val=0.5, time_horizon=total_steps),
 
             #Reward shaping
+            "extra_rewards" : True,
+            "extra_reward_ammount" : (0.1,),
             "reward_shaper" :  linear_reshaping,
             "reward_shaper_param" : linear_parameter(0.8, final_val=0, time_horizon=0.8*total_steps),
 
