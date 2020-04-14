@@ -32,14 +32,13 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "THIRDeye_0",
+            "run-id" : "THIRDeye_1_oldarch_rewardshapersignflip_0.8-0",
 
             #Train parameters
-            "n_samples_each_update"     : 2*8192,
-            "n_train_epochs_per_update" : 30,
-            "minibatch_size"            : 128,
+            "n_samples_each_update"     : 2048,
+            "n_train_epochs_per_update" : 10,
+            "minibatch_size"            : 64,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
-            "epsilon"                   : linear_parameter(5, final_val=0, time_horizon=total_steps),
             "value_lr"                  : linear_parameter(1e-5, final_val=1e-6, time_horizon=total_steps),
             "prioritized_replay_alpha"  : constant_parameter(0.7),
             "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
@@ -49,14 +48,14 @@ settings = {
             "single_policy"             : True,
 
             #Dithering
-            # "dithering_scheme"    : "distribution_boltzman",
-            # "action_temperature"  : exp_parameter(1.0, final_val=16, time_horizon=total_steps),
+            # "dithering_scheme"    : "epsilon",
+            # "epsilon"  : exp_parameter(1, decay=5*total_steps),
             "dithering_scheme"    : "adaptive_epsilon",
             "epsilon"  : linear_parameter(2.5, final_val=0.5, time_horizon=total_steps),
 
             #Reward shaping
             "reward_shaper" :  linear_reshaping,
-            "reward_shaper_param" : linear_parameter(0.5, final_val=0, time_horizon=0.8*total_steps),
+            "reward_shaper_param" : linear_parameter(0.8, final_val=0, time_horizon=0.8*total_steps),
 
             #Game settings
             "pieces" : [0,6],
@@ -77,15 +76,15 @@ settings = {
             "worker_net_on_cpu"    : True,
             "trainer_net_on_cpu"   : False,
             #Communication
-            "trainer_thread_save_freq"  : 100,
-            "trainer_thread_backup_freq"  : 10,
+            "trainer_thread_save_freq"  : 1000,
+            "trainer_thread_backup_freq"  : 50,
             "worker_data_send_fequency" : 150,
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
 
             #NN
             "pad_visuals"      : True,
-            "peephole_convs"   : True,
+            "peephole_convs"   : False,
             #Preprocessing
             "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
             "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
@@ -108,7 +107,7 @@ process_manager = threads.threaded_runner.threaded_runner(settings=settings)
 #We get better error messages if we run just one process. Activate with "--debug"
 if debug:
     print("Executing only thread_0:")
-    process_manager.threads["workers"][0]()
+    process_manager.threads["workers"][0].run()
     print("___")
     exit("thread debug run done.")
 
