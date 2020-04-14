@@ -205,6 +205,7 @@ class worker_thread(mp.Process):
         self.last_print_out = t
         if self.settings["run_standalone"]:
             s = {
+                #"Avg. combo-reward"          : self.agent.env.tot_combo_reward / self.agent.rounds_played,
                  "Average trajectory length" : self.agent.avg_trajectory_length,
                  "Epsilon (adative)"         : self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1),
                  "Action entropy"            : self.agent.action_entropy,
