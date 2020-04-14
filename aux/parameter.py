@@ -16,14 +16,16 @@ class parameter:
 
 class exp_parameter(parameter): #Very crude exp-decay :)
     def __init__(self, value, **kwargs):
+        self.decay = kwargs.pop('decay', 10**-3)
+        self.base  = kwargs.pop('base',  math.e)
+        self.min   = kwargs.pop('min',   0)
+        self.max   = kwargs.pop('max',   math.inf)
         parameter.__init__(self, value, **kwargs)
         self.__init_vars__()
     def __init_vars__(self):
-        assert self.final_val is not None and self.time_horizon is not None, "exp_parameter requires final_val=x and time_horizon=y with valid x,y to be passed to its constructor."
-        self.decay = math.log(self.final_val/self.init_val)/self.time_horizon
-
+        assert self.time_horizon is None, "exp_parameter uses parameters init base and decay (and min,max): f(t) = init*base**(-decay*t) clipped to range [min, max]"
     def get_value(self, t):
-        return math.exp(self.decay * t)
+        return max(min(self.init_val * self.base**(-self.decay*t), self.max), self.min)
 
 class linear_parameter(parameter):
     def __init__(self, value, **kwargs):
