@@ -32,6 +32,10 @@ class tetris_environment:
                                               )
             #Upon agreement with backend, we always reset once.
             self.backend.reset()
+
+            ## Reward stats
+            self.rounds_played = 0
+            self.tot_combo_reward = 0
         else:
             if type(init_env) is tetris_environment:
                 self.backend = init_env.backend.copy()
@@ -40,7 +44,7 @@ class tetris_environment:
             else:
                 assert False, "Invalid init_env: type is {}".format(type(init_env))
         self.player_idxs = [p_idx for p_idx in range(self.settings["n_players"])]
-        self.done = False
+        self.done, self._reward = False, 0.0
 
         #Say hi!
         if self.debug:
@@ -58,6 +62,7 @@ class tetris_environment:
 
     def reset(self):
         self.backend.reset()
+        self.rounds_played += 1
 
     def get_actions(self,player=None):
         if self.debug: self.log.debug("get_action invoked: player={}".format(player))
@@ -90,7 +95,7 @@ class tetris_environment:
         a         = [data_types.null_action for _ in self.player_idxs]
         a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        reward = self.get_info(internal_call=True)["reward"][player]
+        self.last_reward = reward = self.reward_fcn()
         done   = self.done
         return reward, done
 
@@ -111,26 +116,32 @@ class tetris_environment:
         #The state_processor is responsible for extracting the data from the backend that is part of the state
         return data_types.state(self.backend, self.state_processor)
 
-    def get_info(self, internal_call=False):
-        ret = {}
+    def reward_fcn(self):
         r = [0 for _ in range(self.settings["n_players"])]
-        if not internal_call:
-            # speed = [self.backend.info[i].speed for i in range(self.settings["n_players"])]
-            is_dead = [0 for _ in range(self.settings["n_players"])]
         for i in range(self.settings["n_players"]):
-            if not internal_call:
-                is_dead[i] = self.backend.states[i].dead[0]
+            ### ## ## # # #
+            #Score for winning (losing actually..).
             if self.backend.states[i].dead[0] == 1:
-                r[i] = -1
+                r[i] += -1
             else:
                 r[i] = 0
-                for idx,states in enumerate(self.backend.states):
-                    if not idx==i and states.dead[0] == 1:
-                        r[i] +=1
-        ret["reward"] = np.array(r)
-        if not internal_call:
-            ret["is_dead"] = is_dead
-            # ret["speed"] = speed
+            if not self.settings["extra_rewards"]: continue
+            ### ## ## # # #
+            #Auxiliary goals...
+            combo_score = self.settings["extra_reward_ammount"][0] * self.backend.states[i].combo_count
+            r[i] += combo_score
+            self.tot_combo_reward += combo_score
+        self._reward = r
+        return r
+
+    def get_info(self):
+        ret = {}
+        # speed = [self.backend.info[i].speed for i in range(self.settings["n_players"])]
+        ret["reward"] = self._reward
+        ret["is_dead"] = [self.backend.states[i].dead[0] for i in range(self.settings["n_players"])]
+        # ret["speed"] = speed
+        ret["tot_combo_reward"] = self.tot_combo_reward
+        ret["rounds_played"] = self.rounds_played
         return ret
 
     # # # # #
