@@ -32,10 +32,6 @@ class tetris_environment:
                                               )
             #Upon agreement with backend, we always reset once.
             self.backend.reset()
-
-            ## Reward stats
-            self.rounds_played = 0
-            self.tot_combo_reward = 0
         else:
             if type(init_env) is tetris_environment:
                 self.backend = init_env.backend.copy()
@@ -44,7 +40,10 @@ class tetris_environment:
             else:
                 assert False, "Invalid init_env: type is {}".format(type(init_env))
         self.player_idxs = [p_idx for p_idx in range(self.settings["n_players"])]
-        self.done, self._reward = False, 0.0
+        self.done, self._reward = False, [0.0 for _ in range(self.settings["n_players"])]
+        ## Reward stats
+        self.rounds_played = 0
+        self.tot_combo_reward = 0
 
         #Say hi!
         if self.debug:
@@ -95,7 +94,7 @@ class tetris_environment:
         a         = [data_types.null_action for _ in self.player_idxs]
         a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        self.last_reward = reward = self.reward_fcn()
+        self.last_reward = reward = self.reward_fcn(player)
         done   = self.done
         return reward, done
 
@@ -116,22 +115,18 @@ class tetris_environment:
         #The state_processor is responsible for extracting the data from the backend that is part of the state
         return data_types.state(self.backend, self.state_processor)
 
-    def reward_fcn(self):
-        r = [0 for _ in range(self.settings["n_players"])]
-        for i in range(self.settings["n_players"]):
-            ### ## ## # # #
-            #Score for winning (losing actually..).
-            if self.backend.states[i].dead[0] == 1:
-                r[i] += -1
-            else:
-                r[i] = 0
-            if not self.settings["extra_rewards"]: continue
-            ### ## ## # # #
-            #Auxiliary goals...
-            combo_score = self.settings["extra_reward_ammount"][0] * self.backend.states[i].combo_count
-            r[i] += combo_score
-            self.tot_combo_reward += combo_score
-        self._reward = r
+    def reward_fcn(self, player):
+        if self.backend.states[player].dead[0] == 1:
+            return -1
+        if not self.settings["extra_rewards"]:
+            return 0
+        r = 0
+        ### ## ## # # #
+        #Auxiliary goals...
+        combo_score = self.settings["extra_reward_ammount"][0] * self.backend.states[player].combo_count[0]
+        r += combo_score
+        self.tot_combo_reward += combo_score
+        self._reward[player] = r
         return r
 
     def get_info(self):
