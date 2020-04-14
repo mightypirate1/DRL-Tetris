@@ -118,17 +118,19 @@ class vector_agent(vector_agent_base):
             for state_idx in range(len(state_vec)):
                 a_idx = action_idxs[state_idx]
                 if "distribution" in self.settings["dithering_scheme"]:
+                    theta = self.theta = self.settings["action_temperature"](self.clock)
                     if "boltzman" in self.settings["dithering_scheme"]:
-                        theta = self.theta = self.settings["action_temperature"].get_value(self.clock)
                         p = softmax(theta*values[state_idx]).ravel()
                     elif "pareto" in self.settings["dithering_scheme"]:
-                        theta = self.avg_trajectory_length * 4 / self.settings["game_area"]
                         p = utils.pareto(values[state_idx], temperature=theta)
                     self.action_entropy = utils.entropy(p)
                     a_idx = np.random.choice(np.arange(values[state_idx].size), p=p)
-                if self.settings["dithering_scheme"] == "adaptive_epsilon":
+                if "epsilon" in self.settings["dithering_scheme"]:
+                    epsilon = self.settings["epsilon"](self.clock)
+                    if "adaptive" in self.settings["dithering_scheme"]:
+                        epsilon *= self.avg_trajectory_length**(-1)
                     dice = random.random()
-                    if dice < self.settings["epsilon"].get_value(self.clock) * self.avg_trajectory_length**(-1):
+                    if dice < epsilon:
                         a_idx = np.random.choice(np.arange(values[state_idx].size))
                 action_idxs[state_idx] = a_idx
         actions = [all_actions[state_idx][action_idxs[state_idx]] for state_idx in range(len(state_vec)) ]
@@ -159,7 +161,7 @@ class vector_agent(vector_agent_base):
                     data = t.process_trajectory(
                                                 self.model_runner(model),
                                                 self.unpack,
-                                                reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock)),
+                                                reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
                                                 gamma_discount=self.settings["gamma_extrinsic"]
                                                 )
                 else:
