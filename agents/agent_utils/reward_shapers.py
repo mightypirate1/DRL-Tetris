@@ -21,7 +21,7 @@ def linear_reshaping(ammount, single_policy=True):
     return r_tilde
 
 def exp_reshaping(gamma, single_policy=True):
-    if not single_policy gamma = -gamma
+    if not single_policy: gamma = -gamma
     def r_tilde(r):
         ret = np.zeros_like(r, dtype=np.float)
         weight = 0
