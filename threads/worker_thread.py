@@ -206,8 +206,7 @@ class worker_thread(mp.Process):
         if self.settings["run_standalone"]:
             s = {
                  "Average trajectory length" : self.agent.avg_trajectory_length,
-                 "Epsilon"                   : self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1),
-                 "Current speed"             : self.agent.trainer.experience_replay.total_samples/t,
+                 "Epsilon (adative)"         : self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1),
                  "Action entropy"            : self.agent.action_entropy,
                  "Action temperature"        : self.agent.theta,
                 }
