@@ -13,11 +13,13 @@ from aux.settings import default_settings
 import aux.utils as utils
 import threads
 
-def adjust_moves(S):
+def adjust_settings(S):
     if run_settings["--null"]:
         S["bar_null_moves"] = False
     if run_settings["--nonull"]:
         S["bar_null_moves"] = True
+    if run_settings["--all-pieces"]:
+        S["pieces"] = default_settings["pieces"]
     return S
 
 docoptstring = \
@@ -25,7 +27,7 @@ docoptstring = \
 Eval
 
 Usage:
-    eval.py <weights> <weights> ... [--mode (aa|ap|pa|pp)] [--nonull|--null]
+    eval.py <weights> <weights> ... [--mode (aa|ap|pa|pp)] [--all-pieces] [--nonull|--null] [--debug]
 '''
 run_settings = docopt.docopt(docoptstring)
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
@@ -35,7 +37,7 @@ settings =      list(map(utils.load_settings,settingsfiles))
 assert utils.test_setting_compatibility(*settings), "Incompatible settings :("
 s = settings[0].copy()
 s["render"] = True
-s = adjust_moves(s)
+s = adjust_settings(s)
 ###### #### ### ## ## # # #
 ###### Eval run...
 ###### #### ### ## ## # # #
@@ -51,7 +53,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
 
     agent, scoreboard = list(), dict()
     for i, setting, weight in zip(range(len(settings)), settings, run_settings["<weights>"]):
-        setting = adjust_moves(setting)
+        setting = adjust_settings(setting)
         a = setting["agent_type"](
                                     n_envs,
                                     id=i,
@@ -67,7 +69,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
     trajectory_start = 0
     s_prime = env.get_state()
     current_player = np.random.choice([i for i in range(s["n_players"])], size=n_envs )
-
+    round_reward = [0,0]
     # Game loop!
     for t in range(0,5000):
         #Take turns...
@@ -85,6 +87,12 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         #Store to memory
         experience = (state, action_idx, reward, s_prime, current_player ,done)
         agent[current_player[0]].store_experience(experience)
+
+        #Debug-prints:
+        if run_settings["--debug"]:
+            round_reward[current_player[0]] += reward[0]
+            print("player", current_player[0], " -> reward :", reward, "(total", round_reward,")")
+
         #Render?
         if s["render"]:
             env.render()
@@ -102,4 +110,5 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                 print("Round ended. {} steps (avg: {}), score: {}-{}".format(t-trajectory_start, agent[0].avg_trajectory_length, scoreboard[0], scoreboard[1]))
                 current_player[i] = np.random.choice([0,1])
                 env.reset(env=i)
+                round_reward = [0,0]
                 trajectory_start = t+1
