@@ -186,7 +186,7 @@ class prio_vnet:
             v_sprime_tf, ref_scope = self.create_value_net(vector_s_primes, visual_s_primes, "reference")
             target_values_tf = rewards -tf.multiply(
                                                     tf.stop_gradient(
-                                                                     self.settings["gamma_extrinsic"]*v_sprime_tf #we treat the target values as constant!
+                                                                     self.settings["gamma"]*v_sprime_tf #we treat the target values as constant!
                                                                     ),
                                                     (1-dones)
                                                    ) #1-step empirical estimate

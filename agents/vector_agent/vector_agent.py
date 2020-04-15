@@ -162,7 +162,7 @@ class vector_agent(vector_agent_base):
                                                 self.model_runner(model),
                                                 self.unpack,
                                                 reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
-                                                gamma_discount=self.settings["gamma_extrinsic"]
+                                                gamma_discount=self.settings["gamma"]
                                                 )
                 else:
                     data = t

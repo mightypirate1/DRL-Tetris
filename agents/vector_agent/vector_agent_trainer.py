@@ -78,7 +78,7 @@ class vector_agent_trainer(vector_agent_base):
                                                     self.model_runner(metadata["policy"]),
                                                     self.unpack,
                                                     reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
-                                                    gamma_discount=self.settings["gamma_extrinsic"]
+                                                    gamma_discount=self.settings["gamma"]
                                                     ) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
 
                 else:
