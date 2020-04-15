@@ -38,8 +38,7 @@ default_settings = {
                     "prioritized_replay_alpha" : constant_parameter(0.7),
                     "prioritized_replay_beta" : linear_parameter(0.5,final_val=1,time_horizon=10**7), #0.5, used in paper, then linear increase to 1...
                     #discount factors
-                    "gamma_extrinsic" : 0.998,   #Not in use...
-                    "gamma_intrinsic" : 0.90,  #Not in use...
+                    "gamma" : 0.99,
 
                 ##NEURAL NET:
                     #Preprocessing
@@ -95,7 +94,7 @@ default_settings = {
                     "render_simulation" : False,    #This renders the outcomes of the first 4 non-empty action sequences when simulating.
                     "bar_null_moves" : False,
                     "extra_rewards" : False,
-                    "extra_reward_ammount" : (0.1,), #Combo,
+                    "reward_ammount" : (1.0, 0.1,), #Combo,
                     #Preprocessing
                     "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
                     "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
