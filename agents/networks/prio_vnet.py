@@ -135,7 +135,7 @@ class prio_vnet:
                                         bias_initializer=tf.zeros_initializer(),
                                     )
                 if n in self.settings["visualencoder_poolings"]:
-                    assert not selt.settings["peephole_convs"], "visualencoder_poolings and peephole_convs are currently incompatible. if you want it, e-mail me and i might fix it :)"
+                    assert n not in self.settings["visualencoder_peepholes"], "cant have pooling on the same layer as you have peepholes!"
                     y = tf.layers.max_pooling2d(y, 2, 2, padding='same')
                 if n in self.settings["visualencoder_peepholes"] and self.settings["peephole_convs"]:
                     x = tf.concat([y,x], axis=-1)
