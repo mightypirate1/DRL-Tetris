@@ -88,13 +88,8 @@ class vector_agent_base:
         assert folder in file, "folder is supposed to be a substring of file"
         with open(file, 'rb') as f:
             input_models = pickle.load(f)
-        for net in input_models:
+        for net in self.model_dict:
             main_weights, ref_weights = input_models[net]
-
-            if net == "extrinsic_model":
-                input("BACKWARD-COMPATIBLE GUESSING ENABLED. PLEASE CLEAN THIS CODE UP ASAP (enter to continue)")
-                net = "value_net"
-
             self.model_dict[net].set_weights(
                                              self.model_dict[net].main_net_assign_list,
                                              main_weights
