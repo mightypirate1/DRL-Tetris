@@ -80,23 +80,24 @@ class tetris_environment:
         anchor = self.backend.copy()
         for i,a in enumerate(actions):
             self.backend.set(anchor)
-            self.perform_action(a, player=player, render=False)
+            self.perform_action(a, player=player, render=False, simulate=True)
             ret[i] = self.get_state()
         self.backend.set(anchor)
         if self.settings["render_simulation"]:
             draw_tetris.drawAllFields([r.backend.states[0].field for r in ret[1:5]])
         return ret
 
-    def perform_action(self, action, player=None, render=False):
+    def perform_action(self, action, player=None, render=False, simulate=False):
         if self.debug: self.log.debug("executing action {} for player {}".format(action, player))
         assert type(player) is int,               "tetris_environment.perform_action(action a,int p) was called with type(player)={}".format(type(player))
         assert type(action) is data_types.action, "tetris_environment.perform_action(action a,int p) was called with type(action)={}".format(type(action))
         a         = [data_types.null_action for _ in self.player_idxs]
         a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
-        self.last_reward = reward = self.reward_fcn(player)
+        if not simulate:
+            self.last_reward = reward = self.reward_fcn(player)
         done   = self.done
-        return reward, done
+        return None if simulate else reward, done
 
     def get_winner(self):
         if not self.done:
@@ -117,18 +118,19 @@ class tetris_environment:
 
     def reward_fcn(self, player):
         if self.backend.states[player].dead[0] == 1:
-            return -1
+            base = -1
+        else:
+            base = 0
         if not self.settings["extra_rewards"]:
-            return 0
-        r = 0
+            return base
         ### ## ## # # #
         #Auxiliary goals...
         w_base, w_combo = self.settings["reward_ammount"]
         combo_score = self.backend.states[player].combo_count[0]
-        r += combo_score
         self.tot_combo_reward += combo_score
-        self._reward[player] = r
-        return w_base * r + w_combo * combo_score
+        reward = self._reward[player] = w_base * base + w_combo * combo_score
+        # print(w_base, base, w_combo, combo_score, "=",reward);input()
+        return reward
 
     def get_info(self):
         ret = {}
