@@ -35,9 +35,9 @@ settings = {
             "run-id" : "THIRDeye_Q00",
 
             #Train parameters
-            "n_samples_each_update"     : 2048,
-            "n_train_epochs_per_update" : 10,
-            "minibatch_size"            : 64,
+            "n_samples_each_update"     : 8096,
+            "n_train_epochs_per_update" : 5,
+            "minibatch_size"            : 128,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : linear_parameter(1e-5, final_val=1e-6, time_horizon=total_steps),
             "prioritized_replay_alpha"  : constant_parameter(0.7),
@@ -55,9 +55,10 @@ settings = {
 
             #Reward shaping
             "extra_rewards" : True,
-            "reward_ammount" : (1.0, 0.1,),
+            "reward_ammount" : (1.0, 0.2,),
             "reward_shaper" :  linear_reshaping,
-            "reward_shaper_param" : linear_parameter(0.8, final_val=0, time_horizon=0.8*total_steps),
+            "reward_shaper_param" : linear_parameter(0.8, final_val=0, time_horizon=0.2*total_steps),
+            "gamma"             :  0.95,
 
             #Game settings
             "pieces" : [0,6],
@@ -86,7 +87,22 @@ settings = {
 
             #NN
             "pad_visuals"      : True,
-            "peephole_convs"   : False,
+            "peephole_convs"   : True,
+            ###
+            ###
+            ###
+            #Value net:
+            "vectorencoder_n_hidden" : 1,
+            "vectorencoder_hidden_size" : 256,
+            "vectorencoder_output_size" : 32,
+            "visualencoder_n_convs" : 3,
+            "visualencoder_n_filters" : (32,32,16),
+            "visualencoder_filter_sizes" : ((7,7), (5,5), (5,5), (5,5)),
+            "visualencoder_poolings" : [1,], #Pooling after layer numbers in this list
+            "visualencoder_peepholes" : [0,],
+            "valuenet_n_hidden" : 1,
+            "valuenet_hidden_size" : 256,
+            "nn_regularizer" : 0.001,
             #Preprocessing
             "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
             "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
