@@ -32,12 +32,12 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "THIRDeye_Q00",
+            "run-id" : "THIRDeye_Q02",
 
             #Train parameters
-            "n_samples_each_update"     : 8096,
+            "n_samples_each_update"     : 1024,
             "n_train_epochs_per_update" : 5,
-            "minibatch_size"            : 128,
+            "minibatch_size"            : 32,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : linear_parameter(1e-5, final_val=1e-6, time_horizon=total_steps),
             "prioritized_replay_alpha"  : constant_parameter(0.7),
@@ -57,8 +57,8 @@ settings = {
             "extra_rewards" : True,
             "reward_ammount" : (1.0, 0.2,),
             "reward_shaper" :  linear_reshaping,
-            "reward_shaper_param" : linear_parameter(0.8, final_val=0, time_horizon=0.2*total_steps),
-            "gamma"             :  0.95,
+            "reward_shaper_param" : linear_parameter(0.8, final_val=0.2, time_horizon=0.8*total_steps),
+            "gamma"             :  0.99,
 
             #Game settings
             "pieces" : [0,6],
@@ -81,7 +81,7 @@ settings = {
             #Communication
             "trainer_thread_save_freq"  : 1000,
             "trainer_thread_backup_freq"  : 50,
-            "worker_data_send_fequency" : 150,
+            "worker_data_send_fequency" : 5,
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
 
@@ -95,11 +95,11 @@ settings = {
             "vectorencoder_n_hidden" : 1,
             "vectorencoder_hidden_size" : 256,
             "vectorencoder_output_size" : 32,
-            "visualencoder_n_convs" : 3,
-            "visualencoder_n_filters" : (32,32,16),
-            "visualencoder_filter_sizes" : ((7,7), (5,5), (5,5), (5,5)),
-            "visualencoder_poolings" : [1,], #Pooling after layer numbers in this list
-            "visualencoder_peepholes" : [0,],
+            "visualencoder_n_convs" : 4,
+            "visualencoder_n_filters" : (16,32,32,4),
+            "visualencoder_filter_sizes" : ((7,7),(3,3), (3,3), (3,3)),
+            "visualencoder_poolings" : [2,], #Pooling after layer numbers in this list
+            "visualencoder_peepholes" : [0,1,2],
             "valuenet_n_hidden" : 1,
             "valuenet_hidden_size" : 256,
             "nn_regularizer" : 0.001,
@@ -131,57 +131,9 @@ if debug:
 
 #Init PARALLEL
 ###########################
-print("Creating processes")
+print("Creating processes...")
 process_manager.run(total_steps // n_envs )
 process_manager.join()
 T_parallel = process_manager.get_avg_runtime()
 sys.stdout.flush()
-print("Multi-processes finished")
-#Done!
-
-
-###
-# Saving this code for now, but it will be removed later.
-
-# ###########################
-#
-# #
-# ##Init SERIAL
-# with tf.Session() as session:
-#     env = settings["env_vector_type"](
-#                                       1,
-#                                       settings["env_type"],
-#                                       settings=settings
-#                                      )
-#     agent = settings["agent_type"](
-#                                    1,
-#                                    id=0,
-#                                    sandbox=settings["env_type"](settings=settings),
-#                                    session=session,
-#                                    settings=settings,
-#                                   )
-#     print("Starting serial")
-#     T_serial_start = time.time()
-#     current_player = 1
-#     s = env.get_state()
-#     print("Go!")
-#     for t in range(total_steps):
-#         current_player = 1 - current_player
-#         _,a = agent.get_action(s, player=current_player)
-#         # a = env.get_random_action()
-#         r, ds = env.perform_action(a, player=current_player)
-#         s = env.get_state()
-#         for i,d in enumerate(ds):
-#             if d: env.reset(env=i)
-#         if render:
-#             env.render(env=0)
-#         print("Step {}".format((t+1)))
-#     T_serial_stop = time.time()
-#     print("Serial done")
-#     #Done!
-#
-# #Show what we collected (parallel)!
-# print("[Parallel] Collected {} trajectories:".format(None))
-# print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_parallel, total_steps/T_parallel))
-# print("[Serial] Collected {} trajectories:".format(None))
-# print("Total: {} collected in {} seconds ({} steps/second)".format(total_steps, T_serial_stop - T_serial_start, total_steps/(T_serial_stop - T_serial_start) ))
+print("All processes finished.")
