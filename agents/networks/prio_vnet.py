@@ -134,13 +134,12 @@ class prio_vnet:
                                         kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                                         bias_initializer=tf.zeros_initializer(),
                                     )
-                if n in self.settings["visualencoder_poolings"]:
-                    assert n not in self.settings["visualencoder_peepholes"], "cant have pooling on the same layer as you have peepholes!"
-                    y = tf.layers.max_pooling2d(y, 2, 2, padding='same')
                 if n in self.settings["visualencoder_peepholes"] and self.settings["peephole_convs"]:
                     x = tf.concat([y,x], axis=-1)
                 else:
                     x = y
+                if n in self.settings["visualencoder_poolings"]:
+                    y = tf.layers.max_pooling2d(y, 2, 2, padding='same')
         return x
 
     def apply_visual_pad(self, x):
@@ -184,9 +183,10 @@ class prio_vnet:
         with tf.variable_scope("prio_vnet") as vs:
             values_tf, main_scope = self.create_value_net(vector_states, visual_states, "main")
             v_sprime_tf, ref_scope = self.create_value_net(vector_s_primes, visual_s_primes, "reference")
+            _gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
             target_values_tf = rewards -tf.multiply(
                                                     tf.stop_gradient(
-                                                                     self.settings["gamma"]*v_sprime_tf #we treat the target values as constant!
+                                                                     _gamma*v_sprime_tf #we treat the target values as constant!
                                                                     ),
                                                     (1-dones)
                                                    ) #1-step empirical estimate
