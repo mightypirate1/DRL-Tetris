@@ -123,12 +123,12 @@ class tetris_environment:
         r = 0
         ### ## ## # # #
         #Auxiliary goals...
-        w_base, w_combo = self.settings["extra_reward_ammount"]
+        w_base, w_combo = self.settings["reward_ammount"]
         combo_score = self.backend.states[player].combo_count[0]
         r += combo_score
         self.tot_combo_reward += combo_score
         self._reward[player] = r
-        return w_base * r + w_combo * combo_count
+        return w_base * r + w_combo * combo_score
 
     def get_info(self):
         ret = {}
