@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.stats
-import aux.utils as utils
 from .. import agent_utils
 
 class experience_replay:

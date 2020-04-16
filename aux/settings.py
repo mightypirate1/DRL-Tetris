@@ -1,6 +1,8 @@
 import tensorflow as tf
 from aux.parameter import *
 
+def none_f(*args,**kwargs):
+    return None
 
 #Aliasing for pieces, so they are easier to specify :)
 (l,j,s,z,i,t,o) = (0,1,2,3,4,5,6)
@@ -10,7 +12,7 @@ default_settings = {
                     "agent_type"   : None,
                     "trainer_type" : None,
                     #Reward shaping
-                    "reward_shaper" : lambda x : None,
+                    "reward_shaper" : none_f,
                     "reward_shaper_param" : 0,
                     #Policy type
                     "single_policy" : True,
@@ -30,6 +32,7 @@ default_settings = {
                     "dithering_scheme" : "adaptive_epsilon",
                     "action_temperature"  : constant_parameter(1.0),
                     "epsilon" : constant_parameter(1.0),
+                    "eval_distribution" : "argmax",
                     #avg_trajectory_length_learning:
                     "tau_learning_rate" : 0.01,
                     #experience replay:
@@ -59,6 +62,7 @@ default_settings = {
                     "valuenet_n_hidden" : 1,
                     "valuenet_hidden_size" : 1024,
                     "nn_regularizer" : 0.001,
+                    "nn_output_activation" : tf.nn.tanh,
 
                 ##MULTIPROCESSING:
                     "worker_net_on_cpu" : True,

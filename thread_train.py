@@ -1,7 +1,6 @@
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer
-from agents.pg_vector_agent import pg_vector_agent, pg_vector_agent_trainer
 from agents.agent_utils.reward_shapers import *
 from aux.parameter import *
 import threads.threaded_runner
@@ -35,11 +34,11 @@ settings = {
             "run-id" : "THIRDeye_Q02",
 
             #Train parameters
-            "n_samples_each_update"     : 1024,
+            "n_samples_each_update"     : 8096,
             "n_train_epochs_per_update" : 5,
-            "minibatch_size"            : 32,
+            "minibatch_size"            : 128,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : linear_parameter(1e-5, final_val=1e-6, time_horizon=total_steps),
+            "value_lr"                  : linear_parameter(1e-6, final_val=1e-7, time_horizon=total_steps),
             "prioritized_replay_alpha"  : constant_parameter(0.7),
             "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"    : 5*10**5,
@@ -54,9 +53,9 @@ settings = {
             "epsilon"  : linear_parameter(2.5, final_val=0.5, time_horizon=total_steps),
 
             #Reward shaping
-            "extra_rewards" : True,
+            "extra_rewards" : False,
             "reward_ammount" : (1.0, 0.2,),
-            "reward_shaper" :  linear_reshaping,
+            # "reward_shaper" :  linear_reshaping,
             "reward_shaper_param" : linear_parameter(0.8, final_val=0.2, time_horizon=0.8*total_steps),
             "gamma"             :  0.99,
 
@@ -76,7 +75,7 @@ settings = {
             "n_envs_per_thread"    : n_envs_per_thread,
             "worker_steps"         : total_steps // n_envs,
             "process_patience"     : [0.1,0.1, 10.0], #runner/trainer/process_manager
-            "worker_net_on_cpu"    : True,
+            "worker_net_on_cpu"    : not docoptsettings["--debug"],
             "trainer_net_on_cpu"   : False,
             #Communication
             "trainer_thread_save_freq"  : 1000,
@@ -88,8 +87,6 @@ settings = {
             #NN
             "pad_visuals"      : True,
             "peephole_convs"   : True,
-            ###
-            ###
             ###
             #Value net:
             "vectorencoder_n_hidden" : 1,
@@ -103,6 +100,7 @@ settings = {
             "valuenet_n_hidden" : 1,
             "valuenet_hidden_size" : 256,
             "nn_regularizer" : 0.001,
+            "nn_output_activation" : None,
             #Preprocessing
             "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
             "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
