@@ -5,16 +5,12 @@ import numpy as np
 import aux.utils as utils
 from environment.tetris_environment import tetris_environment
 import environment.env_utils.draw_tetris as draw_tetris
-import aux.settings
 
 class tetris_environment_vector:
     def __init__(self, n_envs, env_type, init_envs=None, settings=None):
         if type(init_envs) is not list: init_envs = [init_envs for _ in range(n_envs)]
         #Set up settings
-        self.settings = aux.settings.default_settings.copy()
-        if settings is not None:
-            for x in settings:
-                self.settings[x] = settings[x]
+        self.settings = utils.parse_settings(settings)
         self.n_envs = n_envs
         self.player_idxs = [p for p in range(self.settings["n_players"])]
         self.env_type = env_type
@@ -109,7 +105,7 @@ class tetris_environment_vector:
     def get_winner(self, env=None, player=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.get_winner(player=player) for e in env_list]
-        
+
     def copy(self, env=None):
         env_list = self.envs if env is None else [self.envs[i] for i in env]
         return [e.copy(actions, player=player) for e in env_list]
