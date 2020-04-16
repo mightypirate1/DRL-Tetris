@@ -50,7 +50,7 @@ class vector_agent(vector_agent_base):
             self.trainer = self.settings["trainer_type"](id="trainer_{}".format(self.id),settings=settings, session=session, sandbox=sandbox, mode=threads.PASSIVE)
             self.model_dict = self.trainer.model_dict
             #STANDALONE agents have to keep track of their own training habits!
-            self.time_to_training = self.settings['time_to_training']
+            self.time_to_training = max(self.settings['time_to_training'],self.settings['n_samples_each_update'])
 
         if self.mode is threads.WORKER: #If we are a WORKER, we bring our own equipment
             #Create models
@@ -74,60 +74,60 @@ class vector_agent(vector_agent_base):
     #
     ###
     #####
-    def get_action(self, state_vec, player=None, training=False, verbose=False):
+    def get_action(self, state_vec, player=None, random_action=False, training=False, verbose=False):
         #Get hypothetical future states and turn them into vectors!
         p_list = utils.parse_arg(player, self.player_idxs)
-        player_list_flat, future_states, future_states_flat = [], {}, []
-        all_actions = [None for _ in range(len(state_vec))]
+        player_list_flat   = []
+        future_states_flat = []
+        all_actions        = [None for _ in range(len(state_vec))  ]
+        unflattener        = [0    for _ in range(len(state_vec)+1)]
 
         #Set up some stuff that depends on what type of training we do...
         if self.settings["single_policy"]:
             model = self.model_dict["value_net"]
-            perspective = lambda x:1-x
-            k = -1
+            k, perspective =  -1, lambda x:1-x
         else:
             assert p_list[0] == p_list[-1], "{} ::: In dual-policy mode we require queries to be for one policy at a time... (for speed)".format(p_list)
             model = self.model_dict["policy_{}".format(p_list[0])]
-            perspective = lambda x:x
-            k = 1
+            k, perspective = 1, lambda x:x
 
         #Simulate future states
+        edge = 0
         for state_idx, state in enumerate(state_vec):
             self.sandbox.set(state)
-            player_action            = self.sandbox.get_actions(                    player=p_list[state_idx])
-            future_states[state_idx] = self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
+            player_action            = self.sandbox.get_actions(player=p_list[state_idx])
             all_actions[state_idx]   = player_action
+            unflattener[state_idx]   = slice(edge, edge + len(player_action))
+            future_states_flat      += self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
             player_list_flat        += [ perspective(p_list[state_idx]) for _ in range(len(player_action)) ]
 
-        #Flatten (kinda like ravel for np.arrays)
-        unflatten_dict, temp = {}, 0
-        for state_idx in range(len(state_vec)):
-            future_states_flat += future_states[state_idx]
-            unflatten_dict[state_idx] = slice(temp,temp+len(future_states[state_idx]),1)
-
         #Run model!
-        extrinsic_values_flat = self.run_model(model, future_states_flat, player=player_list_flat)
-        values_flat = k * extrinsic_values_flat
+        if random_action:
+            values_flat = np.zeros((len(future_states_flat),*model.output.shape[1:]))
+            distribution = "uniform"
+        else:
+            values_flat = k * self.run_model(model, future_states_flat, player=player_list_flat)
+            distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
 
         #Undo flatten
-        values = [values_flat[unflatten_dict[state_idx]] for state_idx in range(len(state_vec))]
-        action_idxs = [ np.argmax( values_flat[unflatten_dict[state_idx]]) for state_idx in range(len(state_vec))]
+        values = [values_flat[unflattener[state_idx]] for state_idx in range(len(state_vec))]
 
         #Choose an action . . .
-        if training:
+        action_idxs = [ np.argmax( values_flat[unflattener[state_idx]]) for state_idx in range(len(state_vec))]
+        if distribution is not "argmax":
             for state_idx in range(len(state_vec)):
                 a_idx = action_idxs[state_idx]
-                if "distribution" in self.settings["dithering_scheme"]:
+                if "distribution" in distribution:
                     theta = self.theta = self.settings["action_temperature"](self.clock)
-                    if "boltzman" in self.settings["dithering_scheme"]:
+                    if "boltzman" in distribution:
                         p = softmax(theta*values[state_idx]).ravel()
-                    elif "pareto" in self.settings["dithering_scheme"]:
+                    elif "pareto" in distribution:
                         p = utils.pareto(values[state_idx], temperature=theta)
                     self.action_entropy = utils.entropy(p)
                     a_idx = np.random.choice(np.arange(values[state_idx].size), p=p)
-                if "epsilon" in self.settings["dithering_scheme"]:
-                    epsilon = self.settings["epsilon"](self.clock)
-                    if "adaptive" in self.settings["dithering_scheme"]:
+                if "epsilon" in distribution or distribution is "uniform":
+                    epsilon = 1.0 if distribution is "uniform" else self.settings["epsilon"](self.clock)
+                    if "adaptive" in distribution:
                         epsilon *= self.avg_trajectory_length**(-1)
                     dice = random.random()
                     if dice < epsilon:
@@ -185,7 +185,7 @@ class vector_agent(vector_agent_base):
         if training and self.mode is threads.STANDALONE:
             if self.time_to_training < 1:
                 self.trainer.receive_data(self.transfer_data())
-                new_prio, filter = self.trainer.do_training()
+                self.trainer.do_training()
                 self.time_to_training = self.settings['time_to_training']
 
     #
