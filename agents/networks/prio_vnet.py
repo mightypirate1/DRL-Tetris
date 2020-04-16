@@ -6,11 +6,11 @@ import aux
 import aux.utils as utils
 
 class prio_vnet:
-    def __init__(self, agent_id, name, state_size, sess, on_cpu=False, settings=None, output_activation=tf.nn.tanh, reuse_nets=False, disable_reference_net=False):
+    def __init__(self, agent_id, name, state_size, sess, on_cpu=False, settings=None, reuse_nets=False, disable_reference_net=False):
         self.settings = utils.parse_settings(settings)
         self.session = sess
         self.name = name
-        self.output_activation = output_activation
+        self.output_activation = settings["nn_output_activation"]
         self.disable_reference_net = disable_reference_net
         self.scope_name = "agent{}_{}".format(agent_id,name)
         if settings is not None:
@@ -240,3 +240,7 @@ class prio_vnet:
             run_list.append(assign['assign_op'])
             feed_dict[assign['assign_val_placeholder']] = w
         self.session.run(run_list, feed_dict=feed_dict)
+
+    @property
+    def output(self):
+        return self.output_values_tf
