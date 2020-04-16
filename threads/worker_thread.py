@@ -20,6 +20,7 @@ class worker_thread(mp.Process):
         self.shared_vars = shared_vars
         self.gpu_count = 0 if self.settings["worker_net_on_cpu"] else 1
         self.current_weights = 0 #I have really old weights
+        self.initial_weights = True
         self.last_global_clock = 0
         self.print_frequency = 10 * self.settings["n_workers"]
         self.last_print_out = 10 * (self.settings["n_workers"] - self.id - 1 )
@@ -102,7 +103,7 @@ class worker_thread(mp.Process):
                 state = self.env.get_state()
 
                 #Get action from agent
-                action_idx, action = self.agent.get_action(state, player=current_player, training=True)
+                action_idx, action = self.agent.get_action(state, player=current_player, training=True, random_action=self.initial_weights)
                 # action = self.env.get_random_action(player=current_player)
 
                 #Perform action
@@ -183,6 +184,7 @@ class worker_thread(mp.Process):
             self.current_weights = self.shared_vars["update_weights"]["idx"]
             self.shared_vars["update_weights_lock"].release()
             self.agent.update_weights(w)
+            self.initial_weights = False
 
     def send_training_data(self):
         if self.settings["run_standalone"]:
