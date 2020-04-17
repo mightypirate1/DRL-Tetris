@@ -33,6 +33,7 @@ default_settings = {
                     "action_temperature"  : constant_parameter(1.0),
                     "epsilon" : constant_parameter(1.0),
                     "eval_distribution" : "argmax",
+                    "optimistic_prios" : 0.0,
                     #avg_trajectory_length_learning:
                     "tau_learning_rate" : 0.01,
                     #experience replay:

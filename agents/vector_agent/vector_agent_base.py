@@ -57,13 +57,20 @@ class vector_agent_base:
         states_np = self.unpack(states, player)
         return net.evaluate(states_np)
 
+    def run_prios(self, net, states_all, r, d, player=None):
+        assert player is not None, "Specify a player to run the model for!"
+        s_np  = self.unpack(states_all[:-1], player[:-1])
+        sp_np = self.unpack(states_all[1:], player[1:])
+        return net.compute_prios(s_np, sp_np,r,d)
+
     def model_runner(self, net):
         if type(net) is str:
             _net = self.model_dict["net"]
         else:
             _net = net
-        def runner(states, player=None):
-            return self.run_model(_net, states, player=player)
+        def runner(data, player=None):
+            s,r,d = data
+            return self.run_prios(_net, s,r,d, player=player)
         return runner
 
     # # # # #

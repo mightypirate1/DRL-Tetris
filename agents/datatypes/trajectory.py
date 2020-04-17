@@ -25,17 +25,12 @@ class trajectory:
     def process_trajectory(self, model, state_fcn, reward_shaper=None, gamma_discount=0.99):
         _r = self.r if reward_shaper is None else reward_shaper(self.r)
         r = [x() for x in _r]
-        v = model(self.s, player=self.p)
         r = np.array(     r).reshape((-1,1))
         d = np.array(self.d).reshape((-1,1))
-        td_errors = -v[:-1] + r -gamma_discount * v[1:] * (1-d)
-        prios = np.abs(td_errors)
+        prios = model((self.s, r, d), player=self.p)
         s  = state_fcn(self.s[:-1], player=self.p[:-1])
         sp = state_fcn(self.s[1:], player=self.p[1:])
         data = (s, sp,None,r,d)
-        # print("---")
-        # for i in range(len(self)):
-        #     print("v", v[i],"td_errors", td_errors[i],"r", r[i], _r[i])
         return data, prios
 
     def get_winner(self): #This function assumes that the reward is done correctly, and corresponds to winning only

@@ -70,6 +70,26 @@ class prio_vnet:
         return_values = self.session.run(run_list, feed_dict=feed_dict)
         return return_values
 
+    def compute_prios(self, s, s_prime, rewards, dones):
+        vector_states, visual_states = s
+        vector_s_primes, visual_s_primes = s_prime
+        run_list = [self.new_prios_tf]
+        feed_dict = {
+                        self.input_rewards_tf : rewards,
+                        self.input_dones_tf : dones,
+                    }
+        #Add also the state information to the appropriate placeholders..
+        for idx, vec in enumerate(vector_states):
+            feed_dict[self.vector_inputs[idx]] = vec
+        for idx, vis in enumerate(visual_states):
+            feed_dict[self.visual_inputs[idx]] = vis
+        for idx, vec in enumerate(vector_s_primes):
+            feed_dict[self.vector_s_primes[idx]] = vec
+        for idx, vis in enumerate(visual_s_primes):
+            feed_dict[self.visual_s_primes[idx]] = vis
+        values, new_prios = self.session.run(run_list, feed_dict=feed_dict)
+        return new_prios
+
     def train(self, vector_states, visual_states, vector_s_primes, visual_s_primes, rewards, dones, weights=None, lr=None):
         if weights is None:
             weights = np.ones((input_states.shape[0],1))
@@ -172,7 +192,7 @@ class prio_vnet:
                                 1,
                                 name='valuenet_layer{}'.format(self.settings['valuenet_n_hidden']+1),
                                 activation=self.output_activation,
-                                kernel_initializer=tf.zeros_initializer(),
+                                # kernel_initializer=tf.zeros_initializer(),
                                 bias_initializer=tf.zeros_initializer(),
                                )
 
@@ -190,7 +210,10 @@ class prio_vnet:
                                                                                ),
                                                               (1-dones)
                                                               ) #1-step empirical estimate
-            prios_tf = tf.abs(values_tf - target_values_tf) #priority for the experience replay
+            if self.settings["optimistic_prios"] == 0.0:
+                prios_tf = tf.abs(values_tf - target_values_tf) #priority for the experience replay
+            else:
+                prios_tf = tf.abs(values_tf - target_values_tf) + self.settings["optimistic_prios"] * tf.nn.relu(target_values_tf - values_tf)
         return values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
