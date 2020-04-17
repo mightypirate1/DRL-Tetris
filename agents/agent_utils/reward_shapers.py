@@ -1,12 +1,13 @@
 import numpy as np
 
 ### ## ## # # #
-### THIS WHOLE FILE EXPECTS INPUTS r TO BE LIST-LIKE; E.G [0,0,0,0,1]
+### THIS WHOLE FILE EXPECTS INPUTS r TO BE LIST-LIKE CONTAINING reward-type objects
 ### ## ## # # #
 
 #This smears out the reward from the final step onto the previous steps
 def linear_reshaping(ammount, single_policy=True):
-    def r_tilde(r):
+    def r_tilde(_r):
+        r = [x.base for x in _r]
         if len(r) < 3:
             return r
         T = len(r)-1
@@ -17,24 +18,9 @@ def linear_reshaping(ammount, single_policy=True):
         ret = coeff * idxs * signs
         ret[-1] = (1-ammount) * rT
         ret[:-1] += r[:-1]
-        return ret
-    return r_tilde
-
-def exp_reshaping(gamma, single_policy=True):
-    if not single_policy: gamma = -gamma
-    def r_tilde(r):
-        ret = np.zeros_like(r, dtype=np.float)
-        weight = 0
-        sum = 0
-        for i in reversed(range(len(r))):
-            sum *= gamma
-            weight *= gamma
-            sum += r[i]
-            weight += 1
-            ret[i] = sum
-            ret = ret / weight
-            ret[:-1] += r[:-1]
-        return ret
+        for i,x in enumerate(_r):
+            x.r[0] = ret[i]
+        return _r
     return r_tilde
 
 if __name__ == "__main__":
