@@ -33,7 +33,7 @@ settings = {
             # "render_simulation" : True,
 
             #Project
-            "run-id" : "FOURier_Q01",
+            "run-id" : "FOURier_Q02_optimist",
 
             #Train parameters
             "n_samples_each_update"     : 16192,
@@ -53,6 +53,7 @@ settings = {
             # "epsilon"  : exp_parameter(1, decay=4/total_steps),
             "dithering_scheme"    : "adaptive_epsilon",
             "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
+            "optimistic_prios" : 1.0,
 
             #Reward shaping
             "extra_rewards" : True,
