@@ -132,9 +132,9 @@ class tetris_environment:
 
     def reward_fcn(self, player):
         if self.backend.states[player].dead[0] == 1:
-            base = -1
+            base = -1.0
         else:
-            base = 0
+            base = 0.0
         if not self.settings["extra_rewards"]:
             return data_types.reward([base], extra_rewards=False)
         ### ## ## # # #
