@@ -73,7 +73,7 @@ class prio_vnet:
     def compute_prios(self, s, s_prime, rewards, dones):
         vector_states, visual_states = s
         vector_s_primes, visual_s_primes = s_prime
-        run_list = [self.new_prios_tf]
+        run_list = self.new_prios_tf
         feed_dict = {
                         self.input_rewards_tf : rewards,
                         self.input_dones_tf : dones,
@@ -87,7 +87,7 @@ class prio_vnet:
             feed_dict[self.vector_s_primes[idx]] = vec
         for idx, vis in enumerate(visual_s_primes):
             feed_dict[self.visual_s_primes[idx]] = vis
-        values, new_prios = self.session.run(run_list, feed_dict=feed_dict)
+        new_prios = self.session.run(run_list, feed_dict=feed_dict)
         return new_prios
 
     def train(self, vector_states, visual_states, vector_s_primes, visual_s_primes, rewards, dones, weights=None, lr=None):
