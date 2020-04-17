@@ -16,10 +16,18 @@ class tetris_environment:
         self.settings = utils.parse_settings(settings)
         settings_ok = self.process_settings() #Checks so that the settings are not conflicting
         assert settings_ok, "Settings are not ok! See previous error messages..."
+        self.player_idxs = [p_idx for p_idx in range(self.settings["n_players"])]
 
         #Set up logging
         self.debug = self.settings["environment_logging"]
         if self.debug: self.log = logging.getLogger("environment")
+
+        ## Stats
+        self.rounds_played = None
+        self.tot_reward = None
+        self.round_reward = None
+        self.reward = [None, None]
+        self.last_reward = [None, None]
 
         #Set up the environment
         self.id = id
@@ -31,7 +39,7 @@ class tetris_environment:
                                                 self.settings["game_size"]
                                               )
             #Upon agreement with backend, we always reset once.
-            self.backend.reset()
+            self.reset()
         else:
             if type(init_env) is tetris_environment:
                 self.backend = init_env.backend.copy()
@@ -39,11 +47,8 @@ class tetris_environment:
                 self.backend = init_env.copy()
             else:
                 assert False, "Invalid init_env: type is {}".format(type(init_env))
-        self.player_idxs = [p_idx for p_idx in range(self.settings["n_players"])]
-        self.done, self._reward = False, [0.0 for _ in range(self.settings["n_players"])]
-        ## Reward stats
-        self.rounds_played = 0
-        self.tot_combo_reward = 0
+
+        self.done = False
 
         #Say hi!
         if self.debug:
@@ -61,6 +66,12 @@ class tetris_environment:
 
     def reset(self):
         self.backend.reset()
+        self.round_reward = [self.reward_fcn(p_idx) for p_idx in self.player_idxs]
+        self.reward       = [self.reward_fcn(p_idx) for p_idx in self.player_idxs]
+        if self.tot_reward is None:
+            self.tot_reward = self.reward
+        if self.rounds_played is None:
+            self.rounds_played = 0
         self.rounds_played += 1
 
     def get_actions(self,player=None):
@@ -84,7 +95,8 @@ class tetris_environment:
             ret[i] = self.get_state()
         self.backend.set(anchor)
         if self.settings["render_simulation"]:
-            draw_tetris.drawAllFields([r.backend.states[0].field for r in ret[1:5]])
+            # print(ret[0].backend_state.states[0].field);exit()
+            self.renderer.drawAllFields([[r.backend_state.states[player].field for r in ret]],force_rescale=True,)
         return ret
 
     def perform_action(self, action, player=None, render=False, simulate=False):
@@ -95,7 +107,9 @@ class tetris_environment:
         a[player] = action
         self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
         if not simulate:
-            self.last_reward = reward = self.reward_fcn(player)
+            reward = self.last_reward[player] = self.reward_fcn(player)
+            self.round_reward[player] += reward
+            self.tot_reward[player] += reward
         done   = self.done
         return None if simulate else reward, done
 
@@ -122,23 +136,22 @@ class tetris_environment:
         else:
             base = 0
         if not self.settings["extra_rewards"]:
-            return base
+            return data_types.reward([base], extra_rewards=False)
         ### ## ## # # #
         #Auxiliary goals...
         w_base, w_combo = self.settings["reward_ammount"]
-        combo_score = self.backend.states[player].combo_count[0]
-        self.tot_combo_reward += combo_score
-        reward = self._reward[player] = w_base * base + w_combo * combo_score
-        # print(w_base, base, w_combo, combo_score, "=",reward);input()
-        return reward
+        combo = self.backend.states[player].combo_count[0]
+        r = self.reward[player] = data_types.reward([base,combo], extra_rewards=self.settings["extra_rewards"], weights=self.settings["reward_ammount"])
+        return r
 
     def get_info(self):
         ret = {}
         # speed = [self.backend.info[i].speed for i in range(self.settings["n_players"])]
-        ret["reward"] = self._reward
         ret["is_dead"] = [self.backend.states[i].dead[0] for i in range(self.settings["n_players"])]
         # ret["speed"] = speed
-        ret["tot_combo_reward"] = self.tot_combo_reward
+        ret["reward"] = self.reward
+        ret["tot_reward"] = self.tot_reward
+        ret["round_reward"] = self.round_reward
         ret["rounds_played"] = self.rounds_played
         return ret
 
