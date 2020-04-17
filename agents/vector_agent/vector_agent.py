@@ -33,8 +33,8 @@ class vector_agent(vector_agent_base):
         self.env_idxs = [i for i in range(n_envs)]
         self.n_envs = n_envs
         self.n_workers = n_workers
-
         self.send_count = 0
+        self.DEBUG_RENDERER = None
 
         #In any mode, we need a place to store transitions!
         self.trajectory_type = dt.trajectory if self.settings["single_policy"] else dt.trajectory_dualpolicy
@@ -96,10 +96,12 @@ class vector_agent(vector_agent_base):
         for state_idx, state in enumerate(state_vec):
             self.sandbox.set(state)
             player_action            = self.sandbox.get_actions(player=p_list[state_idx])
+            n_actions = len(player_action)
             all_actions[state_idx]   = player_action
-            unflattener[state_idx]   = slice(edge, edge + len(player_action))
+            unflattener[state_idx]   = slice(edge, edge + n_actions)
             future_states_flat      += self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
             player_list_flat        += [ perspective(p_list[state_idx]) for _ in range(len(player_action)) ]
+            edge += n_actions
 
         #Run model!
         if random_action:
@@ -110,28 +112,31 @@ class vector_agent(vector_agent_base):
             distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
 
         #Undo flatten
-        values = [values_flat[unflattener[state_idx]] for state_idx in range(len(state_vec))]
+        values_all = [values_flat[unflattener[state_idx]] for state_idx in range(len(state_vec))]
 
         #Choose an action . . .
-        action_idxs = [ np.argmax( values_flat[unflattener[state_idx]]) for state_idx in range(len(state_vec))]
+        action_idxs = [ np.argmax(values) for values in values_all ]
+
         if distribution is not "argmax":
             for state_idx in range(len(state_vec)):
                 a_idx = action_idxs[state_idx]
                 if "distribution" in distribution:
                     theta = self.theta = self.settings["action_temperature"](self.clock)
                     if "boltzman" in distribution:
-                        p = softmax(theta*values[state_idx]).ravel()
+                        p = softmax(theta*values_all[state_idx]).ravel()
                     elif "pareto" in distribution:
-                        p = utils.pareto(values[state_idx], temperature=theta)
+                        p = utils.pareto(values_all[state_idx], temperature=theta)
                     self.action_entropy = utils.entropy(p)
-                    a_idx = np.random.choice(np.arange(values[state_idx].size), p=p)
+                    a_idx = np.random.choice(np.arange(values_all[state_idx].size), p=p)
                 if "epsilon" in distribution or distribution is "uniform":
                     epsilon = 1.0 if distribution is "uniform" else self.settings["epsilon"](self.clock)
                     if "adaptive" in distribution:
                         epsilon *= self.avg_trajectory_length**(-1)
+                    # print("epsilon:",epsilon)
                     dice = random.random()
                     if dice < epsilon:
-                        a_idx = np.random.choice(np.arange(values[state_idx].size))
+                        # print("DICE")
+                        a_idx = np.random.choice(np.arange(values_all[state_idx].size))
                 action_idxs[state_idx] = a_idx
         actions = [all_actions[state_idx][action_idxs[state_idx]] for state_idx in range(len(state_vec)) ]
 
@@ -162,13 +167,14 @@ class vector_agent(vector_agent_base):
                                                 self.model_runner(model),
                                                 self.unpack,
                                                 reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
-                                                gamma_discount=self.settings["gamma"]
+                                                gamma_discount=self.settings["gamma"],
+                                                debug_renderer=self.DEBUG_RENDERER
                                                 )
                 else:
                     data = t
                 metadata = {
                             "policy"    : int(e>=self.n_envs),
-                            "winner"    : t.get_winner(),
+                            "winner"    : t.winner,
                             "length"    : len(t),
                             "worker"    : self.id,
                             "packet_id" : self.send_count,
