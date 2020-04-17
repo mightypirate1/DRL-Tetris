@@ -44,6 +44,9 @@ class _renderer:
         screen.fill([0,0,0])
         return screen
 
+    def clearScreen(self):
+        self.screen.fill([0,0,0])
+
     def pieceSize(self, newsize):
         self.screen.fill([0,0,0])
         return newsize
@@ -116,6 +119,7 @@ class _renderer:
                 self.piece_size /= r
 
         #Draw field
+        self.clearScreen()
         x, y = 0, 0 #First field drawn in top left corner
         width_px  = (width  +   self.padding) * self.piece_size #px-sizes of a field
         height_px = (height + 0*self.padding) * self.piece_size
