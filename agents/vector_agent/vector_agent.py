@@ -34,7 +34,6 @@ class vector_agent(vector_agent_base):
         self.n_envs = n_envs
         self.n_workers = n_workers
         self.send_count = 0
-        self.DEBUG_RENDERER = None
 
         #In any mode, we need a place to store transitions!
         self.trajectory_type = dt.trajectory if self.settings["single_policy"] else dt.trajectory_dualpolicy
@@ -168,7 +167,6 @@ class vector_agent(vector_agent_base):
                                                 self.unpack,
                                                 reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
                                                 gamma_discount=self.settings["gamma"],
-                                                debug_renderer=self.DEBUG_RENDERER
                                                 )
                 else:
                     data = t
