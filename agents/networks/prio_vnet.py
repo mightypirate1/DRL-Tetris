@@ -172,8 +172,8 @@ class prio_vnet:
                                 1,
                                 name='valuenet_layer{}'.format(self.settings['valuenet_n_hidden']+1),
                                 activation=self.output_activation,
-                                kernel_initializer=tf.zeros_initializer,
-                                bias_initializer=tf.zeros_initializer,
+                                kernel_initializer=tf.zeros_initializer(),
+                                bias_initializer=tf.zeros_initializer(),
                                )
 
             ret = x
@@ -183,13 +183,13 @@ class prio_vnet:
         with tf.variable_scope("prio_vnet") as vs:
             values_tf, main_scope = self.create_value_net(vector_states, visual_states, "main")
             v_sprime_tf, ref_scope = self.create_value_net(vector_s_primes, visual_s_primes, "reference")
-            _gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
-            target_values_tf = rewards -tf.multiply(
-                                                    tf.stop_gradient(
-                                                                     _gamma*v_sprime_tf #we treat the target values as constant!
-                                                                    ),
-                                                    (1-dones)
-                                                   ) #1-step empirical estimate
+            gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
+            target_values_tf = rewards + gamma * tf.multiply(
+                                                              tf.stop_gradient(
+                                                                               v_sprime_tf #we treat the target values as constant!
+                                                                               ),
+                                                              (1-dones)
+                                                              ) #1-step empirical estimate
             prios_tf = tf.abs(values_tf - target_values_tf) #priority for the experience replay
         return values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
@@ -198,6 +198,7 @@ class prio_vnet:
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
         self.loss_tf = self.value_loss_tf + self.regularizer_tf
         training_ops = tf.train.AdamOptimizer(learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
+        # training_ops = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
         return training_ops
 
     def create_weight_setting_ops(self, collection):
