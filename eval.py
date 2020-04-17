@@ -50,7 +50,6 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                                s["env_type"],
                                settings=s,
                                )
-
     agent, scoreboard = list(), dict()
     for i, setting, weight in zip(range(len(settings)), settings, run_settings["<weights>"]):
         setting = adjust_settings(setting)
@@ -69,7 +68,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
     trajectory_start = 0
     s_prime = env.get_state()
     current_player = np.random.choice([i for i in range(s["n_players"])], size=n_envs )
-    round_reward = [0,0]
+
     # Game loop!
     for t in range(0,5000):
         #Take turns...
@@ -90,8 +89,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
 
         #Debug-prints:
         if run_settings["--debug"]:
-            round_reward[current_player[0]] += reward[0]
-            print("player", current_player[0], " -> reward :", reward, "(total", round_reward,")")
+            print("player", current_player[0], " -> reward :", reward, "(total", env.envs[0].round_reward,")")
 
         #Render?
         if s["render"]:
