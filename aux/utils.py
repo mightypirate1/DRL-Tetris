@@ -67,10 +67,12 @@ def merge_lists(*e):
     return list(zip(*e))
 
 def weight_location(s, idx=""):
+    if type(idx) is not str:
+        idx = str(idx)
     if type(s) is dict: #s is a settings dictionary
         project = s["run-id"]
         folder = "models/"+project
-        file   = folder+"/weights"+str(idx)+".w"
+        file   = folder+"/weights"+idx+".w"
         return folder, file
     if type(s) is str: #s is a string
         #assume s is path to weight file... (.../.../*.w)
