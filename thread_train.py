@@ -33,7 +33,7 @@ settings = {
             # "render_simulation" : True,
 
             #Project
-            "run-id" : "THIRDeye_Q04",
+            "run-id" : "FOURier_Q01",
 
             #Train parameters
             "n_samples_each_update"     : 16192,
