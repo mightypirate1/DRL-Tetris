@@ -56,7 +56,6 @@ class worker_thread(mp.Process):
         if not self.settings["run_standalone"]:
             myid=mp.current_process()._identity[0]
             np.random.seed(myid^struct.unpack("<L",os.urandom(4))[0])
-
         # Be Nice
         niceness=os.nice(0)
         os.nice(5-niceness)
@@ -169,6 +168,8 @@ class worker_thread(mp.Process):
 
     def update_weights_and_clock(self):
         if self.settings["run_standalone"]:
+            if self.agent.clock > self.settings["n_samples_each_update"]:
+                self.initial_weights = False
             if self.agent.trainer.n_train_steps["total"] % 100 == 0 and self.agent.trainer.n_train_steps["total"] > self.current_weights:
                 print("Saving weights...")
                 self.agent.trainer.save_weights(*utils.weight_location(self.settings,idx=self.agent.trainer.n_train_steps["total"]))
