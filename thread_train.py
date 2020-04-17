@@ -30,15 +30,17 @@ n_envs = n_workers * n_envs_per_thread
 render = not docoptsettings["--no-rendering"]
 
 settings = {
+            # "render_simulation" : True,
+
             #Project
-            "run-id" : "THIRDeye_Q02",
+            "run-id" : "THIRDeye_Q04",
 
             #Train parameters
-            "n_samples_each_update"     : 8096,
+            "n_samples_each_update"     : 16192,
             "n_train_epochs_per_update" : 5,
             "minibatch_size"            : 128,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : linear_parameter(1e-6, final_val=1e-7, time_horizon=total_steps),
+            "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=3/total_steps),
             "prioritized_replay_alpha"  : constant_parameter(0.7),
             "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"    : 5*10**5,
@@ -48,16 +50,16 @@ settings = {
 
             #Dithering
             # "dithering_scheme"    : "epsilon",
-            # "epsilon"  : exp_parameter(1, decay=5*total_steps),
+            # "epsilon"  : exp_parameter(1, decay=4/total_steps),
             "dithering_scheme"    : "adaptive_epsilon",
-            "epsilon"  : linear_parameter(2.5, final_val=0.5, time_horizon=total_steps),
+            "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
 
             #Reward shaping
-            "extra_rewards" : False,
-            "reward_ammount" : (1.0, 0.2,),
+            "extra_rewards" : True,
+            "reward_ammount" : (1.0, 0.0,),
             # "reward_shaper" :  linear_reshaping,
-            "reward_shaper_param" : linear_parameter(0.8, final_val=0.2, time_horizon=0.8*total_steps),
-            "gamma"             :  0.99,
+            "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
+            "gamma"             :  0.98,
 
             #Game settings
             "pieces" : [0,6],
@@ -79,7 +81,7 @@ settings = {
             "trainer_net_on_cpu"   : False,
             #Communication
             "trainer_thread_save_freq"  : 1000,
-            "trainer_thread_backup_freq"  : 50,
+            "trainer_thread_backup_freq"  : 10,
             "worker_data_send_fequency" : 5,
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
