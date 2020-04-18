@@ -57,7 +57,7 @@ settings = {
 
             #Reward shaping
             "extra_rewards" : True,
-            "reward_ammount" : (1.0, 1.0,),
+            "reward_ammount" : (1.0, 0.0,),
             # "reward_shaper" :  linear_reshaping,
             "reward_shaper_param" : linear_parameter(0.5, final_val=0.0, time_horizon=0.3*total_steps),
             "gamma"             :  0.98,
