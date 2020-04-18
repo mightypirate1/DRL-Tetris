@@ -33,7 +33,7 @@ settings = {
             # "render_simulation" : True,
 
             #Project
-            "run-id" : "FOURier_Q02_optimist",
+            "run-id" : "FOURier_Q03_rewardshaping",
 
             #Train parameters
             "n_samples_each_update"     : 16192,
@@ -57,9 +57,9 @@ settings = {
 
             #Reward shaping
             "extra_rewards" : True,
-            "reward_ammount" : (1.0, 0.0,),
+            "reward_ammount" : (1.0, 1.0,),
             # "reward_shaper" :  linear_reshaping,
-            "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
+            "reward_shaper_param" : linear_parameter(0.5, final_val=0.0, time_horizon=0.3*total_steps),
             "gamma"             :  0.98,
 
             #Game settings
