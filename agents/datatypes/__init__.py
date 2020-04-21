@@ -1,3 +1,1 @@
 from agents.datatypes.trajectory import trajectory
-from agents.datatypes.pg_trajectory import pg_trajectory
-from agents.datatypes.trajectory_dualpolicy import trajectory_dualpolicy
