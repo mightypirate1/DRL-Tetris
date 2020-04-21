@@ -11,20 +11,19 @@ import aux.utils as utils
 import threads
 
 class trainer_thread(mp.Process):
-    def __init__(self, id=id, settings=None, shared_vars=None, patience=0.1):
+    def __init__(self, id=id, settings=None, shared_vars=None):
         mp.Process.__init__(self, target=self)
         settings["render"] = False #Trainers dont render.
-        self.settings = utils.parse_settings(settings)
         self.id = id
-        self.patience = patience
+        self.settings = utils.parse_settings(settings)
+        self.shared_vars = shared_vars
         self.gpu_count = 0 if self.settings["trainer_net_on_cpu"] else 1
         self.last_global_clock = 0
-        self.running = False
-        self.trainer = None
-        self.shared_vars = shared_vars
-        self.print_frequency = 10
         self.last_print_out = 0
         self.last_saved_weights = 0
+        self.print_frequency = 10
+        self.running = False
+        self.trainer = None
         self.stats = {
                         "t_start"          : None,
                         "t_stop"           : None,
@@ -33,13 +32,12 @@ class trainer_thread(mp.Process):
                         "t_loading"        : None,
                         "t_training_total" : 0,
                         "t_loading_total"  : 0,
-
                         "n_samples_total"  : 0,
                        }
 
     def run(self, *args):
         try:
-            self.shared_vars["run_flag"][-1] = self.running = 1
+            self.shared_vars["run_flag"][-1] = self.running = 1 #Signal to the world: we're up!
             self.thread_code(*args)
         except Exception as e:
             print("TRAINER PANIC:", e)
@@ -120,12 +118,10 @@ class trainer_thread(mp.Process):
         t = time.time() #Tick
         data_from_workers = list()
         while not self.shared_vars["data_queue"].empty():
-            try:
-                d = self.shared_vars["data_queue"].get()
-                data_from_workers.append(d)
-            except ValueError:
-                while True:
-                    print("really really bad")
+            d = self.shared_vars["data_queue"].get()
+            data_from_workers.append(d)
+            if time.time() - t > 10:
+                raise Exception("trainer_thread loaded for >10 sec. If you are running at a MASSIVE scale, this is probably not an error. Remove the line and restart training from your latest weights. Appologies... If you are on normal scales, this should be a concern..")
         if len(data_from_workers) == 0:
             return
         n_samples, avg_length = self.trainer.receive_data(data_from_workers)

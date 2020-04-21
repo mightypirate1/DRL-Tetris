@@ -12,9 +12,6 @@ class threaded_runner:
     def __init__(self, settings=None):
         #Parse settings
         self.settings = utils.parse_settings(settings)
-        patience = self.settings["process_patience"]
-        if type(patience) is list: worker_patience, trainer_patience, self.patience = patience
-        else: worker_patience = trainer_patience = self.patience = patience
 
         #Set up some shared variables to use for inter-thread communications (data transfer etc)
         manager = mp.Manager()
@@ -43,7 +40,6 @@ class threaded_runner:
                                    id=i,
                                    settings=settings,
                                    shared_vars=self.shared_vars,
-                                   patience=worker_patience,
                                   )
             thread.deamon = True
             self.threads["workers"].append(thread)
@@ -55,7 +51,6 @@ class threaded_runner:
                                      id=threads.TRAINER_ID,
                                      settings=settings,
                                      shared_vars=self.shared_vars,
-                                     patience=trainer_patience,
                                     )
             self.threads["trainer"] = trainer
             self.all_threads.append(trainer)
@@ -83,8 +78,5 @@ class threaded_runner:
             done = True
             for flag in self.shared_vars["run_flag"]:
                 done = done and flag == 0
-            time.sleep(1)
+            time.sleep(10)
         print("join done!")
-
-    # def join(self):
-    #     self.join_all_threads()

@@ -73,16 +73,11 @@ default_settings = {
                     "weight_transfer_frequency" : 100,
                     "workers_do_processing"     : True,
                     #Threading
-                    "run_standalone"    : True,
+                    "run_standalone"    : False,
                     "n_workers"         : 4,
                     "n_envs_per_thread" : 16,
-                    "worker_steps"      : 1000,
-                    "process_patience"  : [0.1,0.1, 10.0], #runner/trainer/process_manager
-                    #Division of labour
-                    "wrangler_unpacks" : False,
-                    "wrangler_update_mode" : "all", #"none", "budget"
-                    "wrangler_trainerfeed_target_length" : 20, #How many samples do we try to get into the que?
-
+                    "worker_steps"      : 100000,
+                    "worker_niceness"   : 5,
                 ##ENV:
                     "environment_logging" : True,
                     "env_type" : None,

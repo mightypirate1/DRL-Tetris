@@ -36,7 +36,7 @@ class vector_agent(vector_agent_base):
         self.send_count = 0
 
         #In any mode, we need a place to store transitions!
-        self.trajectory_type = dt.trajectory if self.settings["single_policy"] else dt.trajectory_dualpolicy
+        self.trajectory_type = dt.trajectory #if self.settings["single_policy"] else dt.trajectory_dualpolicy
         self.current_trajectory = [self.trajectory_type() for _ in range(self.n_envs if self.settings["single_policy"] else 2*self.n_envs)]
         self.stored_trajectories = list()
         self.avg_trajectory_length = 12 #tau is initialized to something...
@@ -196,18 +196,19 @@ class vector_agent(vector_agent_base):
     ###
     #####
     def store_experience(self, experience, env=None):
-        if env is None: endflag = False
-        else:           endflag = True
         env_list = utils.parse_arg(env, self.env_idxs)
         #Turn a list of experience ingredients into one list of experiences:
         es = utils.merge_lists(*experience)
         assert len(env_list) == len(es), "WTF!!!! {} != {}".format(len(env_list), len(es))
         for i,e in zip(env_list, es):
+            if e[0] is None:
+                print(".")
+                continue
             if self.settings["single_policy"]:
-                self.current_trajectory[i].add(e, end_of_trajectory=endflag)
+                self.current_trajectory[i].add(e)
             if not self.settings["single_policy"]:
-                self.current_trajectory[i + self.n_envs*e[4]].add(e, end_of_trajectory=endflag)
-
+                #Player1's trajectories strored first (n_envs many) and then player2's:
+                self.current_trajectory[i + e[4]*self.n_envs].add(e)
         self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
 
     def transfer_data(self, keep_data=False):

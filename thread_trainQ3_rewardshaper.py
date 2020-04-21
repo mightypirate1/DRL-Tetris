@@ -30,18 +30,17 @@ n_envs = n_workers * n_envs_per_thread
 render = not docoptsettings["--no-rendering"]
 
 settings = {
+            # "render_simulation" : True,
+
             #Project
-            "run-id" : "FOURier_X3-500k",
+            "run-id" : "FOURier_Q03_rewardshaper_.8to.5in0.3",
 
             #Train parameters
             "n_samples_each_update"     : 16192,
-            "minibatch_size"            : 128,
-            # "n_samples_each_update"     : 8096, #smallbatch
-            # "minibatch_size"            : 64,   #smallbatch
             "n_train_epochs_per_update" : 5,
+            "minibatch_size"            : 128,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=3/total_steps),
-            # "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=2/total_steps), #highLR
             "prioritized_replay_alpha"  : constant_parameter(0.7),
             "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"    : 5*10**5,
@@ -58,9 +57,9 @@ settings = {
 
             #Reward shaping
             "extra_rewards" : True,
-            "reward_ammount" : (1.0, 0.0,),
+            "reward_ammount" : (1.0, 0.1,),
             # "reward_shaper" :  linear_reshaping,
-            "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
+            "reward_shaper_param" : linear_parameter(0.8, final_val=0.1, time_horizon=0.3*total_steps),
             "gamma"             :  0.98,
 
             #Game settings
@@ -104,13 +103,17 @@ settings = {
             "valuenet_hidden_size" : 256,
             "nn_regularizer" : 0.001,
             "nn_output_activation" : None,
+            #Preprocessing
+            "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
+            "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
+            "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
 
             #Misc.
             "render"            : render,
             "bar_null_moves"    : True,
            }
 
-print("Training script executed with settings:")
+print("Speedcheck:")
 for x in docoptsettings:
     print("\t{} : {}".format(x,docoptsettings[x]))
 
