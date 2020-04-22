@@ -107,7 +107,6 @@ class trainer_thread(mp.Process):
             trained0 = self.trainer.do_training(policy=0)
             trained1 = self.trainer.do_training(policy=1)
             trained = trained0 or trained1
-            print("You might want to look at this code and think.")
         t = time.time() - t
         if trained:
             self.quick_summary.update(self.trainer.output_stats(), time=self.current_step())

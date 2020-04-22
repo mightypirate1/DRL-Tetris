@@ -202,7 +202,6 @@ class vector_agent(vector_agent_base):
         assert len(env_list) == len(es), "WTF!!!! {} != {}".format(len(env_list), len(es))
         for i,e in zip(env_list, es):
             if e[0] is None:
-                print(".")
                 continue
             if self.settings["single_policy"]:
                 self.current_trajectory[i].add(e)
