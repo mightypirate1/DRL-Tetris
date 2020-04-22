@@ -63,7 +63,7 @@ class worker_thread(mp.Process):
             #
             ## Initialize training variables, and a quick_summary for TensorBoard stats.
             #####
-            self.quick_summary = quick_summary(settings=self.settings, session=session, suffix="worker_{}".format(self.id))
+            self.quick_summary = quick_summary(settings=self.settings, session=session, suffix="worker") if self.id == 0 else None
             self.t_thread_start = time.time()
             s_prime = self.env.get_state()
             current_player = np.random.choice([i for i in range(self.settings["n_players"])], size=(self.settings["n_envs_per_thread"])  )
@@ -214,10 +214,9 @@ class worker_thread(mp.Process):
         print("action entropy: {}".format(self.agent.action_entropy))
         print("Epsilon: {}".format(self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1)))
         self.last_print_out = t
-        if self.settings["run_standalone"]:
+        if self.quick_summary is not None:
             s = {
                 #"Avg. combo-reward"          : self.agent.env.tot_combo_reward / self.agent.rounds_played,
-                 "Average trajectory length" : self.agent.avg_trajectory_length,
                  "Epsilon (adative)"         : self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1),
                  "Action entropy"            : self.agent.action_entropy,
                  "Action temperature"        : self.agent.theta,
