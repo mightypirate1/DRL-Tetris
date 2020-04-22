@@ -8,6 +8,7 @@ def none_f(*args,**kwargs):
 (l,j,s,z,i,t,o) = (0,1,2,3,4,5,6)
 
 default_settings = {
+                    "description"  : "No-name project!",
                 ## AGENT:
                     "agent_type"   : None,
                     "trainer_type" : None,
@@ -28,6 +29,7 @@ default_settings = {
                     "balance_winrate" : True,
                     "winrate_tolerance" : 0.15, #0.15 means that a player does not train if it's winrate is above 0.65
                     "winrate_learningrate" : 0.01,
+                    "restart_training_delay" : 16192,
                     #exploration
                     "dithering_scheme" : "adaptive_epsilon",
                     "action_temperature"  : constant_parameter(1.0),

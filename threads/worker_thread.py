@@ -11,21 +11,22 @@ import aux.utils as utils
 import threads
 
 class worker_thread(mp.Process):
-    def __init__(self, id=id, settings=None, shared_vars=None):
+    def __init__(self, id=id, settings=None, shared_vars=None, init_weights=None, init_clock=0):
         mp.Process.__init__(self, target=self)
         self.settings = utils.parse_settings(settings)
         self.id = id
         self.n_steps = self.settings["worker_steps"]
         self.shared_vars = shared_vars
+        self.init_weights = init_weights
+        self.init_clock = init_clock
         self.gpu_count = 1 if (not self.settings["worker_net_on_cpu"]) or self.settings["run_standalone"] else 0
+        self.random_actions = init_weights is None #Speed up initial datagathering by making random moves.
         self.current_weights = 0 #I have really old weights
-        self.random_actions = True #Speed up initial datagathering by making random moves.
-        self.initial_weights = True
         self.last_global_clock = 0
-        self.print_frequency = 10 * self.settings["n_workers"]
-        self.last_print_out = 10 * (self.settings["n_workers"] - self.id - 1 )
         self.stashed_experience = None
         self.old_reset_list = []
+        self.print_frequency = 10 * self.settings["n_workers"]
+        self.last_print_out = 10 * (self.settings["n_workers"] - self.id - 1 )
         if self.id > 0:
             self.settings["render"] = False #At most one worker renders stuff...
         self.running = False
@@ -58,6 +59,8 @@ class worker_thread(mp.Process):
                                                      sandbox=self.settings["env_type"](settings=self.settings),
                                                      session=session,
                                                      settings=self.settings,
+                                                     init_weights=self.init_weights,
+                                                     init_clock=self.init_clock,
                                                     )
 
             #

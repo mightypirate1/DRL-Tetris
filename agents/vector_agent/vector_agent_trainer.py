@@ -19,6 +19,8 @@ class vector_agent_trainer(vector_agent_base):
                  sandbox=None,              # Sandbox to play in!
                  mode=threads.ACTIVE,       # What's our role?
                  settings=None,             # Settings-dict passed down from the ancestors
+                 init_weights=None,
+                 init_clock=0,
                 ):
 
         #Some general variable initialization etc...
@@ -50,6 +52,15 @@ class vector_agent_trainer(vector_agent_base):
             self.scoreboard[model] = 0.5
             self.n_train_steps[model] = 0
             self.time_to_reference_update[model] = 0
+
+        self.n_samples_to_start_training = self.settings["n_samples_each_update"]
+        if init_weights is not None:
+            print("Trainer{} initialized from weights: {} and clock: {}".format(self.id, init_weights, init_clock))
+            self.update_clock(init_clock)
+            self.load_weights(init_weights,init_weights)
+            self.n_samples_to_start_training = self.settings["restart_training_delay"]
+            self.load_weights(init_weights,init_weights)
+
         self.n_train_steps["total"] = 0
 
         self.train_time_log = {
@@ -121,7 +132,7 @@ class vector_agent_trainer(vector_agent_base):
         model = self.model_dict[policy]
 
         #If we dont have enough samples yet we quit early...
-        if sample is None and len(exp_rep) < self.settings["n_samples_each_update"]:
+        if sample is None and len(exp_rep) < self.n_samples_to_start_training:
             if not self.settings["run_standalone"]: time.sleep(1) #If we are a separate thread, we can be a little patient here
             return False
 

@@ -25,6 +25,8 @@ class vector_agent(vector_agent_base):
                  sandbox=None,              # Sandbox to play in!
                  mode=threads.STANDALONE,   # What's our role?
                  settings=None,             # Settings-dict passed down from the ancestors
+                 init_weights=None,
+                 init_clock=0,
                 ):
 
         #Some general variable initialization etc...
@@ -65,6 +67,11 @@ class vector_agent(vector_agent_base):
                               on_cpu=self.settings["worker_net_on_cpu"]
                              )
                 self.model_dict[model] = m
+
+        if init_weights is not None:
+            print("Agent{} initialized from weights: {} and clock: {}".format(self.id, init_weights, init_clock))
+            self.update_clock(init_clock)
+            self.load_weights(init_weights,init_weights)
 
     # # # # #
     # Agent interface fcns

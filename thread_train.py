@@ -13,12 +13,15 @@ import tensorflow as tf
 docoptstring = \
 '''Threaded trainer!
 Usage:
-  thread_train.py [--n N] [--m M] [--steps S]  [--no-rendering] [--debug]
+  thread_train.py [options]
+  thread_train.py restart <file> <clock> [options]
 
 Options:
-    --n N      N envs per thread. [default: 16]
-    --m M      M workers. [default: 16]
-    --steps S  Run S environments steps in total. [default: 1000]
+    --n N           N envs per thread. [default: 16]
+    --m M           M workers. [default: 4]
+    --steps S       Run S environments steps in total. [default: 1000]
+    --no-rendering  Disables rendering.
+    --debug         Runs a single thread doing both data-gathering and training.
 '''
 
 docoptsettings = docopt.docopt(docoptstring)
@@ -31,7 +34,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "FOURier_X3",
+            "run-id" : "FOURier_X3-1.5M",
 
             #Train parameters
             "n_samples_each_update"     : 16192,
@@ -111,11 +114,16 @@ settings = {
            }
 
 print("Training script executed with settings:")
-for x in docoptsettings:
-    print("\t{} : {}".format(x,docoptsettings[x]))
+for x in settings:
+    print("\t{} : {}".format(x,settings[x]))
+if docoptsettings['restart']:
+    restart_file  =     docoptsettings["<file>" ]
+    restart_clock = int(docoptsettings["<clock>"])
+    print("Restarting training...\nFile: {}\nClock: {}".format(restart_file,restart_clock))
+else:
+    restart_file, restart_clock = None, 0
 
-
-process_manager = threads.threaded_runner.threaded_runner(settings=settings)
+process_manager = threads.threaded_runner.threaded_runner(settings=settings, restart=(restart_file, restart_clock))
 
 ##
 #Thread debugger

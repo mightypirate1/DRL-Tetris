@@ -11,7 +11,7 @@ import aux.utils as utils
 import threads
 
 class trainer_thread(mp.Process):
-    def __init__(self, id=id, settings=None, shared_vars=None):
+    def __init__(self, id=id, settings=None, shared_vars=None, init_weights=None, init_clock=0):
         mp.Process.__init__(self, target=self)
         settings["render"] = False #Trainers dont render.
         self.id = id
@@ -24,6 +24,8 @@ class trainer_thread(mp.Process):
         self.print_frequency = 10
         self.running = False
         self.trainer = None
+        self.init_weights = init_weights
+        self.init_clock = init_clock
         self.stats = {
                         "t_start"          : None,
                         "t_stop"           : None,
@@ -74,6 +76,8 @@ class trainer_thread(mp.Process):
                                                          sandbox=self.settings["env_type"](settings=self.settings),
                                                          session=session,
                                                          settings=self.settings,
+                                                         init_weights=self.init_weights,
+                                                         init_clock=self.init_clock,
                                                         )
 
             ### ## ## # # #

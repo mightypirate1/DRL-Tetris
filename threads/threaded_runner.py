@@ -9,19 +9,20 @@ from threads.worker_thread import worker_thread
 from threads.trainer_thread import trainer_thread
 
 class threaded_runner:
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, restart=(None, 0)):
         #Parse settings
         self.settings = utils.parse_settings(settings)
 
         #Set up some shared variables to use for inter-thread communications (data transfer etc)
         manager = mp.Manager()
+        init_f, init_c = restart #Initializes clock and index to 0,0 or the value specified by the restart-tuple
         n_threads = self.settings["n_workers"] + int(not self.settings["run_standalone"])
         self.shared_vars = {
                             #run_flag is up when a worker is running. run_time is the exectution-time of a worker.
                              "run_flag"            : mp.Array("i", [  0 for _ in range(n_threads)] ),
                              "run_time"            : mp.Array("d", [0.0 for _ in range(settings["n_workers"])] ),
                             #Time
-                             "global_clock"        : mp.Value("i", 0),
+                             "global_clock"        : mp.Value("i", init_c),
                             #Weights
                              "update_weights"      : manager.dict(zip(["idx", "weights"], [0,None] ) ), #This means that the last issued weights is "None" with batch_no "0"
                              "update_weights_lock" : mp.Lock(),
@@ -40,6 +41,8 @@ class threaded_runner:
                                    id=i,
                                    settings=settings,
                                    shared_vars=self.shared_vars,
+                                   init_weights=init_f,
+                                   init_clock=init_c,
                                   )
             thread.deamon = True
             self.threads["workers"].append(thread)
@@ -51,6 +54,8 @@ class threaded_runner:
                                      id=threads.TRAINER_ID,
                                      settings=settings,
                                      shared_vars=self.shared_vars,
+                                     init_weights=init_f,
+                                     init_clock=init_c,
                                     )
             self.threads["trainer"] = trainer
             self.all_threads.append(trainer)
