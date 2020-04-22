@@ -32,7 +32,9 @@ pip3 install docopt scipy numpy tensorflow
 ```
 > Replace tensorflow with tensorflow-gpu for GPU support. This might require some work, but the official documentation should help: [tensorflow].
 
-If the installation of any dependency fails, we refer to their documentation.
+If the installation of any dependency fails, we refer to their documentation. 
+
+If you are not on Ubuntu, install the dependencies as you would on you system and proceed to the next step.
 
 #### Build backend:
 To build the package, we used CMake and make:
@@ -50,19 +52,28 @@ To run the example project using 32 environments per worker thread, and 3 worker
 python3 thread_train.py --n 32 --m 3 --steps 10000000
 ```
 
-periodically during training, weights are saved to models/project_name/weightsNNN.w
+periodically during training, weights are saved to models/project_name/weightsNNN.w. Additionally, backups are made to models/project_name/weightsLATEST.w, and the final version is saved to models/project_name/weightsFINAL.w.
 
-To test these weights out against itself, run
+To test these weights out against each other
 ```
-python3 eval.py project_name NNN project_name NNN
+python3 eval.py path/to/weightfile1.w path/to/weightfile2.w
 ```
-As you might guess, you could make any weight-version of any project play against any other, given that they both use the same environment settings.
+Settings are saved along with the weights so that it is normally possible to make bots made with different settings, neural-nets etc. play each other. As long as the game_size setting is the same across projects, they should be compatible! See "Customization" for more details.
 
 ## Customization:
 The entire repository uses a settings-dictionary (the default values of which are found in aux/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation. For examples of how to create such a dictionary, see "thread_train.py", and for how to pass it to the environment constructor, see "threads/worker_thread.py".
 
 For minor customizations, you can just edit the settings-dictionary in thread_train.py.
 To change the size of the field used, just find the game_field entry and put a new value there. Any option that is in aux/settings.py can be overridden this way.
+
+#### Pieces:
+What pieces are being used is specified in the settngs-dictionary's field "pieces". It contains a list of any subset of [0,1,2,3,4,5,6], where [0,1,2,3,4,5,6] corresponds to the full set.
+
+The pre-defined settings on the master branch plays with only the O- and the L-piece to speed up training (pieces set to [0,6]). The aliasing is (L,J,S,Z,I,T,O) <~> (0,1,2,3,4,5,6).
+
+> Quickest way to enable all pieces is to comment out the line in "thread_train.py" that reduces it to O and L.
+
+#### Advanced customization:
 
 If you wish to customizations that are not obvious how to do, just contact me and I will produce the documentation needed asap. To write your own agent and/or customize the training procedure, you will have to write code. Probably the best way to get into the code is to look at the function "thread_code" in threads/worker_thread.py where the main training loop is located.
 
@@ -86,9 +97,9 @@ env = environment.make("FullSize-v0")
 ```
 
 ## Contribute!
-If you want to get involved in this project and want to know what needs to be done, feel free to contact me and I will be happy to discuss this!
+If you want to get involved in this project and want to know what needs to be done, feel free to contact me and I will be happy to discuss!
 
-If you have concrete ideas for improvement, or think something is lacking, or have any other suggestion, I will be glad to hear about it, but won't guarantee that it happens :-)
+If you find a bug, have concrete ideas for improvement, think something is lacking, or have any other suggestions, I will be glad to hear about it :-)
 
 ## Contact:
 yfflan at gmail dot com
