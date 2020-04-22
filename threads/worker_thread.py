@@ -24,7 +24,8 @@ class worker_thread(mp.Process):
         self.last_global_clock = 0
         self.print_frequency = 10 * self.settings["n_workers"]
         self.last_print_out = 10 * (self.settings["n_workers"] - self.id - 1 )
-        self.stashed_experience = self.reset_stash(0, init=True)
+        self.stashed_experience = None
+        self.old_reset_list = []
         if self.id > 0:
             self.settings["render"] = False #At most one worker renders stuff...
         self.running = False
@@ -91,13 +92,13 @@ class worker_thread(mp.Process):
 
                 #Record what just happened!
                 experience = self.make_experience(state, action_idx, reward, s_prime, current_player, done)
+                self.agent.store_experience(experience)
 
                 #Render?
                 self.env.render() #unless turned off in settings
 
                 #If some game has reached termingal state, it's reset here. Agents also get a chance to update their internals...
                 reset_list = self.reset_envs(done, reward, current_player)
-                self.agent.store_experience(experience)
                 self.agent.ready_for_new_round(training=True, env=reset_list)
 
                 # Get data back and forth to the trainer!
@@ -122,20 +123,12 @@ class worker_thread(mp.Process):
         #Reset the envs that reach terminal states
         reset_list = [ idx for idx,d in enumerate(done) if d]
         self.env.reset(env=reset_list)
-        if not self.settings["single_policy"]:
-            e = self.reset_stash(None)
-            for a_id, attr in enumerate(e):
-                for idx in reset_list:
-                    val = self.stashed_experience[a_id][idx]
-                    if a_id == 5:
-                        val = True #Set done as true
-                    elif a_id == 2:
-                        continue
-                    attr[idx] = val
-            e[2] = self.merge_rewards(e[2], reward, idxs=reset_list)
-            self.agent.store_experience(e)
-            self.reset_stash(reset_list)
-        return reset_list
+        if self.settings["single_policy"]:
+            return reset_list
+        #we delay the signal to the agent 1 sime-step, since it's experiences are delayed as much.
+        old_reset = self.old_reset_list
+        self.old_reset_list = reset_list
+        return old_reset
     def make_experience(self, state, action_idx, reward, s_prime, current_player, done, env=None):
         if env is None:
             experience = _e = [state, action_idx, reward, s_prime, current_player, done]
@@ -148,17 +141,10 @@ class worker_thread(mp.Process):
         # It makes each agent see the other as part of the environment: (s0,s1,s2, ...) -> (s0,s2,s4,..), (s1,s3,s5,...) and similarly for s', r, done etc
         if self.stashed_experience is None:
             return [[None for _ in range(self.settings["n_envs_per_thread"])] for _ in range(6)]
-        old_s, old_a, old_r, old_sd, old_p, old_d  = self.stashed_experience
+        old_s, old_a, old_r, old_sp, old_p, old_d  = self.stashed_experience
         new_s,new_a,new_r,new_sp,new_p,new_d = new
-        experience = [old_s, old_a, self.merge_rewards(new_r, old_r), new_sp, old_p, new_d ]
+        experience = [old_s, old_a, self.merge_rewards(new_r, old_r), new_sp, old_p, [x or y for x,y in zip(new_d,old_d)]]
         return experience
-    def reset_stash(self, idxs, init=False):
-        if init or idxs is None:
-            return [[None for _ in range(self.settings["n_envs_per_thread"])] for _ in range(6)]
-        for a_id, attr in enumerate(self.stashed_experience):
-            for idx in idxs:
-                if a_id != 4:
-                    attr[idx] = None
     def merge_rewards(self,new_r, old_r, idxs=None):
         ##
         #   This function is ugly, but it's here for backwards-compatibility reasons. It will be removed soon.
