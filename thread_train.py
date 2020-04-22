@@ -31,7 +31,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "FOURier_X3-500k",
+            "run-id" : "FOURier_X3",
 
             #Train parameters
             "n_samples_each_update"     : 16192,
