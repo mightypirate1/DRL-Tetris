@@ -67,11 +67,15 @@ For minor customizations, you can just edit the settings-dictionary in thread_tr
 To change the size of the field used, just find the game_field entry and put a new value there. Any option that is in aux/settings.py can be overridden this way.
 
 #### Pieces:
-What pieces are being used is specified in the settngs-dictionary's field "pieces". It contains a list of any subset of [0,1,2,3,4,5,6], where [0,1,2,3,4,5,6] corresponds to the full set.
+What pieces are being used is specified in the settngs-dictionary's field "pieces". It contains a list of any subset of {0,1,2,3,4,5,6}. [0,1,2,3,4,5,6] means the full set is used. The numbers correspond to the different pieces via the aliasing (L,J,S,Z,I,T,O) <~> (0,1,2,3,4,5,6). If those letters confuse you, you might want to check out https://tetris.fandom.com/wiki/Tetromino
 
-The pre-defined settings on the master branch plays with only the O- and the L-piece to speed up training (pieces set to [0,6]). The aliasing is (L,J,S,Z,I,T,O) <~> (0,1,2,3,4,5,6).
+The pre-defined settings on the master branch plays with only the O- and the L-piece to speed up training (pieces set to [0,6]).
 
-> Quickest way to enable all pieces is to comment out the line in "thread_train.py" that reduces it to O and L.
+> Quickest way to enable all pieces is to comment out the line in "thread_train.py" that reduces it to O and L:
+> ```
+> # "pieces" : [0,6],
+> ```
+> "pieces" will get the default value instead, which means all pieces are used.
 
 #### Advanced customization:
 
