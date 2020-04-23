@@ -117,8 +117,9 @@ class worker_thread(mp.Process):
 
     ###
     #  A few helper functions. They do what they say they do,
-    #  but are a little hard to read since they are written to
-    #  funcion seamlessly across a range of taining paradigms.
+    #  but might look weird since they are written to funcion
+    #  seamlessly across a range of taining paradigms.
+    #
     #  All default behavior is when single_policy is True,
     #  so read that!
     #
@@ -128,17 +129,19 @@ class worker_thread(mp.Process):
         self.env.reset(env=reset_list)
         if self.settings["single_policy"]:
             return reset_list
-        #we delay the signal to the agent 1 sime-step, since it's experiences are delayed as much.
+        #we delay the signal to the agent 1 time-step, since it's experiences are delayed as much.
         old_reset = self.old_reset_list
         self.old_reset_list = reset_list
         return old_reset
+
     def make_experience(self, state, action_idx, reward, s_prime, current_player, done, env=None):
         if env is None:
             experience = _e = [state, action_idx, reward, s_prime, current_player, done]
             if (not self.settings["single_policy"]):
                 experience = self.merge_from_stash(experience, current_player[0])
-            self.stashed_experience = _e
+                self.stashed_experience = _e
             return experience
+
     def merge_from_stash(self, new, player):
         # merge_experiences and stash is used when training 2 policies against each other.
         # It makes each agent see the other as part of the environment: (s0,s1,s2, ...) -> (s0,s2,s4,..), (s1,s3,s5,...) and similarly for s', r, done etc
@@ -146,22 +149,16 @@ class worker_thread(mp.Process):
             return [[None for _ in range(self.settings["n_envs_per_thread"])] for _ in range(6)]
         old_s, old_a, old_r, old_sp, old_p, old_d  = self.stashed_experience
         new_s,new_a,new_r,new_sp,new_p,new_d = new
-        experience = [old_s, old_a, self.merge_rewards(new_r, old_r), new_sp, old_p, [x or y for x,y in zip(new_d,old_d)]]
+        #In 2-policy-mode the current player completes the previous players experience-tuple, and reports it for them!
+        experience = [
+                      old_s,  #s_(t-1)
+                      old_a,  #a_(t-1)
+                      [old - new for old, new in zip(old_r,new_r)],  #r_(t-1) - r_t ::: Good news for current player shows as bad news for the previous one.
+                      new_sp, #s_(t+1)
+                      old_p,  #previous player
+                      [x or y for x,y in zip(new_d,old_d)] #if either player's move caused the round to end, it should be seen  here!
+                     ]
         return experience
-    def merge_rewards(self,new_r, old_r, idxs=None):
-        ##
-        #   This function is ugly, but it's here for backwards-compatibility reasons. It will be removed soon.
-        #   If you didn't change "single_policy" to be False, rest assured these lines will never execute :)
-        #
-        if idxs is None:
-            idxs = [i for i in range(self.settings["n_envs_per_thread"])]
-        for i,newold in enumerate(zip(new_r, old_r)):
-            new, old = newold
-            if i not in idxs: continue
-            if old is None: continue
-            r = 0 if new is None else new.r[0]
-            old.r[0] -= r
-        return old_r
 
     ##########
     ##### Thread communication functions (transfer of trajectories, weights and info)

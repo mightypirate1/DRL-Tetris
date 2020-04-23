@@ -95,7 +95,6 @@ class tetris_environment:
             ret[i] = self.get_state()
         self.backend.set(anchor)
         if self.settings["render_simulation"]:
-            # print(ret[0].backend_state.states[0].field);exit()
             self.renderer.drawAllFields([[r.backend_state.states[player].field for r in ret]],force_rescale=True,)
         return ret
 
@@ -141,7 +140,7 @@ class tetris_environment:
         #Auxiliary goals...
         w_base, w_combo = self.settings["reward_ammount"]
         combo = int(self.backend.states[player].combo_count[0])
-        r = self.reward[player] = data_types.reward([base,combo], extra_rewards=self.settings["extra_rewards"], weights=self.settings["reward_ammount"])
+        r = self.reward[player] = data_types.maingoal_reward([base,combo])
         return r
 
     def get_info(self):
