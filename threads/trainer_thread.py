@@ -112,8 +112,6 @@ class trainer_thread(mp.Process):
             trained1 = self.trainer.do_training(policy=1)
             trained = trained0 or trained1
         t = time.time() - t
-        if trained:
-            self.quick_summary.update(self.trainer.output_stats(), time=self.current_step())
         self.stats["t_training"] = t
         self.stats["t_training_total"] += t
 

@@ -199,7 +199,7 @@ class vector_agent_trainer(vector_agent_base):
 
         return True
 
-    def output_stats(self):
+    def generate_training_stats(self):
         tot_loss, v_loss, reg_loss = zip(*self.train_stats_raw)
         output_policy = "value_net" if self.settings["single_policy"] else "policy_0"
         ret = {
@@ -209,7 +209,7 @@ class vector_agent_trainer(vector_agent_base):
                 "Winrate"          : self.scoreboard[output_policy],
               }
         self.train_stats_raw.clear()
-        return ret
+        self.stats.update(ret)
 
     def update_scoreboard(self, winner):
         if type(winner) is not str:
