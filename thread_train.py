@@ -34,7 +34,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "FOURier_X4-paretoflat",
+            "run-id" : "FOURier_X4-pareto1to4",
 
             #Train parameters
             "n_samples_each_update"     : 16192,
@@ -54,7 +54,7 @@ settings = {
 
             #Dithering
             "dithering_scheme"    : "distribution_pareto",
-            "action_temperature"  : constant_parameter(1.0),
+            "action_temperature"  : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
             # "dithering_scheme"    : "adaptive_epsilon",
             # "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
             "optimistic_prios" : 0.0,
