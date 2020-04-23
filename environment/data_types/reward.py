@@ -38,7 +38,7 @@ class reward:
     def __str__(self):
         return "reward<R="+str(self())+"=("+str(self.extrinsic.tolist())+", " + str(self.intrinsic.tolist()) + " )>"
     def __call__(self, separate_components=False):
-        return self._extrinsic.sum()+self._intrinsic.sum() if not separate_components else self._extrinsic, self._extrinsic
+        return self._extrinsic.sum()+self._intrinsic.sum() if not separate_components else (self._extrinsic, self._extrinsic)
     def __add__(self,other):
         return type(self)(
                             extrinsic=self.ext_rule(self._extrinsic, other._extrinsic, add=True),
