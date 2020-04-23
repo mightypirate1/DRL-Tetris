@@ -81,7 +81,8 @@ def weight_location(s, idx=""):
         return folder, s
 
 def pareto(x, temperature=1.0):
-    p_unnormalized = 1/rankdata(x, method='ordinal')**temperature
+    n = x.size
+    p_unnormalized = rankdata(n-x, method='ordinal')**-temperature
     return p_unnormalized / p_unnormalized.sum()
 
 def entropy(x):
