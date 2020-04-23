@@ -7,7 +7,7 @@ class quick_summary:
         self.session = session
         self.init_time = init_time
         self.summary_writer = tf.summary.FileWriter(
-                                                    "summaries/"+self.settings["run-id"]+"-"+suffix,
+                                                    "summaries/"+self.settings["run-id"]+suffix,
                                                     self.session.graph,
                                                     )
     def update(self, stats_dict, time=0):

@@ -146,15 +146,16 @@ class vector_agent_trainer(vector_agent_base):
         n = self.settings["n_samples_each_update"]
 
         #Get a sample!
+        update_prio_flag = False
         if sample is None: #If no one gave us one, we get one ourselves!
             update_prio_flag = True
-            sample, is_weights, filter = exp_rep.get_random_sample(
-                                                                   self.settings["n_samples_each_update"],
-                                                                   alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
-                                                                   beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
-                                                                  )
-        else: update_prio_flag = False
-
+            sample, is_weights, filter, self.stats = \
+                            exp_rep.get_random_sample(
+                                                        self.settings["n_samples_each_update"],
+                                                        alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
+                                                        beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
+                                                        compute_stats=True,
+                                                      )
         #Unpack a little...
         states, s_primes, _, rewards, dones = sample
         vector_states, visual_states = states
@@ -163,8 +164,8 @@ class vector_agent_trainer(vector_agent_base):
 
         #TRAIN!
         for t in range(n_epochs):
-            last_epoch = t+1 == n_epochs
             if self.verbose_training: print("[",end='',flush=False); last_print = 0
+            last_epoch = t+1 == n_epochs
             perm = np.random.permutation(n) if not last_epoch else np.arange(n)
             for i in range(0,n,minibatch_size):
                 _new_prio, loss = model.train(

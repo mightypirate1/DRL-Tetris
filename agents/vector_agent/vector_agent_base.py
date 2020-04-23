@@ -34,6 +34,7 @@ class vector_agent_base:
         #Logger
         self.log = logging.getLogger(self.name)
         self.log.debug("name created! type={} mode={}".format(self.name,self.mode))
+        self.stats = {}
 
         #Some basic core functionality
         self.sandbox = sandbox.copy()

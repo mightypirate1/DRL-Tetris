@@ -18,15 +18,13 @@ class experience_replay:
         self.current_idx   = 0
         self.total_samples = 0
 
-    def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False):
+    def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False, compute_stats=False):
         #Create the sampling distribution (see paper for details)
         n = self.current_size
         all_indices = np.arange(n)
-        # sort_idxs = self.prios[:n].argsort(axis=0).ravel()
-
         #make ranking
         rank = 1+n-scipy.stats.rankdata(self.prios[:n].ravel(), method='ordinal')
-        #make a ranking based probability disribution (pareto-ish)
+        #make a ranking-based probability disribution (pareto-ish)
         one_over_rank = 1/rank #Rank-based sampling
         p_unnormalized = one_over_rank**alpha
         p = p_unnormalized / p_unnormalized.sum() #sampling distribution done
@@ -51,7 +49,22 @@ class experience_replay:
                 self.rewards[indices,:],
                 self.dones[indices,:],
                 )
-        return data, is_weights, filter
+
+        #Stats?
+        if compute_stats:
+            iwu = is_weights_unnormalized.ravel()
+            stats = {
+                     "ExpRep-iwu_max"  : iwu.max(),
+                     "ExpRep-iwu_mean" : iwu.mean(),
+                     "ExpRep-iwu_min"  : iwu.min(),
+                     "ExpRep-prio_max"  : (-self.prios).max(),
+                     "ExpRep-prio_mean" : (-self.prios).mean(),
+                     "ExpRep-prio_min"  : (-self.prios).min(),
+                     "ExpRep-size"      : self.current_size,
+                    }
+        else:
+            stats = {}
+        return data, is_weights, filter, stats
 
     def add_samples(self, data, prio):
         s, sp,_,r,d = data

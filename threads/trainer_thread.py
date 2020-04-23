@@ -140,6 +140,7 @@ class trainer_thread(mp.Process):
                  "Current speed"             : current_speed,
                  "Time spent training"       : frac_train,
                 }
+            s.update(self.trainer.stats)
             self.quick_summary.update(s, time=self.current_step())
 
     def print_stats(self):
