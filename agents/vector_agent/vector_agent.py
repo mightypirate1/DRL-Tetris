@@ -100,8 +100,7 @@ class vector_agent(vector_agent_base):
         #Simulate future states
         edge = 0
         for state_idx, state in enumerate(state_vec):
-            self.sandbox.set(state)
-            player_action            = self.sandbox.get_actions(player=p_list[state_idx])
+            player_action            = self.sandbox.get_actions(state, player=p_list[state_idx])
             n_actions = len(player_action)
             all_actions[state_idx]   = player_action
             unflattener[state_idx]   = slice(edge, edge + n_actions)
