@@ -35,9 +35,9 @@ class tetris_environment:
             pieces = self.generate_pieces()
             tetris_env.set_pieces(pieces)
             self.backend = tetris_env.PythonHandle(
-                                                self.settings["n_players"],
-                                                self.settings["game_size"]
-                                              )
+                                                    self.settings["n_players"],
+                                                    self.settings["game_size"]
+                                                  )
             #Upon agreement with backend, we always reset once.
             self.reset()
         else:
@@ -66,6 +66,7 @@ class tetris_environment:
 
     def reset(self):
         self.backend.reset()
+        self.done         = False
         self.round_reward = [self.reward_fcn(p_idx) for p_idx in self.player_idxs]
         self.reward       = [self.reward_fcn(p_idx) for p_idx in self.player_idxs]
         if self.tot_reward is None:
@@ -74,9 +75,10 @@ class tetris_environment:
             self.rounds_played = 0
         self.rounds_played += 1
 
-    def get_actions(self,player=None):
+    def get_actions(self, state, player=None):
         if self.debug: self.log.debug("get_action invoked: player={}".format(player))
         assert type(player)  is int,  "tetris_environment.get_actions(int player) was called with type(player)={}".format(type(player))
+        self.set(state)
         if self.settings["action_type"] == "place_block":
             self.backend.get_actions(player) #This ensures that the backend is in a sound state (i.e. did not currupt due to pickling. If you think you can fix pickling better, please contact me //mightypirate1)
             return data_types.action_list(self.backend.masks[player].action, remove_null=self.settings["bar_null_moves"])
@@ -91,14 +93,14 @@ class tetris_environment:
         anchor = self.backend.copy()
         for i,a in enumerate(actions):
             self.backend.set(anchor)
-            self.perform_action(a, player=player, render=False, simulate=True)
+            self.perform_action(a, player=player, simulate=True)
             ret[i] = self.get_state()
         self.backend.set(anchor)
         if self.settings["render_simulation"]:
             self.renderer.drawAllFields([[r.backend_state.states[player].field for r in ret]],force_rescale=True,)
         return ret
 
-    def perform_action(self, action, player=None, render=False, simulate=False):
+    def perform_action(self, action, player=None, simulate=False):
         if self.debug: self.log.debug("executing action {} for player {}".format(action, player))
         assert type(player) is int,               "tetris_environment.perform_action(action a,int p) was called with type(player)={}".format(type(player))
         assert type(action) is data_types.action, "tetris_environment.perform_action(action a,int p) was called with type(action)={}".format(type(action))
@@ -130,17 +132,21 @@ class tetris_environment:
         return data_types.state(self.backend, self.state_processor)
 
     def reward_fcn(self, player):
-        if self.backend.states[player].dead[0] == 1:
-            base = -1.0
-        else:
-            base = 0.0
+        base = 0
+        if self.done:
+            # base: me dead -> -1, you dead -> 1, both dead (maybe possible?)
+            base = int(self.backend.states[1-player].dead[0]) - int(self.backend.states[player].dead[0])
         if not self.settings["extra_rewards"]:
-            return data_types.reward([base], extra_rewards=False)
-        ### ## ## # # #
+            #Backwards compatibility!
+            return data_types.standard_reward([base])
         #Auxiliary goals...
         w_base, w_combo = self.settings["reward_ammount"]
         combo = int(self.backend.states[player].combo_count[0])
-        r = self.reward[player] = data_types.maingoal_reward([base,combo])
+        # #Sanity-check
+        # bug = (player,(w_base,base),(w_combo,combo), [ self.backend.states[p].dead[0] for p in range(2)], self.done)
+        # bug = "Terminal state with r_base==0 reached. Unexpected! : {}".format(bug)
+        # assert not (self.done and base == 0), bug
+        r = self.reward[player] = data_types.maingoal_reward([w_base*base, w_combo*combo])
         return r
 
     def get_info(self):
@@ -183,7 +189,6 @@ class tetris_environment:
                                         force_rescale=False,
                                         pause_on_event=self.settings["pause_on_keypress"],
                                         )
-
     def generate_pieces(self):
         p = self.settings["pieces"]
         return (p*7)[:7]
@@ -220,3 +225,17 @@ class tetris_environment:
             d['log'] = logging.getLogger(d['log'])
             d['renderer'] = draw_tetris.get_global_renderer()
         self.__dict__.update(d)
+
+if __name__ == "__main__":
+    ### Backend-unit test!
+    np.random.seed(0)
+    settings = default_settings.copy().update({"render" : True})
+    env, p = tetris_env(settings=default_settings), 0
+    #Set backend seed -> reset
+    while not env.done:
+        a = env.get_random_action(player=p)
+        env.perform_action(a, player=p)
+        env.render()
+        p = 1-p
+    print("dead:",[env.backend.state[p].dead for p in range(2)])
+    input("OK?")

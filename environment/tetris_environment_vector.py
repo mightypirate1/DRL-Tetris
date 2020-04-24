@@ -75,12 +75,12 @@ class tetris_environment_vector:
         assert len(env_list) == len(p_list)
         return [e.simulate_actions(a,player=p) for e,a,p in zip(env_list, actions, p_list)]
 
-    def perform_action(self,actions, env=None, player=None, render=None):
+    def perform_action(self,actions, env=None, player=None):
         env_list = utils.parse_arg(env, self.envs)
         p_list   = utils.parse_arg(player, self.player_idxs, fill_up=len(env_list))
         rewards, dones = [None for _ in env_list], [None for _ in env_list]
         for i,e,a,p in zip(range(len(env_list)),env_list, actions, p_list):
-            r, d = e.perform_action(a, player=p, render=render)
+            r, d = e.perform_action(a, player=p)
             rewards[i], dones[i] = r, d
         return rewards, dones
 

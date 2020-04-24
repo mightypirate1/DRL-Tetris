@@ -9,17 +9,17 @@ class reward:
         if len(args) > 2:
             raise ValueError("reward needs to have 0, 1 or 2 arguments: [<extrinsic>] [<intrinsic>]")
         elif len(args) > 0:
-            self._extrinsic = np.array(args[0])
+            self._extrinsic = np.array(args[0]).ravel()
             if 'extrinsic' in kwargs:
                 raise ValueError("Doubly specified extrinsic :(")
         elif len(args) == 2:
-            self._intrinsic = np.array(args[1])
+            self._intrinsic = np.array(args[1]).ravel()
             if 'intrinsic' in kwargs:
                 raise ValueError("Doubly specified intrinsic :(")
         else:
-            self._extrinsic  = np.array(kwargs.pop('extrinsic'))
+            self._extrinsic  = np.array(kwargs.pop('extrinsic')).ravel()
         if len(args) < 2:
-            self._intrinsic  = np.array(kwargs.pop('intrinsic' , np.zeros((1,))))
+            self._intrinsic  = np.array(kwargs.pop('intrinsic' , np.zeros((1,)))).ravel()
     def ext_rule(self,*args, **kwargs):
         raise ValueError("Dont use base-class!")
     def int_rule(self,*args, **kwargs):
@@ -52,6 +52,8 @@ class reward:
 
 #This is just a vector of numbers
 class standard_reward(reward):
+    def __init__(self, *args, **kwargs):
+        super(standard_reward).__init__(*args, **kwargs)
     def ext_rule(self, x, y, add=False, sub=False):
         if add: return x+y
         if sub: return x-y
@@ -60,6 +62,8 @@ class standard_reward(reward):
         if sub: return x-y
 
 class maingoal_reward(standard_reward):
+    def __init__(self,*args,**kwargs):
+        super(standard_reward,self).__init__(*args,**kwargs)
     def ext_rule(self,x,y, add=False, sub=False):
         tmp = np.zeros_like(y)
         tmp[0] = y[0]
@@ -67,5 +71,7 @@ class maingoal_reward(standard_reward):
         if sub: return x-tmp
 
 class coopintrinsic_reward(maingoal_reward):
+    def __init__(self,*args,**kwargs):
+        super(coopintrinsic_reward,self).__init__(*args,**kwargs)
     def int_rule(self, x,y, **kwargs):
         return x+y
