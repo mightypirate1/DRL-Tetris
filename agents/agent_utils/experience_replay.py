@@ -3,17 +3,19 @@ import scipy.stats
 from .. import agent_utils
 
 class experience_replay:
-    def __init__(self, max_size=None, state_size=None, log=None):
+    def __init__(self, max_size=None, state_size=None, log=None, resort_fraction=0.1):
         self.log        = log
         self.max_size   = max_size
+        self.resort_fraction = resort_fraction
         self.vector_state_size, self.visual_state_size = state_size
-        self.vector_states   = [np.zeros((max_size,*s[1:])) for s in self.vector_state_size]
-        self.visual_states   = [np.zeros((max_size,*s[1:])) for s in self.visual_state_size]
-        self.vector_s_primes = [np.zeros((max_size,*s[1:])) for s in self.vector_state_size]
-        self.visual_s_primes = [np.zeros((max_size,*s[1:])) for s in self.visual_state_size]
-        self.rewards  = np.zeros((max_size,1))
-        self.dones    = np.zeros((max_size,1))
-        self.prios    = -np.ones((max_size,1))
+        self.vector_states   = [np.zeros((self.max_size,*s[1:])) for s in self.vector_state_size]
+        self.visual_states   = [np.zeros((self.max_size,*s[1:])) for s in self.visual_state_size]
+        self.vector_s_primes = [np.zeros((self.max_size,*s[1:])) for s in self.vector_state_size]
+        self.visual_s_primes = [np.zeros((self.max_size,*s[1:])) for s in self.visual_state_size]
+        self.rewards  = np.zeros((self.max_size,1))
+        self.dones    = np.zeros((self.max_size,1))
+        self.prios    = -np.ones((self.max_size,1)) #Means it's unimportant
+        self.sort_idxs = np.arange(self.prios.size) #This is very-quik-sort!
         self.current_size  = 0
         self.current_idx   = 0
         self.total_samples = 0
@@ -57,9 +59,9 @@ class experience_replay:
                      "ExpRep-iwu_max"  : iwu.max(),
                      "ExpRep-iwu_mean" : iwu.mean(),
                      "ExpRep-iwu_min"  : iwu.min(),
-                     "ExpRep-prio_max"  : (-self.prios).max(),
-                     "ExpRep-prio_mean" : (-self.prios).mean(),
-                     "ExpRep-prio_min"  : (-self.prios).min(),
+                     "ExpRep-prio_max"  : self.prios.max(),
+                     "ExpRep-prio_mean" : self.prios.mean(),
+                     "ExpRep-prio_min"  : self.prios.min(),
                      "ExpRep-size"      : self.current_size,
                     }
         else:
@@ -71,7 +73,8 @@ class experience_replay:
         vec_s, vis_s   = s
         vec_sp, vis_sp = sp
         n = prio.size
-        idxs = [x%self.max_size for x in range(self.current_idx, self.current_idx+n)]
+        idxs = self.sort_idxs[self.current_idx : self.current_idx+n]
+        vs = self.vector_states[0]
         for i,vs in enumerate(self.vector_states):
             vs[idxs,:]   = vec_s[i]
         for i,vs in enumerate(self.visual_states):
@@ -86,6 +89,15 @@ class experience_replay:
         self.current_idx += n
         self.current_size = min(self.current_size+n, self.max_size)
         self.total_samples += n
+        #
+        ##
+        ### If we have added many new samples, we re-sort them to make sure we over-write low-prio samples!
+        if self.current_idx > self.max_size * self.resort_fraction:
+            self.resort()
+
+    def resort(self):
+        self.sort_idxs = np.argsort(self.prios.ravel())
+        self.current_idx = 0
 
     def update_prios(self, new_prios, filter):
         self.prios[list(filter.keys()),:] = new_prios[list(filter.values()),:]
