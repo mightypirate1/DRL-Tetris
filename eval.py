@@ -89,8 +89,8 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
 
         #Debug-prints:
         if run_settings["--debug"]:
-            print("player", current_player[0], " -> reward :", reward, "(total", env.envs[0].round_reward,")")
-
+            print("player", current_player[0], " -> reward :", reward, "(total", env.envs[0].round_reward,")", done)
+            print("---")
         #Render?
         if s["render"]:
             env.render()
@@ -107,6 +107,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                     a.ready_for_new_round(training=False, env=i)
                 print("Round ended. {} steps (avg: {}), score: {}-{}".format(t-trajectory_start, agent[0].avg_trajectory_length, scoreboard[0], scoreboard[1]))
                 current_player[i] = np.random.choice([0,1])
+                # input("?")
                 env.reset(env=i)
                 round_reward = [0,0]
                 trajectory_start = t+1
