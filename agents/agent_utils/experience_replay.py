@@ -37,7 +37,7 @@ class experience_replay:
 
         ##Data collection, and index-tracking
         for i, idx in enumerate(indices):
-            idx_dict[idx]         = i #This makes sure that idx_dict keeps track of the position of the last occurance of each index in the sample
+            idx_dict[idx] = i #This makes sure that idx_dict keeps track of the position of the last occurance of each index in the sample
 
         #Return values!
         filter = idx_dict
