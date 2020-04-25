@@ -110,7 +110,7 @@ class worker_thread(mp.Process):
                 self.update_weights_and_clock()
 
                 #Print
-                self.print_stats()
+                self.print_stats(t)
 
             #Report when done!
             self.report_wasted_data()
@@ -202,11 +202,13 @@ class worker_thread(mp.Process):
     ##########
     ##### Stats & print-outs
     ##########
-    def print_stats(self):
+    def print_stats(self, loop_time):
         if self.walltime() < self.last_print_out + self.print_frequency:
             return
         t = self.walltime()
         print("-------worker{} info-------".format(self.id))
+        print("real time:", time.ctime())
+        print("loop-time:", loop_time, "/",self.n_steps)
         print("clock: {}".format(self.agent.clock))
         print("current weights: {}".format(self.current_weights))
         print("average trajectory length: {}".format(self.agent.avg_trajectory_length))
