@@ -48,6 +48,8 @@ class vector_agent_trainer(vector_agent_base):
             self.experience_replay_dict[model] = experience_replay(
                                                                     max_size=int(self.settings["experience_replay_size"]/len(models)),
                                                                     state_size=self.state_size,
+                                                                    sample_mode=self.settings["experience_replay_sample_mode"],
+                                                                    forget_mode=self.settings["experience_replay_forget_mode"],
                                                                    )
             self.scoreboard[model] = 0.5
             self.n_train_steps[model] = 0
@@ -100,7 +102,7 @@ class vector_agent_trainer(vector_agent_base):
                     exp_rep = self.experience_replay_dict["policy_{}".format(metadata["policy"])]
                 exp_rep.add_samples(d,p)
                 self.update_scoreboard(metadata["winner"])
-                tot += metadata["length"] + 1 #Is this correct?
+                tot += metadata["length"]
         self.clock += tot
         avg = tot/n if n>0 else 0
         return tot, avg

@@ -144,7 +144,6 @@ class vector_agent(vector_agent_base):
                         a_idx = np.random.choice(np.arange(values_all[state_idx].size))
                 action_idxs[state_idx] = a_idx
         actions = [all_actions[state_idx][action_idxs[state_idx]] for state_idx in range(len(state_vec)) ]
-
         #Keep the clock going...
         if training:
             self.clock += self.n_envs * self.n_workers
