@@ -34,8 +34,8 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "FOURier_X4-newexprep",
-
+            "run-id" : "FOURier_X4-base",
+            # "render_simulation" : True,
             #Train parameters
             "n_samples_each_update"     : 16192,
             "minibatch_size"            : 128,
@@ -44,11 +44,12 @@ settings = {
             "n_train_epochs_per_update" : 5,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=3/total_steps),
-            # "prioritized_replay_alpha"  : constant_parameter(1.0),
-            # "prioritized_replay_beta"   : linear_parameter(0.5, final_val=0.7, time_horizon=total_steps),
             "prioritized_replay_alpha"  : constant_parameter(0.7),
             "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"    : 5*10**5,
+            "experience_replay_sample_mode" : 'rank',
+            "experience_replay_forget_mode" : 'oldest',
+
             "alternating_models"        : False,
             "time_to_training"          : 10**3,
             "single_policy"             : True,
