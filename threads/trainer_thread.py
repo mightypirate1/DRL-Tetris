@@ -153,6 +153,7 @@ class trainer_thread(mp.Process):
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
         # print("time to reference update / save: {}".format(self.trainer.time_to_reference_update))
+        print("run-id: {}".format(self.settings["run-id"]))
 
     def transfer_weights(self):
         if self.trainer.n_train_steps["total"] % self.settings["weight_transfer_frequency"] == 0:
