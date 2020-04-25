@@ -142,10 +142,10 @@ class tetris_environment:
         #Auxiliary goals...
         w_base, w_combo = self.settings["reward_ammount"]
         combo = int(self.backend.states[player].combo_count[0])
-        # #Sanity-check
-        # bug = (player,(w_base,base),(w_combo,combo), [ self.backend.states[p].dead[0] for p in range(2)], self.done)
-        # bug = "Terminal state with r_base==0 reached. Unexpected! : {}".format(bug)
-        # assert not (self.done and base == 0), bug
+        #Sanity-check
+        bug = (player,(w_base,base),(w_combo,combo), [ self.backend.states[p].dead[0] for p in range(2)], self.done)
+        bug = "Terminal state with r_base==0 reached. Unexpected! : {}".format(bug)
+        assert not (self.done and base == 0), bug
         r = self.reward[player] = data_types.maingoal_reward([w_base*base, w_combo*combo])
         return r
 
