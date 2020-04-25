@@ -60,14 +60,14 @@ class experience_replay:
 
         #Stats?
         if compute_stats:
-            iwu = is_weights_unnormalized.ravel()
+            iwu = is_weights_unnormalized[:self.current_size].ravel()
             stats = {
                      "ExpRep-iwu_max"  : iwu.max(),
                      "ExpRep-iwu_mean" : iwu.mean(),
                      "ExpRep-iwu_min"  : iwu.min(),
-                     "ExpRep-prio_max"  : self.prios.max(),
-                     "ExpRep-prio_mean" : self.prios.mean(),
-                     "ExpRep-prio_min"  : self.prios.min(),
+                     "ExpRep-prio_max"  : self.prios[:self.current_size].max(),
+                     "ExpRep-prio_mean" : self.prios[:self.current_size].mean(),
+                     "ExpRep-prio_min"  : self.prios[:self.current_size].min(),
                      "ExpRep-size"      : self.current_size,
                     }
         else:
