@@ -3,32 +3,38 @@ import scipy.stats
 from .. import agent_utils
 
 class experience_replay:
-    def __init__(self, max_size=None, state_size=None, log=None, resort_fraction=0.1):
+    def __init__(self, max_size=None, state_size=None, log=None, sample_mode='rank' ,forget_mode='oldest'):
         self.log        = log
         self.max_size   = max_size
-        self.resort_fraction = resort_fraction
         self.vector_state_size, self.visual_state_size = state_size
-        self.vector_states   = [np.zeros((self.max_size,*s[1:])) for s in self.vector_state_size]
-        self.visual_states   = [np.zeros((self.max_size,*s[1:])) for s in self.visual_state_size]
-        self.vector_s_primes = [np.zeros((self.max_size,*s[1:])) for s in self.vector_state_size]
-        self.visual_s_primes = [np.zeros((self.max_size,*s[1:])) for s in self.visual_state_size]
-        self.rewards  = np.zeros((self.max_size,1))
-        self.dones    = np.zeros((self.max_size,1))
-        self.prios    = -np.ones((self.max_size,1)) #Means it's unimportant
-        self.sort_idxs = np.arange(self.prios.size) #This is very-quik-sort!
+        self.vector_states   = [np.zeros((max_size,*s[1:])) for s in self.vector_state_size]
+        self.visual_states   = [np.zeros((max_size,*s[1:])) for s in self.visual_state_size]
+        self.vector_s_primes = [np.zeros((max_size,*s[1:])) for s in self.vector_state_size]
+        self.visual_s_primes = [np.zeros((max_size,*s[1:])) for s in self.visual_state_size]
+        self.rewards  = np.zeros((max_size,1))
+        self.dones    = np.zeros((max_size,1))
+        self.prios    = -np.ones((max_size,1))
         self.current_size  = 0
         self.current_idx   = 0
         self.total_samples = 0
+        self.sample_mode = sample_mode
+        self.forget_mode = forget_mode
+        self.resort_fraction = 0.5
 
     def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False, compute_stats=False):
         #Create the sampling distribution (see paper for details)
         n = self.current_size
         all_indices = np.arange(n)
-        #make ranking
-        rank = 1+n-scipy.stats.rankdata(self.prios[:n].ravel(), method='ordinal')
-        #make a ranking-based probability disribution (pareto-ish)
-        one_over_rank = 1/rank #Rank-based sampling
-        p_unnormalized = one_over_rank**alpha
+
+        if self.sample_mode == 'rank':
+            #make ranking
+            rank = 1+n-scipy.stats.rankdata(self.prios[:n].ravel(), method='ordinal')
+            #make a ranking-based probability disribution (pareto-ish)
+            one_over_rank = 1/rank #Rank-based sampling
+            p_unnormalized = one_over_rank**alpha
+        else:
+            p_unnormalized = (self.prios + 0.0001)**alpha
+
         p = p_unnormalized / p_unnormalized.sum() #sampling distribution done
         is_weights_unnormalized = ((n*p)**(-beta))[:,np.newaxis] #Compute the importance sampling weights
         is_weights_all = is_weights_unnormalized/is_weights_unnormalized.reshape(-1).max()
@@ -73,8 +79,7 @@ class experience_replay:
         vec_s, vis_s   = s
         vec_sp, vis_sp = sp
         n = prio.size
-        idxs = self.sort_idxs[self.current_idx : self.current_idx+n]
-        vs = self.vector_states[0]
+        idxs = self.add_indices(n)
         for i,vs in enumerate(self.vector_states):
             vs[idxs,:]   = vec_s[i]
         for i,vs in enumerate(self.visual_states):
@@ -89,15 +94,27 @@ class experience_replay:
         self.current_idx += n
         self.current_size = min(self.current_size+n, self.max_size)
         self.total_samples += n
-        #
-        ##
-        ### If we have added many new samples, we re-sort them to make sure we over-write low-prio samples!
-        if self.current_idx > self.max_size * self.resort_fraction:
+        if self.forget_mode != 'oldest':
             self.resort()
 
+    def add_indices(self, n):
+        idxs = [x%self.max_size for x in range(self.current_idx, self.current_idx+n)]
+        if self.forget_mode != 'oldest':
+            idxs = self.forget_order[idxs]
+        return idxs
+
     def resort(self):
-        self.sort_idxs = np.argsort(self.prios.ravel())
-        self.current_idx = 0
+        if self.forget_mode == 'lowest_prio':
+            if self.current_idx < self.max_size * self.resort_fraction:
+                return
+            ### If we have added many new samples, we re-sort them to make sure we over-write low-prio samples!
+            self.forget_order = np.argsort(self.prios.ravel())
+            self.current_idx = 0
+
+        elif self.forget_mode == 'uniform_prio':
+            if self.current_idx > self.max_size:
+                self.forget_order = np.random.permutation(self.max_size)
+                self.current_idx = 0
 
     def update_prios(self, new_prios, filter):
         self.prios[list(filter.keys()),:] = new_prios[list(filter.values()),:]
