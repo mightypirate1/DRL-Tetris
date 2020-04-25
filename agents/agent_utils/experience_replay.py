@@ -111,6 +111,14 @@ class experience_replay:
             self.forget_order = np.argsort(self.prios.ravel())
             self.current_idx = 0
 
+    def resort(self):
+        if self.forget_mode == 'highest_prio':
+            if self.current_idx < self.max_size * self.resort_fraction:
+                return
+            ### If we have added many new samples, we re-sort them to make sure we over-write low-prio samples!
+            self.forget_order = np.argsort(self.prios.ravel())[::-1]
+            self.current_idx = 0
+
         elif self.forget_mode == 'uniform_prio':
             if self.current_idx > self.max_size:
                 self.forget_order = np.random.permutation(self.max_size)
