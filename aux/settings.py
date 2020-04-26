@@ -14,7 +14,7 @@ default_settings = {
                     "trainer_type" : None,
                     #Reward shaping
                     "reward_shaper" : none_f,
-                    "reward_shaper_param" : 0,
+                    "reward_shaper_param" : constant_parameter(1),
                     #Policy type
                     "single_policy" : True,
                     "adversarial_training" : True,
