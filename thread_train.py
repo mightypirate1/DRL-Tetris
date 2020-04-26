@@ -34,16 +34,17 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "FOURier_X4-base",
-            # "render_simulation" : True,
+            "run-id" : "FIVEnman_Q01",
+            # "render_simulation" : True
+
             #Train parameters
             "n_samples_each_update"     : 16192,
             "minibatch_size"            : 128,
-            # "n_samples_each_update"     : 8096, #smallbatch
-            # "minibatch_size"            : 64,   #smallbatch
             "n_train_epochs_per_update" : 5,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=3/total_steps),
+
+            #Exp-replay parameters
             "prioritized_replay_alpha"  : constant_parameter(0.7),
             "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"    : 5*10**5,
@@ -61,12 +62,12 @@ settings = {
             "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
             "optimistic_prios" : 0.0,
 
-            #Reward shaping
-            "extra_rewards" : True,
-            "reward_ammount" : (1.0, 0.0,),
-            # "reward_shaper" :  linear_reshaping,
-            "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
+            #Rewards
             "gamma"             :  0.98,
+            "extra_rewards" : False,
+            # "reward_ammount" : (1.0, 0.0,),
+            # "reward_shaper" :  linear_reshaping,
+            # "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
 
             #Game settings
             "pieces" : [0,6],
@@ -85,6 +86,7 @@ settings = {
             "worker_steps"         : total_steps // n_envs,
             "worker_net_on_cpu"    : not docoptsettings["--debug"],
             "trainer_net_on_cpu"   : False,
+
             #Communication
             "trainer_thread_save_freq"  : 1000,
             "trainer_thread_backup_freq"  : 10,
@@ -92,19 +94,19 @@ settings = {
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
 
-            #NN
-            "pad_visuals"      : True,
-            "peephole_convs"   : True,
-            ###
             #Value net:
             "vectorencoder_n_hidden" : 1,
             "vectorencoder_hidden_size" : 256,
             "vectorencoder_output_size" : 32,
+            ###
+            "pad_visuals"      : True,
             "visualencoder_n_convs" : 4,
             "visualencoder_n_filters" : (16,32,32,4),
             "visualencoder_filter_sizes" : ((7,7),(3,3), (3,3), (3,3)),
+            "peephole_convs"   : True,
             "visualencoder_poolings" : [2,], #Pooling after layer numbers in this list
             "visualencoder_peepholes" : [0,1,2],
+            ###
             "valuenet_n_hidden" : 1,
             "valuenet_hidden_size" : 256,
             "nn_regularizer" : 0.001,
