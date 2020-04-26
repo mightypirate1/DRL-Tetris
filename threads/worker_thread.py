@@ -210,11 +210,14 @@ class worker_thread(mp.Process):
         print("real time:", time.ctime())
         print("loop-time:", loop_time, "/",self.n_steps)
         print("clock: {}".format(self.agent.clock))
-        print("current weights: {}".format(self.current_weights))
+        print("n_experiences: {}".format(self.agent.n_experiences))
+        print("data sent: {} tuples in {} trajectories".format(self.agent.send_length, self.agent.send_count))
+        print("data sent per iteration: {}".format(self.agent.send_length/loop_time))
         print("average trajectory length: {}".format(self.agent.avg_trajectory_length))
         print("action temperature: {}".format(self.agent.theta))
         print("action entropy: {}".format(self.agent.action_entropy))
         print("Epsilon: {}".format(self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1)))
+        print("current weights: {}".format(self.current_weights))
         self.last_print_out = t
         if self.quick_summary is not None:
             s = {

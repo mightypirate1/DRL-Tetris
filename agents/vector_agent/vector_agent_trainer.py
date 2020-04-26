@@ -64,7 +64,7 @@ class vector_agent_trainer(vector_agent_base):
             self.load_weights(init_weights,init_weights)
 
         self.n_train_steps["total"] = 0
-
+        self.n_samples_from = [0 for _ in range(self.settings["n_workers"])]
         self.train_time_log = {
                                 "total"         : 0.0,
                                 "sample"        : 0.0,
@@ -82,10 +82,11 @@ class vector_agent_trainer(vector_agent_base):
             for d in data_list:
                 input_data += d
         else: input_data = data_list
-        n, tot = 0, 0
+        n_trajectories, tot = 0, 0
 
         for metadata,data in input_data:
-                n += 1
+                n_trajectories += 1
+                # print("trainer recieved:", metadata["worker"], metadata["packet_id"], "len", metadata["length"])
                 if not self.settings["workers_do_processing"]:
                     d, p = data.process_trajectory(
                                                     self.model_runner(metadata["policy"]),
@@ -101,10 +102,11 @@ class vector_agent_trainer(vector_agent_base):
                 else:
                     exp_rep = self.experience_replay_dict["policy_{}".format(metadata["policy"])]
                 exp_rep.add_samples(d,p)
+                self.n_samples_from[metadata["worker"]] += metadata["length"]
                 self.update_scoreboard(metadata["winner"])
                 tot += metadata["length"]
         self.clock += tot
-        avg = tot/n if n>0 else 0
+        avg = tot/n_trajectories if n_trajectories>0 else 0
         return tot, avg
 
     def unpack_sample(self, sample):

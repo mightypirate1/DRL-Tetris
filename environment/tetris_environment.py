@@ -137,8 +137,7 @@ class tetris_environment:
             # base: me dead -> -1, you dead -> 1, both dead (maybe possible?)
             base = min(int(self.backend.states[1-player].dead[0]) - int(self.backend.states[player].dead[0]), -int(self.backend.states[player].dead[0]))
         if not self.settings["extra_rewards"]:
-            #Backwards compatibility!
-            return data_types.standard_reward([base])
+            return data_types.maingoal_reward([base])
         #Auxiliary goals...
         w_base, w_combo = self.settings["reward_ammount"]
         combo = int(self.backend.states[player].combo_count[0])

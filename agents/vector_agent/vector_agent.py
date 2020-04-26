@@ -35,7 +35,7 @@ class vector_agent(vector_agent_base):
         self.env_idxs = [i for i in range(n_envs)]
         self.n_envs = n_envs
         self.n_workers = n_workers
-        self.send_count = 0
+        self.n_experiences,self.send_count, self.send_length = 0, 0, 0
 
         #In any mode, we need a place to store transitions!
         self.trajectory_type = dt.trajectory #if self.settings["single_policy"] else dt.trajectory_dualpolicy
@@ -185,6 +185,7 @@ class vector_agent(vector_agent_base):
                 self.stored_trajectories.append((metadata,data))
                 #Increment some counters to guide what we do
                 self.send_count += 1
+                self.send_length += len(t)
                 if self.mode is threads.STANDALONE:
                     self.time_to_training  -= len(self.current_trajectory[e])
             #Clear trajectory
@@ -213,6 +214,7 @@ class vector_agent(vector_agent_base):
             if not self.settings["single_policy"]:
                 #Player1's trajectories strored first (n_envs many) and then player2's:
                 self.current_trajectory[i + e[4]*self.n_envs].add(e)
+            self.n_experiences += 1
         self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
 
     def transfer_data(self, keep_data=False):

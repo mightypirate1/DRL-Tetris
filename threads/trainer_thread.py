@@ -116,6 +116,7 @@ class trainer_thread(mp.Process):
         self.stats["t_training_total"] += t
 
     def load_worker_data(self):
+        # print("load",flush=True)
         t = time.time() #Tick
         data_from_workers = list()
         while not self.shared_vars["data_queue"].empty():
@@ -140,6 +141,7 @@ class trainer_thread(mp.Process):
                 }
             s.update(self.trainer.stats)
             self.quick_summary.update(s, time=self.current_step())
+        # print("load!",flush=True)
 
     def print_stats(self):
         if time.time() < self.last_print_out + self.print_frequency:
@@ -149,6 +151,7 @@ class trainer_thread(mp.Process):
         frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
         print("-------trainer info-------")
         print("clock: {}".format(self.current_step()))
+        print("samples from workers: {}".format(self.trainer.n_samples_from))
         print("trained for {}s".format(self.stats["t_training"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
