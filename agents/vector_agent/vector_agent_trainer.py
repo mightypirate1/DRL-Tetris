@@ -153,7 +153,7 @@ class vector_agent_trainer(vector_agent_base):
         update_prio_flag = False
         if sample is None: #If no one gave us one, we get one ourselves!
             update_prio_flag = True
-            sample, is_weights, filter, self.stats = \
+            sample, is_weights, filter, stats = \
                             exp_rep.get_random_sample(
                                                         self.settings["n_samples_each_update"],
                                                         alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
@@ -165,6 +165,7 @@ class vector_agent_trainer(vector_agent_base):
         vector_states, visual_states = states
         vector_s_primes, visual_s_primes = s_primes
         new_prio = np.empty((n,1))
+        self.stats.update(stats)
 
         #TRAIN!
         for t in range(n_epochs):
@@ -214,6 +215,7 @@ class vector_agent_trainer(vector_agent_base):
               }
         self.train_stats_raw.clear()
         self.stats.update(ret)
+        return self.stats
 
     def update_scoreboard(self, winner):
         if type(winner) is not str:
