@@ -7,13 +7,13 @@ class experience_replay:
         self.log        = log
         self.max_size   = max_size
         self.vector_state_size, self.visual_state_size = state_size
-        self.vector_states   = [np.zeros((max_size,*s[1:])) for s in self.vector_state_size]
-        self.visual_states   = [np.zeros((max_size,*s[1:])) for s in self.visual_state_size]
-        self.vector_s_primes = [np.zeros((max_size,*s[1:])) for s in self.vector_state_size]
-        self.visual_s_primes = [np.zeros((max_size,*s[1:])) for s in self.visual_state_size]
-        self.rewards  = np.zeros((max_size,1))
-        self.dones    = np.zeros((max_size,1))
-        self.prios    = -np.ones((max_size,1))
+        self.vector_states   = [np.zeros((max_size,*s[1:]), dtype=np.uint8) for s in self.vector_state_size]
+        self.visual_states   = [np.zeros((max_size,*s[1:]), dtype=np.uint8) for s in self.visual_state_size]
+        self.vector_s_primes = [np.zeros((max_size,*s[1:]), dtype=np.uint8) for s in self.vector_state_size]
+        self.visual_s_primes = [np.zeros((max_size,*s[1:]), dtype=np.uint8) for s in self.visual_state_size]
+        self.dones    = np.zeros((max_size,1), dtype=np.uint8)
+        self.rewards  = np.zeros((max_size,1), dtype=np.float32)
+        self.prios    = -np.ones((max_size,1), dtype=np.float32)
         self.current_size  = 0
         self.current_idx   = 0
         self.total_samples = 0

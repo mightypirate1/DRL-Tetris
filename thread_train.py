@@ -34,7 +34,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "FIVEnman_Q01",
+            "run-id" : "FIVEnman_Q01-2Mexprep-pareto1to3",
             # "render_simulation" : True
 
             #Train parameters
@@ -47,7 +47,7 @@ settings = {
             #Exp-replay parameters
             "prioritized_replay_alpha"  : constant_parameter(0.7),
             "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
-            "experience_replay_size"    : 5*10**5,
+            "experience_replay_size"    : 2*10**6,
             "experience_replay_sample_mode" : 'rank',
             "experience_replay_forget_mode" : 'oldest',
 
@@ -56,10 +56,10 @@ settings = {
             "single_policy"             : True,
 
             #Dithering
-            # "dithering_scheme"    : "distribution_pareto",
-            # "action_temperature"  : linear_parameter(1, final_val=1.0, time_horizon=total_steps),
-            "dithering_scheme"    : "adaptive_epsilon",
-            "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
+            "dithering_scheme"    : "distribution_pareto",
+            "action_temperature"  : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
+            # "dithering_scheme"    : "adaptive_epsilon",
+            # "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
             "optimistic_prios" : 0.0,
 
             #Rewards

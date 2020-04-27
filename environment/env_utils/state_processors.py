@@ -29,15 +29,15 @@ def state_dict(x, player, *parameters):
     ret =   {
                 "field" : (np.array(x[player].field)>0).astype(np.uint8),
 		        "piece" : np.array([int(p==col_code[x[player].piece[1][1]]) for p in piece_set]).astype(np.uint8),
-		        "x" : x[player].x.copy(),
-		        "y" : x[player].y.copy(),
+		        "x" : np.array(x[player].x.copy(), dtype=np.uint8),
+		        "y" : np.array(x[player].y.copy(), dtype=np.uint8),
 		        "incoming_lines" : np.array(x[player].inc_lines),
-		        "combo_time" : np.array(x[player].combo_time) / 10000,
-		        "combo_count" : np.array(x[player].combo_count),
-		        "nextpiece" : np.array([int(p==x[player].nextpiece) for p in piece_set]),
+		        "combo_time" : np.array(x[player].combo_time, dtype=np.uint8),
+		        "combo_count" : np.array(x[player].combo_count, dtype=np.uint8),
+		        "nextpiece" : np.array([int(p==x[player].nextpiece) for p in piece_set], dtype=np.uint8),
             }
     return ret
-    
+
 def raw(x, player, *parameters):
     return x[player]
 
