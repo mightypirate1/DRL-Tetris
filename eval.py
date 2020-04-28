@@ -27,7 +27,7 @@ docoptstring = \
 Eval
 
 Usage:
-    eval.py <weights> <weights> ... [--mode (aa|ap|pa|pp)] [--all-pieces] [--nonull|--null] [--debug]
+    eval.py <weights> <weights> ... [--mode (aa|ap|pa|pp)] [--all-pieces] [--nonull|--null] [--fast] [--debug]
 '''
 run_settings = docopt.docopt(docoptstring)
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
@@ -94,7 +94,8 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         #Render?
         if s["render"]:
             env.render()
-            time.sleep(0.05)
+            if not run_settings["--fast"]:
+                time.sleep(0.05)
 
         #Reset the envs that reach terminal states
         for i,d in enumerate(done):
