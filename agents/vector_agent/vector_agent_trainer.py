@@ -48,6 +48,7 @@ class vector_agent_trainer(vector_agent_base):
             self.experience_replay_dict[model] = experience_replay(
                                                                     max_size=int(self.settings["experience_replay_size"]/len(models)),
                                                                     state_size=self.state_size,
+                                                                    experience_type="trajectory",
                                                                     sample_mode=self.settings["experience_replay_sample_mode"],
                                                                     forget_mode=self.settings["experience_replay_forget_mode"],
                                                                    )
@@ -109,19 +110,6 @@ class vector_agent_trainer(vector_agent_base):
         avg = tot/n_trajectories if n_trajectories>0 else 0
         return tot, avg
 
-    def unpack_sample(self, sample):
-        #Put it in arrays
-        n = self.settings["n_samples_each_update"]
-        states        = np.zeros((n,*self.state_size ))
-        target_values = np.zeros((n,1 ))
-        is_weights    = np.zeros((n,1 ))
-        for i,s in enumerate(sample):
-            s,p,tv, isw        = s.get_data()
-            states[i,:]        = self.state_from_perspective(s, p)
-            target_values[i,:] = tv
-            is_weights[i,:]    = isw
-        return states, target_values, is_weights
-
     def do_training(self, sample=None, policy=None):
         #Figure out what policy, model, and experience replay to use...
         if self.settings["single_policy"]:
@@ -153,7 +141,7 @@ class vector_agent_trainer(vector_agent_base):
         update_prio_flag = False
         if sample is None: #If no one gave us one, we get one ourselves!
             update_prio_flag = True
-            sample, is_weights, filter, stats = \
+            sample, trajectory_idxs, is_weights, filter, stats = \
                             exp_rep.get_random_sample(
                                                         self.settings["n_samples_each_update"],
                                                         alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
