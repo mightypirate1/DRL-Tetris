@@ -32,7 +32,7 @@ def state_dict(x, player, *parameters):
 		        "x" : np.array(x[player].x.copy(), dtype=np.uint8),
 		        "y" : np.array(x[player].y.copy(), dtype=np.uint8),
 		        "incoming_lines" : np.array(x[player].inc_lines),
-		        "combo_time" : np.array(x[player].combo_time, dtype=np.uint8),
+		        "combo_time" : np.array( min(25000,x[player].combo_time+50)//100, dtype=np.uint8),
 		        "combo_count" : np.array(x[player].combo_count, dtype=np.uint8),
 		        "nextpiece" : np.array([int(p==x[player].nextpiece) for p in piece_set], dtype=np.uint8),
             }
