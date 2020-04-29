@@ -17,8 +17,8 @@ default_settings = {
                     "reward_shaper_param" : constant_parameter(1),
                     #Policy type
                     "single_policy" : True,
-                    "adversarial_training" : True,
                     #Training:
+                    "n_step_value_estimates" : 1, #1 reduces to "normal" updates
                     "minibatch_size" : 32,
                     "time_to_training" : 10**3,
                     "time_to_reference_update" : 5, #How after how many do_training calls do we update the reference-model?
@@ -68,6 +68,7 @@ default_settings = {
                     "valuenet_hidden_size" : 1024,
                     "nn_regularizer" : 0.001,
                     "nn_output_activation" : tf.nn.tanh,
+                    "optimizer" : tf.train.GradientDescentOptimizer,
 
                 ##MULTIPROCESSING:
                     "worker_net_on_cpu" : True,
@@ -103,7 +104,6 @@ default_settings = {
                     "relative_state"   : True, #This means that both players sees themselves as the player to the left, and the other on the right
                     "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
                     "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
-
 
                 ##GAME CONTROLLER:
                     "max_round_time" : None,

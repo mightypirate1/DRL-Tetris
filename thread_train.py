@@ -34,7 +34,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "FIVEnman_Q01-2Mexprep-pareto1to3",
+            "run-id" : "SIXten-alpha0",
             # "render_simulation" : True
 
             #Train parameters
@@ -111,6 +111,8 @@ settings = {
             "valuenet_hidden_size" : 256,
             "nn_regularizer" : 0.001,
             "nn_output_activation" : None,
+            "optimizer" : tf.train.GradientDescentOptimizer,
+            # "optimizer" : tf.train.AdamOptimizer,
 
             #Misc.
             "render"            : render,
