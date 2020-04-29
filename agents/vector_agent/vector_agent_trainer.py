@@ -8,8 +8,6 @@ import agents.agent_utils as agent_utils
 from agents.networks import prio_vnet
 from agents.agent_utils.experience_replay import experience_replay
 from aux.parameter import *
-from agents.agent_utils import state_fcns
-
 
 class vector_agent_trainer(vector_agent_base):
     def __init__(
