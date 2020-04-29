@@ -13,9 +13,6 @@ class prio_vnet:
         self.output_activation = settings["nn_output_activation"]
         self.disable_reference_net = disable_reference_net
         self.scope_name = "agent{}_{}".format(agent_id,name)
-        if settings is not None:
-            for x in settings:
-                self.settings[x] = settings[x]
         self.state_size_vec, self.state_size_vis = state_size
         #Define tensors/placeholders
         reuse = True if reuse_nets else None
@@ -220,8 +217,7 @@ class prio_vnet:
         self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.output_values_tf, weights=self.loss_weights_tf)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
         self.loss_tf = self.value_loss_tf + self.regularizer_tf
-        training_ops = tf.train.AdamOptimizer(learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
-        # training_ops = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
+        training_ops = self.settings["optimizer"](learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
         return training_ops
 
     def create_weight_setting_ops(self, collection):
