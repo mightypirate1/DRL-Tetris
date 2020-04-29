@@ -6,45 +6,44 @@ import aux
 import aux.utils as utils
 
 class prio_vnet:
-    def __init__(self, agent_id, name, state_size, sess, on_cpu=False, settings=None, reuse_nets=False, disable_reference_net=False):
+    def __init__(self, agent_id, name, state_size, sess, k_step=1, settings=None, worker_only=False):
         self.settings = utils.parse_settings(settings)
         self.session = sess
         self.name = name
         self.output_activation = settings["nn_output_activation"]
-        self.disable_reference_net = disable_reference_net
+        self.worker_only = worker_only
         self.scope_name = "agent{}_{}".format(agent_id,name)
         self.state_size_vec, self.state_size_vis = state_size
+        self.k_step = k_step
+        assert k_step > 0, "k_step AKA n_step_value_estimates has to be greater than 0!"
         #Define tensors/placeholders
-        reuse = True if reuse_nets else None
-        # device = "/cpu:0" if on_cpu or not self.check_gpu() else "/device:GPU:0" #Previously this was to force CPU-placed nets on workers. Now this is regulated when creating sessions in worker threads. Unsure if current solution is good, but it runs... If you know how to do this, please contact me :) //mightypirate1
-        with tf.variable_scope(self.scope_name, reuse=reuse):
-            self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-            self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
-            self.vector_s_primes        = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_s_prime_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-            self.visual_s_primes        = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_s_prime_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
-            self.input_rewards_tf       = tf.placeholder(tf.float32, (None,1), name='reward')
-            self.input_dones_tf         = tf.placeholder(tf.float32, (None,1), name='done')
-            self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
+        with tf.variable_scope(self.scope_name):
+            if worker_only:
+                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
+                self.input_rewards_tf       = tf.placeholder(tf.float32, (None,1), name='reward')
+                self.input_dones_tf         = tf.placeholder(tf.float32, (None,1), name='done')
+            else:
+                self.vector_inputs          = [tf.placeholder(tf.float32, (None, k_step)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+                self.visual_inputs          = [tf.placeholder(tf.float32, (None, k_step)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
+                self.input_rewards_tf       = tf.placeholder(tf.float32, (None, k_step, 1), name='reward')
+                self.input_dones_tf         = tf.placeholder(tf.float32, (None, k_step, 1), name='done')
+                self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
+
             self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
-            self.output_values_tf, self.target_values_tf, self.new_prios_tf, main_scope, ref_scope\
+            self.output_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
                                     = self.create_prio_vnet(
                                                             self.vector_inputs,
                                                             self.visual_inputs,
-                                                            self.vector_s_primes,
-                                                            self.visual_s_primes,
                                                             self.input_rewards_tf,
                                                             self.input_dones_tf
                                                            )
-
-            self.ref_scope  = ref_scope
-            self.main_scope = main_scope
-            self.main_net_vars      = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=main_scope.name)
-            self.reference_net_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=ref_scope.name)
-
+            self.main_net_vars      = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.main_scope.name)
             self.main_net_assign_list      = self.create_weight_setting_ops(self.main_net_vars)
-            self.reference_net_assign_list = self.create_weight_setting_ops(self.reference_net_vars)
-
-            self.training_ops = self.create_training_ops()
+            if not worker_only:
+                self.reference_net_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.ref_scope.name)
+                self.reference_net_assign_list = self.create_weight_setting_ops(self.reference_net_vars)
+                self.training_ops = self.create_training_ops()
             self.all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scope_name)
             self.init_ops = tf.variables_initializer(self.all_vars)
         #Run init-op
@@ -68,6 +67,7 @@ class prio_vnet:
         return return_values
 
     def compute_prios(self, s, s_prime, rewards, dones):
+        assert not self.worker_only, "IMPLEMENT COMPUTE PRIOS"
         vector_states, visual_states = s
         vector_s_primes, visual_s_primes = s_prime
         run_list = self.new_prios_tf
@@ -80,14 +80,11 @@ class prio_vnet:
             feed_dict[self.vector_inputs[idx]] = vec
         for idx, vis in enumerate(visual_states):
             feed_dict[self.visual_inputs[idx]] = vis
-        for idx, vec in enumerate(vector_s_primes):
-            feed_dict[self.vector_s_primes[idx]] = vec
-        for idx, vis in enumerate(visual_s_primes):
-            feed_dict[self.visual_s_primes[idx]] = vis
         new_prios = self.session.run(run_list, feed_dict=feed_dict)
         return new_prios
 
     def train(self, vector_states, visual_states, vector_s_primes, visual_s_primes, rewards, dones, weights=None, lr=None):
+        assert not self.worker_only, "IMPLEMENT TRAIN"
         if weights is None:
             weights = np.ones((input_states.shape[0],1))
         run_list = [
@@ -196,11 +193,36 @@ class prio_vnet:
             ret = x
         return ret, scope
 
-    def create_prio_vnet(self, vector_states, visual_states, vector_s_primes, visual_s_primes,  rewards, dones):
+    def create_prio_vnet(self, vector_states, visual_states, rewards, dones):
         with tf.variable_scope("prio_vnet") as vs:
-            values_tf, main_scope = self.create_value_net(vector_states, visual_states, "main")
-            v_sprime_tf, ref_scope = self.create_value_net(vector_s_primes, visual_s_primes, "reference")
-            gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
+            if self.worker_only:
+                #Workers are easy!
+                values_tf, main_scope = self.create_value_net(vector_states, visual_states, "main")
+                return values_tf, None, None, main_scope, None
+            else:
+                #k-step value estimator in 2 steps:
+                #1) get all the values and a bool to tell if the round is over
+                done = tf.constant(0, shape=(1,1))
+                values_tf = [0 for _ in range(self.k_step+1)]
+                dones_tf =  [0 for _ in range(self.k_step+1)]
+                for i in range(self.k_step+1):
+                    subscope = "main" if i == 0 else "reference"
+                    subinputs_vec = [vs[:,i,] for fs in vector_states]
+                    subinputs_vis = [vs[:,i,] for fs in visual_states]
+                    values_tf[i], scope_i = self.create_value_net(subinputs_vec, subinputs_vis, subscope)
+                    dones_tf[i] = tf.maximum(done, dones[:,i-1,:]) if i>0 else 0
+                    main_scope = scope_i if i == 0 else main_scope
+                    ref_scope = scope_i
+                #2) Combine rewards, values and dones into estimates
+                estimators_tf = []
+                for K in range(1, self.k_step+1):
+                    #k-step esimate:
+                    e = 0
+                    for i in range(K):
+                        d = dones_tf[i] #== (game over BEFORE i)
+                        e += (1-d)*rewards[:,i,:]*gamma**i
+                    e += (1-dones_tf[K])*(gamma**K)*values_tf[K]
+
             target_values_tf = rewards + gamma * tf.multiply(
                                                               tf.stop_gradient(
                                                                                v_sprime_tf #we treat the target values as constant!
@@ -214,6 +236,8 @@ class prio_vnet:
         return values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
+        if self.worker_only:
+            return None
         self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.output_values_tf, weights=self.loss_weights_tf)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
         self.loss_tf = self.value_loss_tf + self.regularizer_tf

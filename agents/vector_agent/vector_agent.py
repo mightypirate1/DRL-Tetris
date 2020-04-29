@@ -63,8 +63,8 @@ class vector_agent(vector_agent_base):
                               model,
                               self.state_size,
                               session,
+                              worker_only=True,
                               settings=self.settings,
-                              on_cpu=self.settings["worker_net_on_cpu"]
                              )
                 self.model_dict[model] = m
 

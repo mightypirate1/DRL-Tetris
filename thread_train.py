@@ -49,7 +49,6 @@ settings = {
             "prioritized_replay_beta"   : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"    : 2*10**6,
             "experience_replay_sample_mode" : 'rank',
-            "experience_replay_forget_mode" : 'oldest',
 
             "alternating_models"        : False,
             "time_to_training"          : 10**3,

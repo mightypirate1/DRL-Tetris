@@ -4,7 +4,7 @@ import scipy.stats
 from .. import agent_utils
 
 class experience_replay:
-    def __init__(self, max_size=None, state_size=None, k_step=1, log=None, sample_mode='rank' ,forget_mode='oldest'):
+    def __init__(self, max_size=None, state_size=None, k_step=1, log=None, sample_mode='rank'):
         self.log        = log
         self.k_step, self.state_len = k_step, k_step+1
         self.vector_state_size, self.visual_state_size = state_size
@@ -31,7 +31,6 @@ class experience_replay:
         self.current_idx   = 0
         self.total_samples = 0
         self.sample_mode = sample_mode
-        self.forget_mode = forget_mode
         self.resort_fraction = 0.5
 
     def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False, compute_stats=False):
@@ -64,22 +63,13 @@ class experience_replay:
         ##Data collection, and index-tracking
         i = 0
         for idx in indices:
-            if self.experience_type == "single_experience_tuple":
-                idx_dict[idx] = i #This makes sure that idx_dict keeps track of the position of the last occurance of each index in the sample
-                i += 1
-            elif self.experience_type == "trajectory":
-                idx_dict[idx] = slice(i, i+len(self.trajectory[idx])) #This makes sure that idx_dict keeps track of the position of the last occurance of each index in the sample
-                i += len(self.trajectory[idx])
+            idx_dict[idx] = i #This makes sure that idx_dict keeps track of the position of the last occurance of each index in the sample
+            i += 1
 
         #Return values!
-        filter = idx_dict
+        filter = idx_dict #This keeps track of which internal index
         is_weights = is_weights_all[indices]
-
-        if self.experience_type == "single_experience_tuple":
-            data = self.retrieve_samples_by_idx(indices)
-            trajectory_idxs = None
-        elif experience_type == "trajectory":
-            data, trajectory_idxs = self.retrieve_trajectories_by_idx(indices)
+        data = self.retrieve_samples_by_idx(indices)
 
         #Stats?
         if compute_stats:
@@ -96,7 +86,7 @@ class experience_replay:
                     }
         else:
             stats = {}
-        return data, trajectory_idxs, is_weights, filter, stats
+        return data, is_weights, filter, stats
 
     def add_samples(self, data, prio):
         s, a, r, d = data
@@ -120,52 +110,21 @@ class experience_replay:
         if self.current_idx + n < self._max_size:
             return slice(self.current_idx, self.current_idx+n,1)
         self.current_size = self.current_idx
+        self.prios[self.current_idx:] = -1
         self.current_idx = 0
         return slice(0,n,1)
 
     def update_prios(self, new_prios, filter):
-        if self.experience_type == "single_experience_tuple":
-            self.prios[list(filter.keys()),:] = new_prios[list(filter.values()),:]
-        elif self.experience_type == "trajectory":
-            for t_idx, f_idx in zip(filter.keys(), filter.vals()):
-                self.prios[ self.trajectory[t_idx], :] = new_prios[f_idx,:]
-                self.trajectory_prios[t_idx,:] = np.mean(new_prios[f_idx,:].ravel())
+        self.prios[list(filter.keys()),:] = new_prios[list(filter.values()),:]
 
     def retrieve_samples_by_idx(self, indices):
         data = (
                 ([vs[indices,:] for vs in self.vector_states],   [vs[indices,:] for vs in self.visual_states]),
-                ([vs[indices,:] for vs in self.vector_s_primes], [vs[indices,:] for vs in self.visual_s_primes]),
-                None,
+                self.actions[indices,:],
                 self.rewards[indices,:],
                 self.dones[indices,:],
                 )
         return data
-
-    def retrieve_trajectories_by_idx(self, idxs):
-        t_idx_list = self.trajectory[indices]
-        data = (
-                #s
-                (
-                [np.concatenate([vs[i,:] for i in t_idx],axis=0) for vs in self.vector_states],
-                [np.concatenate([vs[i,:] for i in t_idx],axis=0) for vs in self.visual_states]
-                ),
-                #s'
-                (
-                [np.concatenate([vs[i,:] for i in t_idx],axis=0) for vs in self.vector_s_primes],
-                [np.concatenate([vs[i,:] for i in t_idx],axis=0) for vs in self.visual_s_primes]
-                ),
-                #a
-                None,
-                #r
-                np.concatenate([self.rewards[i,:] for i in t_idx ], axis=0),
-                #d
-                np.concatenate([self.dones[i,:] for i in t_idx ], axis=0)
-               )
-        t_idx, start = [None for _ in t_idx_list], 0
-        for i, t in t_idx_list:
-            t_idx[i] = slice(start, start+len(t))
-            start += len(t)
-        return data, t_idx
 
     def __len__(self):
         return self.current_size

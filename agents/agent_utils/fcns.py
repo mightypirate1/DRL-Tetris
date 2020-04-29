@@ -6,8 +6,6 @@ def k_step_view(x, k):
     #... basically (s0,s1,...,sn) -> ((s0,..,sk),(s1,...,s(k+1)),...(s(n-k),...,sn))
     shape = (x.shape[0]-k, k+1, *x.shape[1:])
     strides = x.strides[0], *x.strides
-    print(x.strides)
-    print(strides)
     return as_strided(x, shape=shape, strides=strides)
 
 

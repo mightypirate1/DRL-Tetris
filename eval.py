@@ -7,7 +7,6 @@ import sys
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer
-from agents.pg_vector_agent import pg_vector_agent, pg_vector_agent_trainer
 import threads.threaded_runner
 from aux.settings import default_settings
 import aux.utils as utils

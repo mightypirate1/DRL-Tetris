@@ -32,11 +32,10 @@ class trajectory:
         _a = self.a + [self.a[-1] for _ in range(k_steps)]
         _r = self.r + [self.r[-1] for _ in range(k_steps)]
         _d = self.d + [self.d[-1] for _ in range(k_steps)]
+        assert False, "Fix this part: compute prios"
         prios = model((_s, _r, _d), player=_p)
         s  = state_fcn(self.s, player=self.p)
-        sp = state_fcn(_s[1:], player=_p[1:])
-        data = (s,None,r,d) # s[t,0,:] <- s_t, s[t,1,:] <- s_(t+1) etc
-        assert False, "Fix this part"
+        data = (s,self.a,r,d) # s[t,0,:] <- s_t, s[t,1,:] <- s_(t+1) etc
         return data, prios
 
     def get_winner(self): #This function assumes that the reward is done correctly, and corresponds to winning only. Draws are rare enough, so it should be good enough...

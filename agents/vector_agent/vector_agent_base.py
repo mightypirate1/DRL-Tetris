@@ -102,10 +102,11 @@ class vector_agent_base:
                                              self.model_dict[net].main_net_assign_list,
                                              main_weights
                                             )
-            self.model_dict[net].set_weights(
-                                             self.model_dict[net].reference_net_assign_list,
-                                             ref_weights
-                                            )
+            if not self.model_dict[net].worker_only:
+                self.model_dict[net].set_weights(
+                                                 self.model_dict[net].reference_net_assign_list,
+                                                 ref_weights
+                                                )
 
     def update_weights(self, weight_list): #As passed by the trainer's export_weights-fcn..
         models = sorted([x for x in self.model_dict])

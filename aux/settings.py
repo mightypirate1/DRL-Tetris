@@ -42,7 +42,6 @@ default_settings = {
                     "experience_replay_size" : 10**5,
                     "prioritized_experience_replay" : True,
                     "experience_replay_sample_mode" : 'rank',
-                    "experience_replay_forget_mode" : 'oldest',
                     "prioritized_replay_alpha" : constant_parameter(0.7),
                     "prioritized_replay_beta" : linear_parameter(0.5,final_val=1,time_horizon=10**7), #0.5, used in paper, then linear increase to 1...
                     #discount factors

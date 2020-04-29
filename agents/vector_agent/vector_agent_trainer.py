@@ -39,16 +39,16 @@ class vector_agent_trainer(vector_agent_base):
                           model,
                           self.state_size,
                           session,
+                          worker_only=False,
+                          k_step=self.settings["n_step_value_estimates"],
                           settings=self.settings,
-                          on_cpu=self.settings["trainer_net_on_cpu"]
                          )
             self.model_dict[model] = m
             self.experience_replay_dict[model] = experience_replay(
-                                                                    max_size=int(self.settings["experience_replay_size"]/len(models)),
                                                                     state_size=self.state_size,
-                                                                    experience_type="trajectory",
+                                                                    max_size=int(self.settings["experience_replay_size"]/len(models)),
+                                                                    k_step=self.settings["n_step_value_estimates"],
                                                                     sample_mode=self.settings["experience_replay_sample_mode"],
-                                                                    forget_mode=self.settings["experience_replay_forget_mode"],
                                                                    )
             self.scoreboard[model] = 0.5
             self.n_train_steps[model] = 0
@@ -139,7 +139,7 @@ class vector_agent_trainer(vector_agent_base):
         update_prio_flag = False
         if sample is None: #If no one gave us one, we get one ourselves!
             update_prio_flag = True
-            sample, trajectory_idxs, is_weights, filter, stats = \
+            sample, is_weights, filter, stats = \
                             exp_rep.get_random_sample(
                                                         self.settings["n_samples_each_update"],
                                                         alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
@@ -147,9 +147,8 @@ class vector_agent_trainer(vector_agent_base):
                                                         compute_stats=True,
                                                       )
         #Unpack a little...
-        states, s_primes, _, rewards, dones = sample
+        states, _, rewards, dones = sample
         vector_states, visual_states = states
-        vector_s_primes, visual_s_primes = s_primes
         new_prio = np.empty((n,1))
         self.stats.update(stats)
 
@@ -162,8 +161,6 @@ class vector_agent_trainer(vector_agent_base):
                 _new_prio, loss = model.train(
                                               [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
                                               [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
-                                              [vec_sp[perm[i:i+minibatch_size]] for vec_sp in vector_s_primes],
-                                              [vis_sp[perm[i:i+minibatch_size]] for vis_sp in visual_s_primes],
                                               rewards[perm[i:i+minibatch_size]],
                                               dones[perm[i:i+minibatch_size]],
                                               weights=is_weights[perm[i:i+minibatch_size]],
