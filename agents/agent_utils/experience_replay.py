@@ -1,29 +1,37 @@
 import numpy as np
+from numpy.lib.stride_tricks import as_strided
 import scipy.stats
 from .. import agent_utils
 
 class experience_replay:
-    def __init__(self, max_size=None, state_size=None, experience_type="single_experience_tuple",log=None, sample_mode='rank' ,forget_mode='oldest'):
+    def __init__(self, max_size=None, state_size=None, k_step=1, log=None, sample_mode='rank' ,forget_mode='oldest'):
         self.log        = log
-        self.max_size   = max_size
+        self.k_step, self.state_len = k_step, k_step+1
         self.vector_state_size, self.visual_state_size = state_size
-        self.vector_states   = [np.zeros((max_size,*s[1:]), dtype=np.uint8) for s in self.vector_state_size]
-        self.visual_states   = [np.zeros((max_size,*s[1:]), dtype=np.uint8) for s in self.visual_state_size]
-        self.vector_s_primes = [np.zeros((max_size,*s[1:]), dtype=np.uint8) for s in self.vector_state_size]
-        self.visual_s_primes = [np.zeros((max_size,*s[1:]), dtype=np.uint8) for s in self.visual_state_size]
-        self.dones    = np.zeros((max_size,1), dtype=np.uint8)
-        self.rewards  = np.zeros((max_size,1), dtype=np.float32)
-        self.prios    = -np.ones((max_size,1), dtype=np.float32)
-        if experience_type == "trajectory":
-            self.trajectory = np.full((max_size,), None)
-            self.trajectory_prios = -np.ones((max_size,1), dtype=np.float32)
-            self.current_n_trajectories = 0
+
+        #Underlying data
+        self._max_size = max_size
+        self._vector_states   = [np.zeros((self._max_size,*s[1:]), dtype=np.uint8) for s in self.vector_state_size]
+        self._visual_states   = [np.zeros((self._max_size,*s[1:]), dtype=np.uint8) for s in self.visual_state_size]
+        self._actions  = np.zeros((self._max_size,1), dtype=np.uint8)
+        self._dones    = np.zeros((self._max_size,1), dtype=np.uint8)
+        self._rewards  = np.zeros((self._max_size,1), dtype=np.float32)
+
+        #Presented data
+        self.max_size = max_size - k_step
+        self.vector_states = [agent_utils.k_step_view(_v, k_step) for _v in self._vector_states]
+        self.visual_states = [agent_utils.k_step_view(_v, k_step) for _v in self._visual_states]
+        self.actions       =  agent_utils.k_step_view(self._actions, k_step)
+        self.dones         =  agent_utils.k_step_view(self._dones,   k_step)
+        self.rewards       =  agent_utils.k_step_view(self._rewards, k_step)
+        self.prios    = -np.ones((self.max_size,1), dtype=np.float32)
+
+        #Inner workings...
         self.current_size  = 0
         self.current_idx   = 0
         self.total_samples = 0
         self.sample_mode = sample_mode
         self.forget_mode = forget_mode
-        self.experience_type = experience_type
         self.resort_fraction = 0.5
 
     def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False, compute_stats=False):
@@ -91,54 +99,29 @@ class experience_replay:
         return data, trajectory_idxs, is_weights, filter, stats
 
     def add_samples(self, data, prio):
-        s, sp,_,r,d = data
+        s, a, r, d = data
         vec_s, vis_s   = s
         vec_sp, vis_sp = sp
         n = prio.size
         idxs = self.add_indices(n)
-        for i,vs in enumerate(self.vector_states):
+        for i,vs in enumerate(self._vector_states):
             vs[idxs,:]   = vec_s[i]
-        for i,vs in enumerate(self.visual_states):
+        for i,vs in enumerate(self._visual_states):
             vs[idxs,:]   = vis_s[i]
-        for i,vs in enumerate(self.vector_s_primes):
-            vs[idxs,:]   = vec_sp[i]
-        for i,vs in enumerate(self.visual_s_primes):
-            vs[idxs,:]   = vis_sp[i]
-        self.rewards[idxs,:]  = r
-        self.dones[idxs,:]    = d
+        self._rewards[idxs,:]  = r
+        self._dones[idxs,:]    = d
+        self._actions[idxs,:]    = a
         self.prios[idxs,:]    = prio
         self.current_idx += n
         self.current_size = min(self.current_size+n, self.max_size)
         self.total_samples += n
-        if self.forget_mode != 'oldest':
-            self.resort()
 
     def add_indices(self, n):
-        idxs = [x%self.max_size for x in range(self.current_idx, self.current_idx+n)]
-        if self.forget_mode != 'oldest':
-            idxs = self.forget_order[idxs]
-        return idxs
-
-    def resort(self):
-        if self.forget_mode == 'lowest_prio':
-            if self.current_idx < self.max_size * self.resort_fraction:
-                return
-            ### If we have added many new samples, we re-sort them to make sure we over-write low-prio samples!
-            self.forget_order = np.argsort(self.prios.ravel())
-            self.current_idx = 0
-
-    def resort(self):
-        if self.forget_mode == 'highest_prio':
-            if self.current_idx < self.max_size * self.resort_fraction:
-                return
-            ### If we have added many new samples, we re-sort them to make sure we over-write low-prio samples!
-            self.forget_order = np.argsort(self.prios.ravel())[::-1]
-            self.current_idx = 0
-
-        elif self.forget_mode == 'uniform_prio':
-            if self.current_idx > self.max_size:
-                self.forget_order = np.random.permutation(self.max_size)
-                self.current_idx = 0
+        if self.current_idx + n < self._max_size:
+            return slice(self.current_idx, self.current_idx+n,1)
+        self.current_size = self.current_idx
+        self.current_idx = 0
+        return slice(0,n,1)
 
     def update_prios(self, new_prios, filter):
         if self.experience_type == "single_experience_tuple":
