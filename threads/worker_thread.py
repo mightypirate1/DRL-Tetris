@@ -19,6 +19,7 @@ class worker_thread(mp.Process):
         self.shared_vars = shared_vars
         self.init_weights = init_weights
         self.init_clock = init_clock
+        self.t_thread_start = 0
         self.gpu_count = 1 if (not self.settings["worker_net_on_cpu"]) or self.settings["run_standalone"] else 0
         self.random_actions = init_weights is None #Speed up initial datagathering by making random moves.
         self.current_weights = 0 #I have really old weights
