@@ -19,6 +19,7 @@ default_settings = {
                     "single_policy" : True,
                     #Training:
                     "n_step_value_estimates" : 1, #1 reduces to "normal" updates
+                    "n_value_funcions" : 1, #This is for multi-goal training, intrinsic rewards etc... 1 gives a single value per state you put in :)
                     "minibatch_size" : 32,
                     "time_to_training" : 10**3,
                     "time_to_reference_update" : 5, #How after how many do_training calls do we update the reference-model?

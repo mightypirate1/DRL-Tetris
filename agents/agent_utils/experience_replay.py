@@ -19,11 +19,11 @@ class experience_replay:
 
         #Presented data
         self.max_size = max_size - k_step
-        self.vector_states = [agent_utils.k_step_view(_v, k_step) for _v in self._vector_states]
-        self.visual_states = [agent_utils.k_step_view(_v, k_step) for _v in self._visual_states]
-        self.actions       =  agent_utils.k_step_view(self._actions, k_step)
-        self.dones         =  agent_utils.k_step_view(self._dones,   k_step)
-        self.rewards       =  agent_utils.k_step_view(self._rewards, k_step)
+        self.vector_states = [agent_utils.k_step_view(_v, k_step+1) for _v in self._vector_states]
+        self.visual_states = [agent_utils.k_step_view(_v, k_step+1) for _v in self._visual_states]
+        self.actions       =  agent_utils.k_step_view(self._actions, k_step+1)
+        self.dones         =  agent_utils.k_step_view(self._dones,   k_step+1)
+        self.rewards       =  agent_utils.k_step_view(self._rewards, k_step+1)
         self.prios    = -np.ones((self.max_size,1), dtype=np.float32)
 
         #Inner workings...
@@ -34,23 +34,18 @@ class experience_replay:
         self.resort_fraction = 0.5
 
     def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False, compute_stats=False):
-        if self.experience_type == "single_experience_tuple":
-            sample_prios = self.prios
-            n = self.current_size
-        elif self.experience_type == "trajectory":
-            sample_prios = self.trajectory_prios
-            n = self.current_n_trajectories
+        #Create the sampling distribution (see Schaul et al. for details)
+        n = self.current_size
         all_indices = np.arange(n)
-
-        #Create the sampling distribution (see paper for details)
         if self.sample_mode == 'rank':
             #make ranking
-            rank = 1+n-scipy.stats.rankdata(sample_prios[:n].ravel(), method='ordinal')
+            rank = 1+n-scipy.stats.rankdata(self.prios[:n].ravel(), method='ordinal')
             #make a ranking-based probability disribution (pareto-ish)
             one_over_rank = 1/rank #Rank-based sampling
             p_unnormalized = one_over_rank**alpha
         else:
-            p_unnormalized = (self.prios + 0.0001)**alpha
+            #Proportional
+            p_unnormalized = (self.prios[:n].ravel() + 0.0001)**alpha
 
         p = p_unnormalized / p_unnormalized.sum() #sampling distribution done
         is_weights_unnormalized = ((n*p)**(-beta))[:,np.newaxis] #Compute the importance sampling weights
@@ -78,11 +73,10 @@ class experience_replay:
                      "ExpRep-iwu_max"  : iwu.max(),
                      "ExpRep-iwu_mean" : iwu.mean(),
                      "ExpRep-iwu_min"  : iwu.min(),
-                     "ExpRep-prio_max"  : sample_prios[:n].max(),
-                     "ExpRep-prio_mean" : sample_prios[:n].mean(),
-                     "ExpRep-prio_min"  : sample_prios[:n].min(),
+                     "ExpRep-prio_max"  : self.prios[:n].max(),
+                     "ExpRep-prio_mean" : self.prios[:n].mean(),
+                     "ExpRep-prio_min"  : self.prios[:n].min(),
                      "ExpRep-sample_size"     : self.current_size,
-                     "ExpRep-trajectory_size" : self.current_n_trajectories,
                     }
         else:
             stats = {}
@@ -91,7 +85,6 @@ class experience_replay:
     def add_samples(self, data, prio):
         s, a, r, d = data
         vec_s, vis_s   = s
-        vec_sp, vis_sp = sp
         n = prio.size
         idxs = self.add_indices(n)
         for i,vs in enumerate(self._vector_states):

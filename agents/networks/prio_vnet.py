@@ -11,6 +11,7 @@ class prio_vnet:
         self.session = sess
         self.name = name
         self.output_activation = settings["nn_output_activation"]
+        self.output_size       = settings["n_value_funcions"]
         self.worker_only = worker_only
         self.scope_name = "agent{}_{}".format(agent_id,name)
         self.state_size_vec, self.state_size_vis = state_size
@@ -19,24 +20,30 @@ class prio_vnet:
         #Define tensors/placeholders
         with tf.variable_scope(self.scope_name):
             if worker_only:
-                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
                 self.input_rewards_tf       = tf.placeholder(tf.float32, (None,1), name='reward')
                 self.input_dones_tf         = tf.placeholder(tf.float32, (None,1), name='done')
+                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
+                self.vector_inputs_training = None
+                self.visual_inputs_training = None
             else:
-                self.vector_inputs          = [tf.placeholder(tf.float32, (None, k_step)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-                self.visual_inputs          = [tf.placeholder(tf.float32, (None, k_step)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
-                self.input_rewards_tf       = tf.placeholder(tf.float32, (None, k_step, 1), name='reward')
-                self.input_dones_tf         = tf.placeholder(tf.float32, (None, k_step, 1), name='done')
+                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
+                self.vector_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+                self.visual_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
+                self.input_rewards_tf       = tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
+                self.input_dones_tf         = tf.placeholder(tf.float32, (None, k_step+1, 1), name='done')
                 self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
 
             self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
-            self.output_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
+            self.output_values_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
                                     = self.create_prio_vnet(
                                                             self.vector_inputs,
                                                             self.visual_inputs,
+                                                            self.vector_inputs_training,
+                                                            self.visual_inputs_training,
                                                             self.input_rewards_tf,
-                                                            self.input_dones_tf
+                                                            self.input_dones_tf,
                                                            )
             self.main_net_vars      = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.main_scope.name)
             self.main_net_assign_list      = self.create_weight_setting_ops(self.main_net_vars)
@@ -66,27 +73,7 @@ class prio_vnet:
         return_values = self.session.run(run_list, feed_dict=feed_dict)
         return return_values
 
-    def compute_prios(self, s, s_prime, rewards, dones):
-        assert not self.worker_only, "IMPLEMENT COMPUTE PRIOS"
-        vector_states, visual_states = s
-        vector_s_primes, visual_s_primes = s_prime
-        run_list = self.new_prios_tf
-        feed_dict = {
-                        self.input_rewards_tf : rewards,
-                        self.input_dones_tf : dones,
-                    }
-        #Add also the state information to the appropriate placeholders..
-        for idx, vec in enumerate(vector_states):
-            feed_dict[self.vector_inputs[idx]] = vec
-        for idx, vis in enumerate(visual_states):
-            feed_dict[self.visual_inputs[idx]] = vis
-        new_prios = self.session.run(run_list, feed_dict=feed_dict)
-        return new_prios
-
-    def train(self, vector_states, visual_states, vector_s_primes, visual_s_primes, rewards, dones, weights=None, lr=None):
-        assert not self.worker_only, "IMPLEMENT TRAIN"
-        if weights is None:
-            weights = np.ones((input_states.shape[0],1))
+    def train(self, vector_states, visual_states, rewards, dones, weights=None, lr=None):
         run_list = [
                     self.training_ops,
                     self.new_prios_tf,
@@ -102,13 +89,13 @@ class prio_vnet:
                     }
         #Add also the state information to the appropriate placeholders..
         for idx, vec in enumerate(vector_states):
-            feed_dict[self.vector_inputs[idx]] = vec
+            feed_dict[self.vector_inputs_training[idx]] = vec
         for idx, vis in enumerate(visual_states):
-            feed_dict[self.visual_inputs[idx]] = vis
-        for idx, vec in enumerate(vector_s_primes):
-            feed_dict[self.vector_s_primes[idx]] = vec
-        for idx, vis in enumerate(visual_s_primes):
-            feed_dict[self.visual_s_primes[idx]] = vis
+            feed_dict[self.visual_inputs_training[idx]] = vis
+        for idx, vec in enumerate(vector_states):
+            feed_dict[self.vector_inputs[idx]] = vec[:,0,:]
+        for idx, vis in enumerate(visual_states):
+            feed_dict[self.visual_inputs[idx]] = vis[:,0,:]
         _, new_prios, loss, v_loss, reg_loss = self.session.run(run_list, feed_dict=feed_dict)
         return new_prios, (loss, v_loss, reg_loss)
 
@@ -183,7 +170,7 @@ class prio_vnet:
                                    )
             x = tf.layers.dense(
                                 x,
-                                1,
+                                self.output_size,
                                 name='valuenet_layer{}'.format(self.settings['valuenet_n_hidden']+1),
                                 activation=self.output_activation,
                                 # kernel_initializer=tf.zeros_initializer(),
@@ -193,52 +180,56 @@ class prio_vnet:
             ret = x
         return ret, scope
 
-    def create_prio_vnet(self, vector_states, visual_states, rewards, dones):
+    def create_prio_vnet(self, vector_states, visual_states, vector_states_training, visual_states_training, rewards, dones):
         with tf.variable_scope("prio_vnet") as vs:
+            values_tf, main_scope = self.create_value_net(vector_states, visual_states, "main")
+            #Workers are easy!
             if self.worker_only:
-                #Workers are easy!
-                values_tf, main_scope = self.create_value_net(vector_states, visual_states, "main")
-                return values_tf, None, None, main_scope, None
-            else:
-                #k-step value estimator in 2 steps:
-                #1) get all the values and a bool to tell if the round is over
-                done = tf.constant(0, shape=(1,1))
-                values_tf = [0 for _ in range(self.k_step+1)]
-                dones_tf =  [0 for _ in range(self.k_step+1)]
-                for i in range(self.k_step+1):
-                    subscope = "main" if i == 0 else "reference"
-                    subinputs_vec = [vs[:,i,] for fs in vector_states]
-                    subinputs_vis = [vs[:,i,] for fs in visual_states]
-                    values_tf[i], scope_i = self.create_value_net(subinputs_vec, subinputs_vis, subscope)
-                    dones_tf[i] = tf.maximum(done, dones[:,i-1,:]) if i>0 else 0
-                    main_scope = scope_i if i == 0 else main_scope
-                    ref_scope = scope_i
-                #2) Combine rewards, values and dones into estimates
-                estimators_tf = []
-                for K in range(1, self.k_step+1):
-                    #k-step esimate:
-                    e = 0
-                    for i in range(K):
-                        d = dones_tf[i] #== (game over BEFORE i)
-                        e += (1-d)*rewards[:,i,:]*gamma**i
-                    e += (1-dones_tf[K])*(gamma**K)*values_tf[K]
+                return values_tf, None, None, None, main_scope, None
 
-            target_values_tf = rewards + gamma * tf.multiply(
-                                                              tf.stop_gradient(
-                                                                               v_sprime_tf #we treat the target values as constant!
-                                                                               ),
-                                                              (1-dones)
-                                                              ) #1-step empirical estimate
+            #k-step value estimator in 2 steps:
+            #1) get all the values and a bool to tell if the round is over
+            done = tf.constant(0.0, shape=(1,1))
+            val_i_tf = [0 for _ in range(self.k_step+1)]
+            done_iminus1_tf =  [0 for _ in range(self.k_step+1)]
+            for i in range(self.k_step+1):
+                subscope = "main" if i == 0 else "reference"
+                subinputs_vec = [vec_state[:,i,] for vec_state in vector_states_training]
+                subinputs_vis = [vis_state[:,i,] for vis_state in visual_states_training]
+                val_i_tf[i], ref_scope = self.create_value_net(subinputs_vec, subinputs_vis, subscope)
+                done_iminus1_tf[i] = tf.maximum(done, dones[:,i-1,:]) if i>0 else 0
+            #2) Combine rewards, values and dones into estimates
+            estimators_tf = [None for _ in range(self.k_step)]
+            gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
+            for K in range(1, self.k_step+1):
+                #k-step esimate:
+                e = 0
+                for i in range(K):
+                    d = done_iminus1_tf[i] #== (game over BEFORE i)
+                    e += (1-d)*rewards[:,i,:]*gamma**i
+                e += (1-done_iminus1_tf[K])*(gamma**K)*values_tf[K]
+                estimators_tf[K-1] = e
+            #3) GAE-style aggregation
+            gae_lambda = 0.95
+            weight = 0
+            target_value_tf = 0
+            for e in reversed(estimators_tf):
+                target_value_tf *= gae_lambda
+                weight *= gae_lambda
+                target_value_tf += e
+                weight += 1
+            target_values_tf = tf.stop_gradient(target_value_tf / weight)
+            training_values_tf = val_i_tf[0]
             if self.settings["optimistic_prios"] == 0.0:
                 prios_tf = tf.abs(values_tf - target_values_tf) #priority for the experience replay
             else:
                 prios_tf = tf.abs(values_tf - target_values_tf) + self.settings["optimistic_prios"] * tf.nn.relu(target_values_tf - values_tf)
-        return values_tf, target_values_tf, prios_tf, main_scope, ref_scope
+        return values_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
         if self.worker_only:
             return None
-        self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.output_values_tf, weights=self.loss_weights_tf)
+        self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.training_values_tf, weights=self.loss_weights_tf)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
         self.loss_tf = self.value_loss_tf + self.regularizer_tf
         training_ops = self.settings["optimizer"](learning_rate=self.learning_rate_tf).minimize(self.loss_tf)

@@ -38,6 +38,7 @@ settings = {
             # "render_simulation" : True
 
             #Train parameters
+            "n_step_value_estimates"    : 3,
             "n_samples_each_update"     : 16192,
             "minibatch_size"            : 128,
             "n_train_epochs_per_update" : 5,
