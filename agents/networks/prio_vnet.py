@@ -213,11 +213,11 @@ class prio_vnet:
             gae_lambda = 0.95
             weight = 0
             target_value_tf = 0
-            for e in reversed(estimators_tf):
+            for i,e in reversed(list(enumerate(estimators_tf))):
                 target_value_tf *= gae_lambda
                 weight *= gae_lambda
                 target_value_tf += e
-                weight += 1
+                weight += (1-done_iminus1_tf[i])
             target_values_tf = tf.stop_gradient(target_value_tf / weight)
             training_values_tf = val_i_tf[0]
             if self.settings["optimistic_prios"] == 0.0:
