@@ -183,47 +183,45 @@ class prio_vnet:
     def create_prio_vnet(self, vector_states, visual_states, vector_states_training, visual_states_training, rewards, dones):
         with tf.variable_scope("prio_vnet") as vs:
             values_tf, main_scope = self.create_value_net(vector_states, visual_states, "main")
+
             #Workers are easy!
             if self.worker_only:
                 return values_tf, None, None, None, main_scope, None
 
             #k-step value estimator in 2 steps:
             #1) get all the values and a bool to tell if the round is over
-            done = tf.constant(0.0, shape=(1,1))
             val_i_tf = [0 for _ in range(self.k_step+1)]
-            done_iminus1_tf =  [0 for _ in range(self.k_step+1)]
+            dones_tf = tf.maximum(1.0, tf.cumsum(dones, axis=1)) #Maximum ensures there is no stray done from an adjacent trajectory influencing us...
+            done_time_tf = tf.reduce_sum( 1-dones, axis=1)
             for i in range(self.k_step+1):
                 subscope = "main" if i == 0 else "reference"
-                subinputs_vec = [vec_state[:,i,] for vec_state in vector_states_training]
-                subinputs_vis = [vis_state[:,i,] for vis_state in visual_states_training]
+                subinputs_vec = [vec_state[:,i,:] for vec_state in vector_states_training]
+                subinputs_vis = [vis_state[:,i,:] for vis_state in visual_states_training]
                 val_i_tf[i], ref_scope = self.create_value_net(subinputs_vec, subinputs_vis, subscope)
-                done_iminus1_tf[i] = tf.maximum(done, dones[:,i-1,:]) if i>0 else 0
             #2) Combine rewards, values and dones into estimates
-            estimators_tf = [None for _ in range(self.k_step)]
             gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
-            for K in range(1, self.k_step+1):
-                #k-step esimate:
+            def k_step_estimate(k):
                 e = 0
-                for i in range(K):
-                    d = done_iminus1_tf[i] #== (game over BEFORE i)
-                    e += (1-d)*rewards[:,i,:]*gamma**i
-                e += (1-done_iminus1_tf[K])*(gamma**K)*values_tf[K]
-                estimators_tf[K-1] = e
+                for t in range(k):
+                    e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * gamma**t
+                e += val_i_tf[k] * tf.cast((done_time_tf > k),tf.float32) * gamma**k
+                return e
+            estimators_tf = [k_step_estimate(k) for k in range(1,self.k_step+1)]
             #3) GAE-style aggregation
-            gae_lambda = 0.95
             weight = 0
-            target_value_tf = 0
+            estimator_sum_tf = 0
+            gae_lambda = 0.95
             for i,e in reversed(list(enumerate(estimators_tf))):
-                target_value_tf *= gae_lambda
+                estimator_sum_tf *= gae_lambda
                 weight *= gae_lambda
-                target_value_tf += e
-                weight += (1-done_iminus1_tf[i])
-            target_values_tf = tf.stop_gradient(target_value_tf / weight)
+                estimator_sum_tf += e
+                weight += 1
+            target_values_tf = tf.stop_gradient(estimator_sum_tf / weight)
             training_values_tf = val_i_tf[0]
             if self.settings["optimistic_prios"] == 0.0:
-                prios_tf = tf.abs(values_tf - target_values_tf) #priority for the experience replay
+                prios_tf = tf.abs(training_values_tf - target_values_tf) #priority for the experience replay
             else:
-                prios_tf = tf.abs(values_tf - target_values_tf) + self.settings["optimistic_prios"] * tf.nn.relu(target_values_tf - values_tf)
+                prios_tf = tf.abs(training_values_tf - target_values_tf) + self.settings["optimistic_prios"] * tf.nn.relu(target_values_tf - values_tf)
         return values_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
