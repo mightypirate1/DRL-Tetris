@@ -34,14 +34,14 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SIXten-Q01-k1",
+            "run-id" : "SIXten-X01-k5-prop",
             # "render_simulation" : True
 
             #Train parameters
-            "n_step_value_estimates"    : 1,
+            "n_step_value_estimates"    : 5,
             "n_samples_each_update"     : 16384,
             "minibatch_size"            : 128,
-            "n_train_epochs_per_update" : 3,
+            "n_train_epochs_per_update" : 5,
             "time_to_reference_update"  : 4, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=3/total_steps),
 
