@@ -13,6 +13,7 @@ class prio_vnet:
         self.output_activation = settings["nn_output_activation"]
         self.output_size       = settings["n_value_funcions"]
         self.worker_only = worker_only
+        self.stats_tensors = []
         self.scope_name = "agent{}_{}".format(agent_id,name)
         self.state_size_vec, self.state_size_vis = state_size
         self.k_step = k_step
@@ -56,12 +57,6 @@ class prio_vnet:
         #Run init-op
         self.session.run(self.init_ops)
 
-    def check_gpu(self):
-        for dev in device_lib.list_local_devices():
-            if "GPU" in dev.name:
-                return True
-        return False
-
     def evaluate(self, inputs):
         vector, visual = inputs
         run_list = self.output_values_tf
@@ -77,9 +72,7 @@ class prio_vnet:
         run_list = [
                     self.training_ops,
                     self.new_prios_tf,
-                    self.loss_tf,
-                    self.value_loss_tf,
-                    self.regularizer_tf,
+                    self.stats_tensors,
                     ]
         feed_dict = {
                         self.input_rewards_tf : rewards,
@@ -96,8 +89,8 @@ class prio_vnet:
             feed_dict[self.vector_inputs[idx]] = vec[:,0,:]
         for idx, vis in enumerate(visual_states):
             feed_dict[self.visual_inputs[idx]] = vis[:,0,:]
-        _, new_prios, loss, v_loss, reg_loss = self.session.run(run_list, feed_dict=feed_dict)
-        return new_prios, (loss, v_loss, reg_loss)
+        _, new_prios, stats = self.session.run(run_list, feed_dict=feed_dict)
+        return new_prios, zip(self.stats_tensors, stats)
 
     def create_vectorencoder(self, x):
         with tf.variable_scope("vectorencoder", reuse=tf.AUTO_REUSE) as vs:
@@ -188,13 +181,16 @@ class prio_vnet:
             if self.worker_only:
                 return values_tf, None, None, None, main_scope, None
 
-            #k-step value estimator in 2 steps:
+            # # #
+            # Trainers also do {1,...,k}-step value estimators in 2 steps:
+            # # #
+
             #1) get all the values and a bool to tell if the round is over
             val_i_tf = [0 for _ in range(self.k_step+1)]
             dones_tf = tf.maximum(1.0, tf.cumsum(dones, axis=1)) #Maximum ensures there is no stray done from an adjacent trajectory influencing us...
             done_time_tf = tf.reduce_sum( 1-dones, axis=1)
             for i in range(self.k_step+1):
-                subscope = "main" if i == 0 else "reference"
+                subscope = "main" if i == 0 else "reference" #shared weights in scope!
                 subinputs_vec = [vec_state[:,i,:] for vec_state in vector_states_training]
                 subinputs_vis = [vis_state[:,i,:] for vis_state in visual_states_training]
                 val_i_tf[i], ref_scope = self.create_value_net(subinputs_vec, subinputs_vis, subscope)
@@ -210,18 +206,29 @@ class prio_vnet:
             #3) GAE-style aggregation
             weight = 0
             estimator_sum_tf = 0
-            gae_lambda = 0.95
+            gae_lambda = self.settings["gae_lambda"]
             for i,e in reversed(list(enumerate(estimators_tf))):
                 estimator_sum_tf *= gae_lambda
                 weight *= gae_lambda
                 estimator_sum_tf += e
                 weight += 1
             target_values_tf = tf.stop_gradient(estimator_sum_tf / weight)
+
+            # Sometimes we will also want to output the value from the main-net:
             training_values_tf = val_i_tf[0]
+
+            # Prio-V-net is true to it's name and computes the sample priorities for you!
             if self.settings["optimistic_prios"] == 0.0:
                 prios_tf = tf.abs(training_values_tf - target_values_tf) #priority for the experience replay
             else:
-                prios_tf = tf.abs(training_values_tf - target_values_tf) + self.settings["optimistic_prios"] * tf.nn.relu(target_values_tf - values_tf)
+                prios_tf = tf.abs(training_values_tf - target_values_tf) + self.settings["optimistic_prios"] * tf.nn.relu(target_values_tf - training_values_tf)
+
+            #As always - we like some stats!
+            self.output_as_stats(target_values_tf, name="gae-val")
+            self.output_as_stats(done_time_tf, name="done_time")
+            for i,e in enumerate(estimators_tf):
+                self.output_as_stats(e, name='{}_step_val_est'.format(i+1))
+                self.output_as_stats(tf.abs(target_values_tf-e), name='{}-step_val_est_diff'.format(i+1))
         return values_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
@@ -231,6 +238,10 @@ class prio_vnet:
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
         self.loss_tf = self.value_loss_tf + self.regularizer_tf
         training_ops = self.settings["optimizer"](learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
+        #Stats: we like stats.
+        self.output_as_stats(self.loss_tf, name='tot_loss', only_mean=True)
+        self.output_as_stats(self.value_loss_tf, name='value_loss', only_mean=True)
+        self.output_as_stats(self.regularizer_tf, name='reg_loss', only_mean=True)
         return training_ops
 
     def create_weight_setting_ops(self, collection):
@@ -248,11 +259,7 @@ class prio_vnet:
         return assign_placeholder_list
 
     def swap_networks(self):
-        #This makes it equivalent to:
-        # tmp = reference_net
-        # reference_net = main_net
-        # main_net = tmp
-        #if only I could do it that ez... :)
+        # Swaps reference- and main-weights
         main_weights = self.get_weights(self.main_net_vars)
         ref_weights  = self.get_weights(self.reference_net_vars)
         self.set_weights(self.reference_net_assign_list, main_weights)
@@ -273,6 +280,25 @@ class prio_vnet:
             run_list.append(assign['assign_op'])
             feed_dict[assign['assign_val_placeholder']] = w
         self.session.run(run_list, feed_dict=feed_dict)
+
+    def check_gpu(self):
+        for dev in device_lib.list_local_devices():
+            if "GPU" in dev.name:
+                return True
+        return False
+
+    def output_as_stats(self, tensor, name=None, only_mean=False):
+        if name is None:
+            name = tensor.name
+        #Corner case :)
+        if len(tensor.shape) == 0:
+            self.stats_tensors.append(tf.identity(tensor, name=name))
+            return
+        self.stats_tensors.append(tf.reduce_mean(tensor, axis=0, name=name+'_mean'))
+        if only_mean:
+            return
+        self.stats_tensors.append(tf.reduce_max(tensor, axis=0, name=name+'_max'))
+        self.stats_tensors.append(tf.reduce_min(tensor, axis=0, name=name+'_min'))
 
     @property
     def output(self):

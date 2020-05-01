@@ -127,7 +127,7 @@ class vector_agent_trainer(vector_agent_base):
             return False
 
         #Start!
-        self.train_stats_raw = list()
+        self.train_lossstats_raw = list()
         self.log.debug("trainer[{}] doing training".format(self.id))
 
         #Some values:
@@ -158,15 +158,15 @@ class vector_agent_trainer(vector_agent_base):
             last_epoch = t+1 == n_epochs
             perm = np.random.permutation(n) if not last_epoch else np.arange(n)
             for i in range(0,n,minibatch_size):
-                _new_prio, loss = model.train(
-                                              [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
-                                              [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
-                                              rewards[perm[i:i+minibatch_size]],
-                                              dones[perm[i:i+minibatch_size]],
-                                              weights=is_weights[perm[i:i+minibatch_size]],
-                                              lr=self.settings["value_lr"].get_value(self.clock)
-                                             )
-                self.train_stats_raw.append(loss)
+                _new_prio, stats = model.train(
+                                               [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
+                                               [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
+                                               rewards[perm[i:i+minibatch_size]],
+                                               dones[perm[i:i+minibatch_size]],
+                                               weights=is_weights[perm[i:i+minibatch_size]],
+                                               lr=self.settings["value_lr"].get_value(self.clock)
+                                              )
+                self.train_stats_raw.append(stats)
                 if last_epoch: new_prio[i:i+minibatch_size] = _new_prio
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
             if self.verbose_training: print("]",flush=False)
@@ -180,6 +180,8 @@ class vector_agent_trainer(vector_agent_base):
         #Count training
         self.n_train_steps['total'] += 1
         self.n_train_steps[policy]  += 1
+        #Some stats:
+        self.generate_training_stats()
 
         #Update prios if we sampled the sample ourselves...
         if update_prio_flag:
@@ -188,16 +190,24 @@ class vector_agent_trainer(vector_agent_base):
         return True
 
     def generate_training_stats(self):
-        tot_loss, v_loss, reg_loss = zip(*self.train_stats_raw)
-        output_policy = "value_net" if self.settings["single_policy"] else "policy_0"
-        ret = {
-                "Total loss"       : sum(tot_loss)/len(self.train_stats_raw),
-                "Value loss"       : sum(v_loss  )/len(self.train_stats_raw),
-                "Regularizer loss" : sum(reg_loss)/len(self.train_stats_raw),
-                "Winrate"          : self.scoreboard[output_policy],
-              }
+        stats, counts = {}, {}
+        for train_stat_batch in self.train_stats_raw:
+            for tensor, data in train_stat_batch:
+                if tensor.name not in stats:
+                    stats[tensor.name] = data
+                    counts[tensor.name] = 1
+                else:
+                    if 'max' in tensor.name:
+                        stats[tensor.name] = np.maximum(stats[tensor.name], data)
+                    elif 'min' in tensor.name:
+                        stats[tensor.name] = np.minimum(stats[tensor.name], data)
+                    else:
+                        stats[tensor.name] += data
+                        counts[tensor.name] += 1
+        for tensor_name in stats:
+            stats[tensor_name] = stats[tensor_name] / counts[tensor_name]
         self.train_stats_raw.clear()
-        self.stats.update(ret)
+        self.stats.update(stats)
         return self.stats
 
     def update_scoreboard(self, winner):
