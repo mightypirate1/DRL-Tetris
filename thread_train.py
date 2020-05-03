@@ -34,11 +34,11 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SIXten-X01-k5-prop",
+            "run-id" : "SIXten-X01-k1-prop",
             # "render_simulation" : True
 
             #Train parameters
-            "n_step_value_estimates"    : 5,
+            "n_step_value_estimates"    : 1,
             "n_samples_each_update"     : 16384,
             "minibatch_size"            : 128,
             "n_train_epochs_per_update" : 5,
@@ -110,7 +110,7 @@ settings = {
             "valuenet_n_hidden" : 1,
             "valuenet_hidden_size" : 256,
             "nn_regularizer" : 0.001,
-            "nn_output_activation" : None,
+            "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,
             "optimizer" : tf.train.AdamOptimizer,
 
