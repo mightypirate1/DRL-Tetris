@@ -187,8 +187,8 @@ class prio_vnet:
 
             #1) get all the values and a bool to tell if the round is over
             val_i_tf = [0 for _ in range(self.k_step+1)]
-            dones_tf = tf.maximum(1.0, tf.cumsum(dones, axis=1)) #Maximum ensures there is no stray done from an adjacent trajectory influencing us...
-            done_time_tf = tf.reduce_sum( 1-dones, axis=1)
+            dones_tf = tf.minimum(1.0, tf.cumsum(dones, axis=1)) #Maximum ensures there is no stray done from an adjacent trajectory influencing us...
+            done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
             for i in range(self.k_step+1):
                 subscope = "main" if i == 0 else "reference" #shared weights in scope!
                 subinputs_vec = [vec_state[:,i,:] for vec_state in vector_states_training]
@@ -207,7 +207,7 @@ class prio_vnet:
             weight = 0
             estimator_sum_tf = 0
             gae_lambda = self.settings["gae_lambda"]
-            for i,e in reversed(list(enumerate(estimators_tf))):
+            for e in reversed(estimators_tf):
                 estimator_sum_tf *= gae_lambda
                 weight *= gae_lambda
                 estimator_sum_tf += e
