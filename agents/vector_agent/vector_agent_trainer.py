@@ -54,7 +54,7 @@ class vector_agent_trainer(vector_agent_base):
             self.n_train_steps[model] = 0
             self.time_to_reference_update[model] = 0
 
-        self.n_samples_to_start_training = self.settings["n_samples_each_update"]
+        self.n_samples_to_start_training = max(self.settings["n_samples_each_update"], self.settings["n_samples_to_start_training"])
         if init_weights is not None:
             print("Trainer{} initialized from weights: {} and clock: {}".format(self.id, init_weights, init_clock))
             self.update_clock(init_clock)

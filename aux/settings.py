@@ -30,7 +30,8 @@ default_settings = {
                     "balance_winrate" : True,
                     "winrate_tolerance" : 0.15, #0.15 means that a player does not train if it's winrate is above 0.65
                     "winrate_learningrate" : 0.01,
-                    "restart_training_delay" : 16192,
+                    "restart_training_delay" : 16384,
+                    "n_samples_to_start_training" : 40000,
                     #exploration
                     "dithering_scheme" : "adaptive_epsilon",
                     "action_temperature"  : constant_parameter(1.0),
