@@ -8,7 +8,8 @@ class unpacker:
                  state_from_perspective=True,
                  observation_mode='vector', #'vector' / 'separate'
                  player_mode='vector', #'vector' / 'separate'
-                 piece_mode='1hot',
+                 # piece_mode='1hot',
+                 separate_piece=False,
                  ):
         self.state_fcn = self.states_from_perspective if state_from_perspective else self.states_to_vectors
         self.collect_data = self.collect_all_data if observation_mode == 'vector' else self.collect_separate_data
@@ -16,13 +17,17 @@ class unpacker:
         self.state_from_perspective = state_from_perspective
         self.observation_mode = observation_mode
         self.player_mode = player_mode
-        self.piece_mode = piece_mode
+        # self.piece_mode = piece_mode
+        self.separate_piece = separate_piece
         self.state_size = self.get_shapes(state=state)
 
     ##Frontend
     def get_shapes(self, state=None):
         if state is None: return self.state_size
-        vec, vis = self([state], [0])
+        if not self.separate_piece:
+            vec, vis = self([state], [0])
+        else:
+            vec, vis, piece = self([state], [0])
         return [v.shape for v in vec], [v.shape for v in vis]
 
     def states_from_perspective(self, states, player):
@@ -58,28 +63,38 @@ class unpacker:
         return vector, visual
 
     def join_separate(self, data, player_list):
-        vector, visual = zip(*data)
-        return vector, visual
+        return zip(*data)
 
     def collect_all_data(self,state_dict):
         tmp = []
         for x in state_dict:
+            if x in ['piece', 'piece_idx'] and self.separate_piece:
+                piece = state_dict['piece_idx']
+                continue
             tmp.append(state_dict[x].reshape((1,-1)))
         vector = np.concatenate(tmp, axis=1)
         visual = None
-        return vector, visual
+        ret = vector, visual if not self.separate_piece else vector, visual, piece
+        return ret
 
     def collect_separate_data(self, state_dict):
         tmp = []
         for x in state_dict:
-            if x != 'field':
+            if x in ['piece', 'piece_idx'] and self.separate_piece:
+                piece = state_dict['piece_idx']
+                continue
+            elif x != 'field':
                 tmp.append(state_dict[x].reshape((1,-1)))
         vector = np.concatenate(tmp, axis=1)
         visual = state_dict['field'][None,:,:,None]
-        return vector, visual
+        ret = (vector, visual) if not self.separate_piece else (vector, visual, piece)
+        return ret
 
     def pack(self, data_list, player_lists):
-        _vector, _visual = zip(*data_list)
+        if not self.separate_piece:
+            _vector, _visual = zip(*data_list)
+        else:
+            _vector, _visual, _piece = zip(*data_list)
         if self.player_mode == 'vector':
             if _visual[0] is None:
                 visual = []
@@ -99,7 +114,12 @@ class unpacker:
                 visual = []
             else:
                 visual = [np.concatenate([v[p] for v in _visual], axis=0) for p in range(2)]
-        return vector, visual
+
+        if self.separate_piece:
+            ret = vector, visual, np.concatenate([_piece])
+        else:
+            ret = vector, visual
+        return ret
 
     def __call__(self, states, player=None):
         return self.state_fcn(states,player)

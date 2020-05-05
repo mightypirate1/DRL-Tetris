@@ -1,6 +1,7 @@
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer
+from agents.vector_q_agent import vector_q_agent, vector_q_agent_trainer
 from agents.agent_utils.reward_shapers import *
 from aux.parameter import *
 import threads.threaded_runner
@@ -34,17 +35,23 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SIXten-Z01-k3",
+            "run-id" : "SVENton-alpha6",
+            "n_actions" : 40,
+            "state_processor_separate_piece" : True,
+            "old_state_dict" : False,
+
+            "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True
 
             #Train parameters
-            "n_step_value_estimates"    : 3,
+            "n_step_value_estimates"    : 5,
             "n_samples_each_update"     : 16384,
-            "minibatch_size"            : 128,
+            # "n_samples_each_update"     : 8192,
+            "minibatch_size"            : 128, #128
             "n_train_epochs_per_update" : 1,  #5
-            "time_to_reference_update"  : 20, #How after how many do_training calls do we update the reference-model?
+            "time_to_reference_update"  : 13, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=2/total_steps),
-            "n_samples_to_start_training" : 40000, #0
+            # "n_samples_to_start_training" : 40000, #0
 
             #Exp-replay parameters
             "prioritized_replay_alpha"      : constant_parameter(0.6),
@@ -71,14 +78,15 @@ settings = {
             # "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
 
             #Game settings
+            # "pieces" : [6,],
             "pieces" : [0,6],
             "game_size" : [22,10],
             "time_elapsed_each_action" : 400,
             #Types
             "env_vector_type"   : tetris_environment_vector,
             "env_type"          : tetris_environment,
-            "agent_type"        : vector_agent.vector_agent,
-            "trainer_type"      : vector_agent_trainer.vector_agent_trainer,
+            "agent_type"        : vector_q_agent.vector_q_agent,
+            "trainer_type"      : vector_q_agent_trainer.vector_q_agent_trainer,
 
             #Threading
             "run_standalone"       : docoptsettings["--debug"],

@@ -4,16 +4,17 @@ import scipy.stats
 from .. import agent_utils
 
 class experience_replay:
-    def __init__(self, max_size=None, state_size=None, k_step=1, log=None, sample_mode='rank'):
+    def __init__(self, max_size=None, action_size=1, state_size=None, k_step=1, log=None, sample_mode='rank'):
         self.log        = log
         self.k_step, self.state_len = k_step, k_step+1
         self.vector_state_size, self.visual_state_size = state_size
+        self.action_size = action_size
 
         #Underlying data
         self._max_size = max_size
         self._vector_states   = [np.zeros((self._max_size,*s[1:]), dtype=np.uint8) for s in self.vector_state_size]
         self._visual_states   = [np.zeros((self._max_size,*s[1:]), dtype=np.uint8) for s in self.visual_state_size]
-        self._actions  = np.zeros((self._max_size,1), dtype=np.uint8)
+        self._actions  = np.zeros((self._max_size,action_size), dtype=np.uint8)
         self._dones    = np.zeros((self._max_size,1), dtype=np.uint8)
         self._rewards  = np.zeros((self._max_size,1), dtype=np.float32)
 
@@ -84,7 +85,7 @@ class experience_replay:
 
     def add_samples(self, data, prio):
         s, a, r, d = data
-        vec_s, vis_s   = s
+        vec_s, vis_s   = s[:2]
         n = prio.size
         idxs = self.add_indices(n)
         for i,vs in enumerate(self._vector_states):
@@ -93,7 +94,7 @@ class experience_replay:
             vs[idxs,:]   = vis_s[i]
         self._rewards[idxs,:]  = r
         self._dones[idxs,:]    = d
-        self._actions[idxs,:]    = a
+        self._actions[idxs,:]  = a
         self.prios[idxs,:]    = prio
         self.current_idx += n
         self.current_size = min(self.current_size+n, self.max_size)

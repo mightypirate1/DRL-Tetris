@@ -17,15 +17,14 @@ class state:
         self.unlocked = True
 
     def __getitem__(self, idx):
-        ''' If there is ever a problem with state being lost, try uncommenting the following... '''
         # self.backend_state.recreate_state()
         if isinstance(idx,slice):
             start,stop,step = idx.indices(len(self.backend_state.states))
-            return [self.state_processor(self.backend_state.states,x) for x in range(start,stop,step)]
+            return [self.state_processor(self.backend_state,x) for x in range(start,stop,step)]
         if not hasattr(idx,'__iter__'):
-            return self.state_processor(self.backend_state.states,idx)
+            return self.state_processor(self.backend_state,idx)
         else:
-            return [self.state_processor(self.backend_state.states,i) for i in idx]
+            return [self.state_processor(self.backend_state,i) for i in idx]
 
     def __len__(self):
         return len(self.backend_state.states)

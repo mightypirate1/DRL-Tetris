@@ -19,6 +19,7 @@ def adjust_settings(S):
         S["bar_null_moves"] = True
     if run_settings["--all-pieces"]:
         S["pieces"] = default_settings["pieces"]
+    S["tau_learning_rate"] = 0.99
     return S
 
 docoptstring = \

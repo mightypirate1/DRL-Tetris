@@ -31,7 +31,7 @@ default_settings = {
                     "winrate_tolerance" : 0.15, #0.15 means that a player does not train if it's winrate is above 0.65
                     "winrate_learningrate" : 0.01,
                     "restart_training_delay" : 16384,
-                    "n_samples_to_start_training" : 40000,
+                    "n_samples_to_start_training" : 0,
                     #exploration
                     "dithering_scheme" : "adaptive_epsilon",
                     "action_temperature"  : constant_parameter(1.0),
@@ -93,7 +93,10 @@ default_settings = {
                     "pieces" : [l,j,s,z,i,t,o],
                     "game_size" : [22,10],
                     "time_elapsed_each_action" : 100,
+                    #State-processor
                     "state_processor" : "state_dict",        #This is a function that is applied to the state before returning it.
+                    "state_processor_separate_piece" : False,
+                    "old_state_dict" : True,
                     "action_type" : "place_block",  #This determines if an action represents pressing a key or placing a block. Allowd values is "press_key" and "place_block"
                     "render" : True,                 #Gfx on?,
                     "pause_on_keypress" : True,

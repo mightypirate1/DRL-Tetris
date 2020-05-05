@@ -24,18 +24,23 @@ def state_dict(x, player, *parameters):
     col_code = { 1 : 5, 2 : 4, 3 : 1, 4 : 0, 5 : 2, 6 : 6, 7 : 3} #The engine codes pieces differently in different places....
 
     # piece_set = parameters[0][0] #For the compact representation
-    piece_set = [0, 1, 2, 3, 4, 5, 6, 7]
+    if parameters[0][1]: #if settings["old_state_dict"]
+        piece_set = [0, 1, 2, 3, 4, 5, 6, 7]
+    else:
+        piece_set = [0, 1, 2, 3, 4, 5, 6]
 
     ret =   {
-                "field" : (np.array(x[player].field)>0).astype(np.uint8),
-		        "piece" : np.array([int(p==col_code[x[player].piece[1][1]]) for p in piece_set]).astype(np.uint8),
-		        "x" : np.array(x[player].x.copy(), dtype=np.uint8),
-		        "y" : np.array(x[player].y.copy(), dtype=np.uint8),
-		        "incoming_lines" : np.array(x[player].inc_lines),
-		        "combo_time" : np.array( min(25000,x[player].combo_time+50)//100, dtype=np.uint8),
-		        "combo_count" : np.array(x[player].combo_count, dtype=np.uint8),
-		        "nextpiece" : np.array([int(p==x[player].nextpiece) for p in piece_set], dtype=np.uint8),
+                "field" : (np.array(x.states[player].field)>0).astype(np.uint8),
+		        "piece" : np.array([int(p==col_code[x.states[player].piece[1][1]]) for p in piece_set]).astype(np.uint8),
+		        "x" : np.array(x.states[player].x.copy(), dtype=np.uint8),
+		        "y" : np.array(x.states[player].y.copy(), dtype=np.uint8),
+		        "incoming_lines" : np.array(x.states[player].inc_lines),
+		        "combo_time" : np.array( min(25000,x.states[player].combo_time+50)//100, dtype=np.uint8),
+		        "combo_count" : np.array(x.states[player].combo_count, dtype=np.uint8),
+		        "nextpiece" : np.array([int(p==x.states[player].nextpiece) for p in piece_set], dtype=np.uint8),
             }
+    if parameters[0][2]: #settings["state_processor_separate_piece"]
+        ret["piece_idx"] = col_code[x.states[player].piece[1][1]]
     return ret
 
 def raw(x, player, *parameters):
@@ -53,7 +58,7 @@ def raw(x, player, *parameters):
 # NOTE: The parameters are set up when the environment is created
 func_dict = {
                 "raw" : (raw, []),
-                "state_dict": (state_dict, ["pieces"]),
+                "state_dict": (state_dict, ["pieces", "old_state_dict", "state_processor_separate_piece"]),
             }
 ''' # # # # # # # # # # '''
 ''' # # # # # # # # # # '''
