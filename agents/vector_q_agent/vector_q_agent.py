@@ -11,6 +11,7 @@ from agents.vector_q_agent.vector_q_agent_base import vector_q_agent_base
 from agents.vector_q_agent.vector_q_agent_trainer import vector_q_agent_trainer
 import agents.agent_utils as agent_utils
 import agents.datatypes as dt
+import environment.data_types as edt
 from agents.tetris_agent import tetris_agent
 from agents.networks import prio_qnet
 from aux.parameter import *
@@ -62,7 +63,7 @@ class vector_q_agent(vector_q_agent_base):
                               self.id,
                               model,
                               self.state_size,
-                              [self.settings["n_actions"], 7], #Output_shape
+                              [4, 10, 7], #Output_shape
                               session,
                               worker_only=True,
                               settings=self.settings,
@@ -81,15 +82,28 @@ class vector_q_agent(vector_q_agent_base):
     #
     ###
     #####
+    def make_q_action(self,rotation, translation):
+        action = [8 for _ in range(rotation)] \
+                + [2] + [3 for _ in range(translation)] \
+                + [6]
+        return edt.action(action)
+
+    def action_argmax(self,A):
+        a = A.reshape((A.shape[0],-1))
+        arg = np.argmax(a,1)
+        # amax_idxs = np.column_stack(np.unravel_index(arg, A[:,:,:].shape))
+        amax_idxs = np.unravel_index(arg, A.shape)
+        return amax_idxs
+
     def get_action(self, state_vec, player=None, random_action=False, training=False, verbose=False):
         #Get hypothetical future states and turn them into vectors!
         p_list = utils.parse_arg(player, self.player_idxs)
-        pieces = np.concatenate([state[p]['piece'].reshape(1,1,-1) for state,p in zip(state_vec, p_list)], axis=0)
 
         #Set up some stuff that depends on what type of training we do...
         if self.settings["single_policy"]:
             model = self.model_dict["q_net"]
             k, perspective =  1, lambda x:x
+            # k, perspective =  -1, lambda x:1-x
         else:
             assert False, "not tested yet. comment out this line if you brave"
             assert p_list[0] == p_list[-1], "{} ::: In dual-policy mode we require queries to be for one policy at a time... (for speed)".format(p_list)
@@ -97,17 +111,21 @@ class vector_q_agent(vector_q_agent_base):
             k, perspective = 1, lambda x:x
 
         #Run model!
-        _Q = k * self.run_model(model, state_vec, player=p_list)
-        Q = np.sum(_Q * pieces, axis=-1)
+        _Q, pieces = self.run_model(model, state_vec, player=[perspective(_p) for _p in p_list])
+        #below line should be computable without manually diggin in the state-object!
+        pieces_mask = np.concatenate([state[p]['piece'].reshape(1,1,1,-1) for state,p in zip(state_vec, p_list)], axis=0)
+        Q = k * np.sum(_Q * pieces_mask, axis=-1)
         distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
 
         #Choose an action . . .
-        _action_idxs = [None for _ in state_vec]
-        for state_idx, state in enumerate(state_vec):
-            n_actions = min(len(self.sandbox.get_actions(state, player=p_list[state_idx])), self.settings["n_actions"])
-            a_idx = np.argmax(Q[state_idx,:n_actions])
+        action_idxs = [None for _ in state_vec]
+        for state_idx, statepiece in enumerate(zip(state_vec,pieces)):
+            state, piece = statepiece
+            # a_idx = np.argmax(Q[state_idx,:n_actions])
+            a_idx = self.action_argmax(Q[state_idx,:,:,piece])
             if distribution is not "argmax":
                 if "distribution" in distribution:
+                    assert False, "not implemented :("
                     theta = self.theta = self.settings["action_temperature"](self.clock)
                     if "boltzman" in distribution:
                         p = softmax(theta*Q[state_idx,:n_actions]).ravel()
@@ -116,20 +134,17 @@ class vector_q_agent(vector_q_agent_base):
                     self.action_entropy = utils.entropy(p)
                     a_idx = np.random.choice(np.arange(n_actions), p=p)
                 if "epsilon" in distribution or distribution is "uniform":
-                    epsilon = 1.0 if distribution is "uniform" else self.settings["epsilon"](self.clock)
+                    epsilon = np.infty if distribution is "uniform" else self.settings["epsilon"](self.clock)
                     if "adaptive" in distribution:
                         epsilon *= self.avg_trajectory_length**(-1)
-                    # print("epsilon:",epsilon)
                     dice = random.random()
                     if dice < epsilon:
-                        a_idx = np.random.choice(np.arange(n_actions))
-            _action_idxs[state_idx] = a_idx
+                        a_idx = (np.random.choice(np.arange(self.n_rotations)),np.random.choice(np.arange(self.n_translations)))
+            action_idxs[state_idx] = (*a_idx, piece)
+            print(action_idxs[state_idx]);exit()
 
         #Nearly done! Just need to create the actions...
-        all_actions = [self.sandbox.get_actions(state, player=p_list[state_idx]) for state_idx, state in enumerate(state_vec)]
-        actions = [all_actions[i][a_idx] for i,a_idx in enumerate(_action_idxs)]
-        _piece_idxs = np.argmax(pieces[:,0,:], axis=-1)
-        action_idxs = list(zip(_action_idxs, _piece_idxs)) #Combine to a 2D-action!
+        actions = [self.make_q_action(r,t) for r,t,_ in action_idxs]
 
         #Keep the clock going...
         if training:

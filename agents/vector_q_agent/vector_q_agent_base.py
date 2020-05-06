@@ -47,6 +47,7 @@ class vector_q_agent_base:
                                             )
         self.state_size = self.unpack.get_shapes()
         self.n_vec, self.n_vis = len(self.state_size[0]), len(self.state_size[1])
+        self.n_rotations, self.n_translations = 4, self.settings["game_size"][0]
         self.model_dict = {}
 
     def update_clock(self, clock):
@@ -57,7 +58,7 @@ class vector_q_agent_base:
     def run_model(self, net, states, player=None):
         assert player is not None, "Specify a player to run the model for!"
         vec, vis, piece = self.unpack(states, player)
-        return net.evaluate((vec, vis))
+        return net.evaluate((vec, vis)), piece
 
     def model_runner(self, net):
         if type(net) is str:
