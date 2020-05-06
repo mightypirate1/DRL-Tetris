@@ -54,7 +54,15 @@ class experience_replay:
 
         #Sample indices to make a batch out of!
         idx_dict = {}
-        indices = np.random.choice(all_indices, replace=True, size=n_samples, p=p).tolist()
+        try:
+            indices = np.random.choice(all_indices, replace=True, size=n_samples, p=p).tolist()
+        except:
+            print(self.prios[:10])
+            print(p_unnormalized[:10])
+            print(p[:10])
+            print(np.isnan(self.prios).any())
+            print(np.isnan(p_unnormalized).any())
+            print(np.isnan(p).any())
 
         ##Data collection, and index-tracking
         i = 0

@@ -238,8 +238,7 @@ class worker_thread(mp.Process):
             return self.agent.clock
         else:
             return self.shared_vars["global_clock"].value
-    def walltime(self):
-        return time.time() - self.t_thread_start
+    def walltime(self):        return time.time() - self.t_thread_start
 
     def __str__(self):
         return "thread( type={}, ID={})".format(type(self), self.id)

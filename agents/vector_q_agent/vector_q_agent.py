@@ -11,8 +11,7 @@ from agents.vector_q_agent.vector_q_agent_base import vector_q_agent_base
 from agents.vector_q_agent.vector_q_agent_trainer import vector_q_agent_trainer
 import agents.agent_utils as agent_utils
 import agents.datatypes as dt
-import environment.data_types as edt
-from agents.tetris_agent import tetris_agent
+from agents.agent_utils import q_helper_fcns as q
 from agents.networks import prio_qnet
 from aux.parameter import *
 
@@ -63,7 +62,7 @@ class vector_q_agent(vector_q_agent_base):
                               self.id,
                               model,
                               self.state_size,
-                              [4, 10, 7], #Output_shape
+                              [self.n_rotations, self.n_translations, self.n_pieces], #Output_shape
                               session,
                               worker_only=True,
                               settings=self.settings,
@@ -82,19 +81,6 @@ class vector_q_agent(vector_q_agent_base):
     #
     ###
     #####
-    def make_q_action(self,rotation, translation):
-        action = [8 for _ in range(rotation)] \
-                + [2] + [3 for _ in range(translation)] \
-                + [6]
-        return edt.action(action)
-
-    def action_argmax(self,A):
-        a = A.reshape((A.shape[0],-1))
-        arg = np.argmax(a,1)
-        # amax_idxs = np.column_stack(np.unravel_index(arg, A[:,:,:].shape))
-        amax_idxs = np.unravel_index(arg, A.shape)
-        return amax_idxs
-
     def get_action(self, state_vec, player=None, random_action=False, training=False, verbose=False):
         #Get hypothetical future states and turn them into vectors!
         p_list = utils.parse_arg(player, self.player_idxs)
@@ -112,39 +98,37 @@ class vector_q_agent(vector_q_agent_base):
 
         #Run model!
         _Q, pieces = self.run_model(model, state_vec, player=[perspective(_p) for _p in p_list])
-        #below line should be computable without manually diggin in the state-object!
-        pieces_mask = np.concatenate([state[p]['piece'].reshape(1,1,1,-1) for state,p in zip(state_vec, p_list)], axis=0)
-        Q = k * np.sum(_Q * pieces_mask, axis=-1)
-        distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
+        Q = k * _Q
 
         #Choose an action . . .
+        distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
         action_idxs = [None for _ in state_vec]
-        for state_idx, statepiece in enumerate(zip(state_vec,pieces)):
-            state, piece = statepiece
-            # a_idx = np.argmax(Q[state_idx,:n_actions])
-            a_idx = self.action_argmax(Q[state_idx,:,:,piece])
+        for state_idx, statepieceplayer in enumerate(zip(state_vec,pieces,p_list)):
+            state, _piece, player = statepieceplayer
+            piece = _piece[player]
+            r, t = q.action_argmax(Q[state_idx,:,:,piece])
             if distribution is not "argmax":
                 if "distribution" in distribution:
-                    assert False, "not implemented :("
+                    assert False, "only epsilon-based dithering is implemented :("
                     theta = self.theta = self.settings["action_temperature"](self.clock)
                     if "boltzman" in distribution:
                         p = softmax(theta*Q[state_idx,:n_actions]).ravel()
                     elif "pareto" in distribution:
                         p = utils.pareto(Q[state_idx,:n_actions], temperature=theta)
                     self.action_entropy = utils.entropy(p)
-                    a_idx = np.random.choice(np.arange(n_actions), p=p)
+                    r, t = None,None#np.random.choice(np.arange(n_actions), p=p)
                 if "epsilon" in distribution or distribution is "uniform":
                     epsilon = np.infty if distribution is "uniform" else self.settings["epsilon"](self.clock)
                     if "adaptive" in distribution:
                         epsilon *= self.avg_trajectory_length**(-1)
                     dice = random.random()
                     if dice < epsilon:
-                        a_idx = (np.random.choice(np.arange(self.n_rotations)),np.random.choice(np.arange(self.n_translations)))
-            action_idxs[state_idx] = (*a_idx, piece)
-            print(action_idxs[state_idx]);exit()
+                        r = np.random.choice(np.arange(self.n_rotations))
+                        t = np.random.choice(np.arange(self.n_translations))
+            action_idxs[state_idx] = (r,t,piece)
 
         #Nearly done! Just need to create the actions...
-        actions = [self.make_q_action(r,t) for r,t,_ in action_idxs]
+        actions = [q.make_q_action(r,t) for r,t,_ in action_idxs]
 
         #Keep the clock going...
         if training:

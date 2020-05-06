@@ -35,8 +35,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-alpha6",
-            "n_actions" : 40,
+            "run-id" : "SVENton-beta3",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
 
@@ -44,13 +43,13 @@ settings = {
             # "render_simulation" : True
 
             #Train parameters
-            "n_step_value_estimates"    : 5,
+            "n_step_value_estimates"    : 3,
             "n_samples_each_update"     : 16384,
             # "n_samples_each_update"     : 8192,
             "minibatch_size"            : 128, #128
             "n_train_epochs_per_update" : 1,  #5
-            "time_to_reference_update"  : 13, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=2/total_steps),
+            "time_to_reference_update"  : 7, #How after how many do_training calls do we update the reference-model?
+            "value_lr"                  : exp_parameter(3e-6, base=10.0, decay=2/total_steps),
             # "n_samples_to_start_training" : 40000, #0
 
             #Exp-replay parameters
@@ -64,10 +63,10 @@ settings = {
             "single_policy"             : True,
 
             #Dithering
-            "dithering_scheme"    : "distribution_pareto",
-            "action_temperature"  : linear_parameter(2, final_val=4.0, time_horizon=total_steps),
-            # "dithering_scheme"    : "adaptive_epsilon",
-            # "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
+            # "dithering_scheme"    : "distribution_pareto",
+            # "action_temperature"  : linear_parameter(2, final_val=4.0, time_horizon=total_steps),
+            "dithering_scheme"    : "adaptive_epsilon",
+            "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
             "optimistic_prios" : 0.0,
 
             #Rewards
@@ -110,14 +109,14 @@ settings = {
             ###
             "pad_visuals"      : True,
             "visualencoder_n_convs" : 4,
-            "visualencoder_n_filters" : (16,32,32,4),
-            "visualencoder_filter_sizes" : ((7,7),(3,3), (3,3), (3,3)),
-            "peephole_convs"   : True,
-            "visualencoder_poolings" : [2,], #Pooling after layer numbers in this list
-            "visualencoder_peepholes" : [0,1,2],
+            "visualencoder_n_filters" : (64,128,128,128),
+            "visualencoder_filter_sizes" : ((3,3),(5,5), (7,7), (7,7)),
+            # "peephole_convs"   : True,
+            # "visualencoder_poolings" : [], #Pooling after layer numbers in this list
+            # "visualencoder_peepholes" : [0,1,2],
             ###
-            "valuenet_n_hidden" : 1,
-            "valuenet_hidden_size" : 256,
+            "valuenet_n_hidden" : 2,
+            "valuenet_hidden_size" : 512,
             "nn_regularizer" : 0.001,
             "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,

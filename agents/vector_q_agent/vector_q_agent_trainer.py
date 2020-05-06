@@ -38,7 +38,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
                           "TRAINER",
                           model,
                           self.state_size, #Input-shape
-                          [self.settings["n_actions"], 7], #Output_shape
+                          [self.n_rotations, self.n_translations, self.n_pieces], #Output_shape
                           session,
                           worker_only=False,
                           k_step=self.settings["n_step_value_estimates"],
@@ -47,7 +47,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
             self.model_dict[model] = m
             self.experience_replay_dict[model] = experience_replay(
                                                                     state_size=self.state_size,
-                                                                    action_size=2,
+                                                                    action_size=3,
                                                                     max_size=int(self.settings["experience_replay_size"]/len(models)),
                                                                     k_step=self.settings["n_step_value_estimates"],
                                                                     sample_mode=self.settings["experience_replay_sample_mode"],
@@ -150,7 +150,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
                                                       )
         #Unpack a little...
         states, _actions, rewards, dones = sample
-        actions, pieces = _actions[:,:,0,np.newaxis], _actions[:,:,1,np.newaxis]
+        actions, pieces = _actions[:,:,:2], _actions[:,:,2,np.newaxis]
         vector_states, visual_states = states
         new_prio = np.empty((n,1))
         self.stats.update(stats)

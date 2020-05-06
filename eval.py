@@ -27,7 +27,7 @@ docoptstring = \
 Eval
 
 Usage:
-    eval.py <weights> <weights> ... [--mode (aa|ap|pa|pp)] [--all-pieces] [--nonull|--null] [--fast] [--debug]
+    eval.py <weights> <weights> ... [--no-reload] [--all-pieces] [--nonull|--null] [--fast] [--debug] [--inf]
 '''
 run_settings = docopt.docopt(docoptstring)
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
@@ -104,7 +104,11 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                 for p,dead in enumerate(env.envs[0].get_info()["is_dead"]):
                     if not dead:
                         scoreboard[p] += 1
-                for a in agent:
+                for a,w in zip(agent, run_settings["<weights>"]):
+                    if not run_settings["--no-reload"]:
+                        if run_settings["--debug"]:
+                            print("agent loaded:",w,"(",a,")")
+                        a.load_weights(*utils.weight_location(w))
                     a.ready_for_new_round(training=False, env=i)
                 print("Round ended. {} steps (avg: {}), score: {}-{}".format(t-trajectory_start, agent[0].avg_trajectory_length, scoreboard[0], scoreboard[1]))
                 current_player[i] = np.random.choice([0,1])
@@ -112,3 +116,5 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                 env.reset(env=i)
                 round_reward = [0,0]
                 trajectory_start = t+1
+                if run_settings["--inf"]:
+                    t = 1

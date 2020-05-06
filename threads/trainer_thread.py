@@ -162,7 +162,7 @@ class trainer_thread(mp.Process):
         if self.trainer.n_train_steps["total"] % self.settings["weight_transfer_frequency"] == 0:
             #Get some data
             n, w = self.trainer.export_weights()
-            #Make it the worlds
+            #Make it the world's
             self.shared_vars["update_weights_lock"].acquire()
             self.shared_vars["update_weights"]["idx"] = n
             self.shared_vars["update_weights"]["weights"] = w

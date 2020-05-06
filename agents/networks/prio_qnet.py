@@ -7,13 +7,13 @@ import aux.utils as utils
 
 class prio_qnet:
     def __init__(self, agent_id, name, state_size, output_shape, sess, k_step=1, settings=None, worker_only=False):
-        assert len(output_shape) == 2, "expected 2D-actions"
+        assert len(output_shape) == 3, "expected 3D-actions"
         self.settings = utils.parse_settings(settings)
         self.name = name
         self.session = sess
         self.output_activation = settings["nn_output_activation"]
-        self.output_shape = self.n_actions, self.n_pieces = output_shape
-        self.output_size = self.n_actions * self.n_pieces
+        self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
+        self.output_size = self.n_rotations * self.n_translations * self.n_pieces
         self.worker_only = worker_only
         self.stats_tensors = []
         self.scope_name = "agent{}_{}".format(agent_id,name)
@@ -24,18 +24,11 @@ class prio_qnet:
         ###
         ### TIDY THIS UP ONE DAY :)
         #######
-        move_heuristic = [34,34,17,17,17,34,9]
-        unused_pieces = [0, 0, 0, 0, 0, 0, 0]
+        used_pieces = [0, 0, 0, 0, 0, 0, 0]
         for i in range(7):
-            if i not in self.settings["pieces"]:
-                unused_pieces[i] = 1
-                move_heuristic[i] = 0
-        n_moves = np.array(move_heuristic).reshape((1,-1))
-        a_idxs = np.arange(self.n_actions).reshape((-1,1))
-        tmp = (-a_idxs + n_moves)
-        mask = (tmp>0).astype(np.float32)[np.newaxis,:]
-        self.unused_pieces_mask = tf.constant(np.array(unused_pieces).reshape((1,1,7)).astype(np.float32))
-        self.static_mask = tf.constant(mask) * (1-self.unused_pieces_mask)
+            if i in self.settings["pieces"]:
+                used_pieces[i] = 1
+        self.used_pieces_mask = tf.constant(np.array(used_pieces).reshape((1,1,1,7)).astype(np.float32))
         #######
         #####
         ###
@@ -62,7 +55,7 @@ class prio_qnet:
                 self.dones_tf         = tf.placeholder(tf.float32, (None, k_step+1, 1), name='done')
                 self.actions_tf       =  tf.placeholder(tf.uint8, (None, 1))
                 self.pieces_tf        =  tf.placeholder(tf.uint8, (None, 1))
-                self.actions_training_tf       = tf.placeholder(tf.uint8, (None, k_step+1, 1), name='action')
+                self.actions_training_tf       = tf.placeholder(tf.uint8, (None, k_step+1, 2), name='action')
                 self.pieces_training_tf        = tf.placeholder(tf.uint8, (None, k_step+1, 1), name='piece')
                 self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
                 self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
@@ -150,7 +143,7 @@ class prio_qnet:
                                )
         return x
 
-    def create_visualencoder(self, x):
+    def create_visualencoder(self, x, keyboard=False):
         with tf.variable_scope("visualencoder", reuse=tf.AUTO_REUSE) as vs:
             if self.settings["pad_visuals"]:
                 x = self.apply_visual_pad(x)
@@ -166,12 +159,40 @@ class prio_qnet:
                                         bias_initializer=tf.zeros_initializer(),
                                     )
                 if n in self.settings["visualencoder_peepholes"] and self.settings["peephole_convs"]:
-                    x = tf.concat([y,x], axis=-1)
+                    intermediate = tf.concat([y,x], axis=-1)
                 else:
-                    x = y
-                if n in self.settings["visualencoder_poolings"]:
-                    y = tf.layers.max_pooling2d(y, 2, 2, padding='same')
-        return x
+                    intermediate = y
+
+            #Reduce-Conv-layer!
+            x = tf.layers.conv2d(
+                                 intermediate,
+                                 3,
+                                 (3,3),
+                                 name='visualencoder_ReduceConvlayer',
+                                 activation=tf.nn.elu,
+                                 kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                 bias_initializer=tf.zeros_initializer(),
+                                )
+            reduced = tf.layers.max_pooling2d(x, (5,3), (4,2), padding='same', name='visualencoder_reduced_layer')
+            if not keyboard:
+                return reduced
+            else:
+                #Keyboard-Conv-layer!
+                x = tf.layers.conv2d(
+                                     intermediate,
+                                     self.n_pieces * self.n_rotations,
+                                     (3,3),
+                                     name='visualencoder_KeyConvlayer',
+                                     # padding=None,
+                                     # activation=tf.nn.elu,
+                                     activation=None,
+                                     kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                     bias_initializer=tf.zeros_initializer(),
+                                    )
+                x = tf.reduce_mean(x, axis=1)
+                x = tf.reshape(x, [-1, self.n_translations,self.n_rotations,self.n_pieces]) * self.used_pieces_mask
+                keyboard = tf.transpose(x, perm=[0,2,1,3], name='visualencoder_keyboard_layer')
+                return keyboard, reduced
 
     def apply_visual_pad(self, x):
         #Apply zero-padding on top:
@@ -184,8 +205,11 @@ class prio_qnet:
     def create_q_head(self,vectors, visuals, name):
         with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
             scope = vs
+            my_vis, your_vis = visuals
+            my_keyboard, my_reduced_vis = self.create_visualencoder(my_vis, keyboard=True)
+            your_reduced_vis = self.create_visualencoder(my_vis, keyboard=False)
             hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
-            hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
+            hidden_vis = [my_reduced_vis, your_reduced_vis]
             flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
             flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
             x = tf.concat(flat_vec+flat_vis, axis=-1)
@@ -198,36 +222,28 @@ class prio_qnet:
                                     kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                     bias_initializer=tf.contrib.layers.xavier_initializer(),
                                    )
-            _a = tf.layers.dense(
-                                x,
-                                self.output_size, #N*K
-                                name='_a-values-flat',
-                                # activation=self.settings["nn_output_activation"],
-                                activation=None,
-                                bias_initializer=tf.zeros_initializer(),
-                               )
-            v = tf.layers.dense(
+            V = tf.layers.dense(
                                 x,
                                 1,
+                                # self.n_pieces,
                                 name='values',
                                 activation=self.settings["nn_output_activation"],
                                 bias_initializer=tf.zeros_initializer(),
                                )
-            _a = tf.reshape(_a, [-1, *self.output_shape], name='nn-values')
-            max_a  = tf.reduce_max( _a * self.static_mask, axis=[1,2], keepdims=True )
-            mean_a = tf.reduce_sum(
-                                    _a * self.static_mask,
-                                    axis=[1,2],
-                                    keepdims=True
-                                   ) / tf.reduce_sum(
-                                                    self.static_mask,
-                                                    axis=[1,2],
-                                                    keepdims=True
-                                                    )
-            a_q = (_a - max_a)
-            a_unif = (_a - mean_a)
-            q = (tf.expand_dims(v,2) + self.epsilon_tf * a_unif + (1-self.epsilon_tf) * a_q) * self.static_mask
-        return q, v, scope
+            _V = tf.reshape(V,[-1,1,1,1]) #One value for the board!
+            # _V = tf.reshape(_V,[-1,1,1,self.n_pieces]) #One value for each possible piece!
+
+            #
+            ###
+            #####
+            a = my_keyboard
+            _max_a = tf.reduce_max(       a, axis=[1,2],   keepdims=True )
+            max_a  = tf.reduce_mean( _max_a, axis=3,       keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            mean_a = tf.reduce_mean(      a, axis=[1,2,3], keepdims=True )
+            A_q    = (a - max_a)  * self.used_pieces_mask #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
+            A_unif = (a - mean_a) * self.used_pieces_mask #similar but compared to random action
+            Q = _V + self.epsilon_tf * A_unif + (1-self.epsilon_tf) * A_q
+        return Q, V, scope
 
     def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
         with tf.variable_scope("prio_q-net") as vs:
@@ -271,48 +287,14 @@ class prio_qnet:
                 weight += 1
             target_values_tf = tf.stop_gradient(estimator_sum_tf / weight)
 
-            #Also we need the Q-value; Q(s,a,x)
+            #Also we need a Q-value to update; Q(s,a,x)!
             Q_s_all = q_t_tf[0]
-            a_mask = tf.expand_dims(tf.one_hot(actions_training[:,0,0], self.n_actions),2)
-            p_mask = tf.expand_dims(tf.one_hot(pieces_training[:,0,0],  self.n_pieces), 1)
-            tmp = tf.reduce_sum(
-                            Q_s_all * a_mask,
-                            axis=1,
-                            keepdims=True,
-                         )
-            Q_s = tf.reduce_sum(
-                                tmp * p_mask,
-                                axis=2,
-                                )
-            #
-            ##
-            ###
-            # s_vec = [vec_state[:,0,:] for vec_state in vector_states_training]
-            # s_vis = [vis_state[:,0,:] for vis_state in visual_states_training]
-            # sp_vec = [vec_state[:,1,:] for vec_state in vector_states_training]
-            # sp_vis = [vis_state[:,1,:] for vis_state in visual_states_training]
-            # Q_s_all,  V_s,  _          = self.create_q_head(s_vec, s_vis, "main")
-            # Q_sp_all, V_sp, ref_scope  = self.create_q_head(sp_vec, sp_vis, "reference")
-            # a_mask = tf.expand_dims(tf.one_hot(actions_training[:,0,0], self.n_actions),2)
-            # p_mask = tf.expand_dims(tf.one_hot(pieces_training[:,0,0], self.n_pieces),1)
-            # tmp = tf.reduce_sum(
-            #                 Q_s_all * a_mask,
-            #                 axis=1,
-            #                 keepdims=True,
-            #              )
-            # Q_s = tf.reduce_sum(
-            #                     tmp * p_mask,
-            #                     axis=2,
-            #                     )
-            # assert self.settings["nn_output_activation"] == tf.nn.tanh, "below code expects tanh activation so that 7 is basically inf"
-            # masked_Q_sp = Q_sp_all * self.static_mask - 7.0 * (1-self.static_mask)
-            # best_Q_sp = tf.reduce_max(masked_Q_sp, axis=1) + 7.0 * tf.reduce_min( (1-self.static_mask), axis=1 )
-            # expected_V_sp = tf.stop_gradient(V_sp)
-            # immediate_r = rewards[:,0,:]
-            # gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
-            # target_values_tf = immediate_r + gamma * expected_V_sp * (1-dones[:,0,:])#tf.cast((done_time_tf>0), tf.float32)
-
-            training_values_tf = Q_s
+            r_mask = tf.reshape(tf.one_hot(actions_training[:,0,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
+            t_mask = tf.reshape(tf.one_hot(actions_training[:,0,1], self.n_translations), (-1,  1, self.n_translations, 1), name='t_mask')
+            p_mask = tf.reshape(tf.one_hot(pieces_training[:,0,:],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ), name='p_mask')
+            _Q_s = Q_s_all * (r_mask*t_mask*p_mask)
+            Q_s = tf.reduce_sum(_Q_s, axis=[1,2,3])
+            training_values_tf = tf.expand_dims(Q_s,1)
 
             # Prio-V-net is true to it's name and computes the sample priorities for you!
             if self.settings["optimistic_prios"] == 0.0:
@@ -324,9 +306,9 @@ class prio_qnet:
             self.output_as_stats(training_values_tf, name="training-val")
             self.output_as_stats(target_values_tf, name="target-val")
             self.output_as_stats(done_time_tf, name="done_time")
-            # for i,e in enumerate(estimators_tf):
-            #     self.output_as_stats(e, name='{}_step_val_est'.format(i+1))
-            #     self.output_as_stats(tf.abs(target_values_tf-e), name='{}-step_val_est_diff'.format(i+1))
+            for i,e in enumerate(estimators_tf):
+                self.output_as_stats(e, name='{}_step_val_est'.format(i+1))
+                self.output_as_stats(tf.abs(target_values_tf-e), name='{}-step_val_est_diff'.format(i+1))
         return q_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
