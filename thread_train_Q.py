@@ -35,7 +35,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-beta3",
+            "run-id" : "SVENton-beta3-newmath",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
 
