@@ -135,16 +135,15 @@ class tetris_environment:
         base = 0
         if self.done:
             # base: me dead -> -1, you dead -> 1, both dead (maybe possible?)
-            base = min(int(self.backend.states[1-player].dead[0]) - int(self.backend.states[player].dead[0]), -int(self.backend.states[player].dead[0]))
+            medead, youdead = int(self.backend.states[player].dead[0]), int(self.backend.states[1-player].dead[0])
+            base = youdead - medead
+            if medead and youdead:
+                base = -1
         if not self.settings["extra_rewards"]:
             return data_types.maingoal_reward([base])
-        #Auxiliary goals...
+        #Auxiliary goals... [ upcoming research :-) ]
         w_base, w_combo = self.settings["reward_ammount"]
         combo = int(self.backend.states[player].combo_count[0])
-        # #Sanity-check
-        # bug = (player,(w_base,base),(w_combo,combo), [ self.backend.states[p].dead[0] for p in range(2)], self.done)
-        # bug = "Terminal state with r_base==0 reached. Unexpected! : {}".format(bug)
-        # assert not (self.done and base == 0), bug
         r = self.reward[player] = data_types.maingoal_reward([w_base*base, w_combo*combo])
         return r
 
