@@ -13,6 +13,8 @@ This repository is three things:
 
 These components may be separated into different repositories at some time in the future, but for now they are one.
 
+> NOTE: The master-branch contains some features that are experiental. If there are issues, revert to the stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/stable)
+
 ## Installation:
 * Pull the repository.
 * Install dependencies (see "Dependencies").
@@ -52,12 +54,13 @@ make
 ```
 
 ## Usage:
-To start training, we recommend starting off from the example in thread_train.py
+To start training, we recommend starting off from the example in thread_train_sixten.py or thread_train_sventon.py
 
 To run the example project using 32 environments per worker thread, and 3 worker threads (+1 trainer thread), for 10M steps, run
 ```
-python3 thread_train.py --n 32 --m 3 --steps 10000000
+python3 thread_train[AGENT].py --n 32 --m 3 --steps 10000000
 ```
+where "[AGENT]"" is replaced by "sixten" or "sventon".
 
 periodically during training, weights are saved to models/project_name/weightsNNN.w. Additionally, backups are made to models/project_name/weightsLATEST.w, and the final version is saved to models/project_name/weightsFINAL.w.
 
