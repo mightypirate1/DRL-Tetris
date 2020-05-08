@@ -5,7 +5,8 @@ from .. import agent_utils
 
 class experience_replay:
     def __init__(self, max_size=None, action_size=1, state_size=None, k_step=1, log=None, sample_mode='rank'):
-        self.log        = log
+        self.log = log
+        self.stats = {}
         self.k_step, self.state_len = k_step, k_step+1
         self.vector_state_size, self.visual_state_size = state_size
         self.action_size = action_size
@@ -54,42 +55,32 @@ class experience_replay:
 
         #Sample indices to make a batch out of!
         idx_dict = {}
-        try:
-            indices = np.random.choice(all_indices, replace=True, size=n_samples, p=p).tolist()
-        except:
-            print(self.prios[:10])
-            print(p_unnormalized[:10])
-            print(p[:10])
-            print(np.isnan(self.prios).any())
-            print(np.isnan(p_unnormalized).any())
-            print(np.isnan(p).any())
+        indices = np.random.choice(all_indices, replace=True, size=n_samples, p=p).tolist()
 
-        ##Data collection, and index-tracking
+        ##Index-tracking to make prio-updates easy
         i = 0
         for idx in indices:
             idx_dict[idx] = i #This makes sure that idx_dict keeps track of the position of the last occurance of each index in the sample
             i += 1
 
         #Return values!
+        data = self.retrieve_samples_by_idx(indices)
         filter = idx_dict #This keeps track of which internal index
         is_weights = is_weights_all[indices]
-        data = self.retrieve_samples_by_idx(indices)
 
         #Stats?
         if compute_stats:
             iwu = is_weights_unnormalized[:self.current_size].ravel()
-            stats = {
-                     "ExpRep-iwu_max"  : iwu.max(),
-                     "ExpRep-iwu_mean" : iwu.mean(),
-                     "ExpRep-iwu_min"  : iwu.min(),
-                     "ExpRep-prio_max"  : self.prios[:n].max(),
-                     "ExpRep-prio_mean" : self.prios[:n].mean(),
-                     "ExpRep-prio_min"  : self.prios[:n].min(),
-                     "ExpRep-sample_size"     : self.current_size,
-                    }
-        else:
-            stats = {}
-        return data, is_weights, filter, stats
+            self.stats = {
+                          "ExpRep-iwu_max"  : iwu.max(),
+                          "ExpRep-iwu_mean" : iwu.mean(),
+                          "ExpRep-iwu_min"  : iwu.min(),
+                          "ExpRep-prio_max"  : self.prios[:n].max(),
+                          "ExpRep-prio_mean" : self.prios[:n].mean(),
+                          "ExpRep-prio_min"  : self.prios[:n].min(),
+                          "ExpRep-sample_size"     : self.current_size,
+                          }
+        return data, is_weights, filter
 
     def add_samples(self, data, prio):
         s, a, r, d = data
@@ -104,17 +95,18 @@ class experience_replay:
         self._dones[idxs,:]    = d
         self._actions[idxs,:]  = a
         self.prios[idxs,:]    = prio
-        self.current_idx += n
-        self.current_size = min(self.current_size+n, self.max_size)
-        self.total_samples += n
 
     def add_indices(self, n):
-        if self.current_idx + n < self._max_size:
-            return slice(self.current_idx, self.current_idx+n,1)
-        self.current_size = self.current_idx
-        self.prios[self.current_idx:] = -1
-        self.current_idx = 0
-        return slice(0,n,1)
+        if self.current_idx + n > self.max_size:
+            self.current_size = self.current_idx
+            self.current_idx = 0
+        #This counter is basically our write-cursor
+        self.current_idx += n
+        #This is the border to the unused part of the exprep
+        self.current_size = max(self.current_size, self.current_idx)
+        #Counter for stats
+        self.total_samples += n
+        return slice(self.current_idx-n, self.current_idx,1)
 
     def update_prios(self, new_prios, filter):
         self.prios[list(filter.keys()),:] = new_prios[list(filter.values()),:]
