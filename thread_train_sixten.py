@@ -34,11 +34,12 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SIXten-Z01-k3",
+            "run-id" : "SIXten-v1.0",
+            "description" : "SIXten is a V-fcn learning agent, operating on a prioritized distributed experience replay, doing k-step value estimates, utilizing the world model provided by the tetris_env!"
             # "render_simulation" : True
 
             #Train parameters
-            "n_step_value_estimates"    : 3,
+            "n_step_value_estimates"    : 5,
             "n_samples_each_update"     : 16384,
             "minibatch_size"            : 128,
             "n_train_epochs_per_update" : 1,  #5
@@ -47,10 +48,10 @@ settings = {
             "n_samples_to_start_training" : 40000, #0
 
             #Exp-replay parameters
-            "prioritized_replay_alpha"      : constant_parameter(0.6),
-            "prioritized_replay_beta"       : linear_parameter(0.4, final_val=1.0, time_horizon=total_steps),
+            "prioritized_replay_alpha"      : constant_parameter(0.7),
+            "prioritized_replay_beta"       : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"        : 2*10**6,
-            "experience_replay_sample_mode" : 'proportional',
+            "experience_replay_sample_mode" : 'rank',
 
             "alternating_models"        : False,
             "time_to_training"          : 10**3,
@@ -58,7 +59,7 @@ settings = {
 
             #Dithering
             "dithering_scheme"    : "distribution_pareto",
-            "action_temperature"  : linear_parameter(2, final_val=4.0, time_horizon=total_steps),
+            "action_temperature"  : linear_parameter(1, final_val=4.0, time_horizon=total_steps),
             # "dithering_scheme"    : "adaptive_epsilon",
             # "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
             "optimistic_prios" : 0.0,
