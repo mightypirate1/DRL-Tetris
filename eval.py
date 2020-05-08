@@ -89,7 +89,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
 
         #Debug-prints:
         if run_settings["--debug"]:
-            print("player", current_player[0], " -> reward :", reward, "(total", env.envs[0].round_reward,")", done)
+            print("player", current_player[0], action_idx, " -> reward :", reward[0](), "(total", env.envs[0].round_reward,")", done)
             print("---")
         #Render?
         if s["render"]:
