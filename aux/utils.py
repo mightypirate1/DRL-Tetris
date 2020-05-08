@@ -2,13 +2,14 @@ import os
 import pickle
 import numpy as np
 import itertools
+import tensorflow as tf
 from scipy.stats import rankdata
 
 from aux.settings import default_settings
 
 def parse_arg(_entry_idx, data, fill_up=None, indices=False):
     #This tries to encapsulate the general pattern of passing data vectorized...
-    #TODO: Write a more thorough comment on the two ways this method can be usedself.
+    #TODO: Write a more thorough comment on the two ways this method can be used.
 
     #Depending on what the indexing was: int, [int_0, ... , int_k] or None (None is alias for ALL), we get the data vector and possibly indices too
     if _entry_idx is None:
@@ -87,3 +88,11 @@ def pareto(x, temperature=1.0):
 
 def entropy(x):
     return -np.sum(x * np.log(x))
+
+def replace_nan_with_value(tensor, value):
+    return tf.where(
+            tf.is_nan(tensor),
+            value*tf.ones_like(tensor),
+            tensor
+            )
+    
