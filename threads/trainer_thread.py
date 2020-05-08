@@ -164,8 +164,8 @@ class trainer_thread(mp.Process):
             n, w = self.trainer.export_weights()
             #Make it the world's
             self.shared_vars["update_weights_lock"].acquire()
-            self.shared_vars["update_weights"]["idx"] = n
-            self.shared_vars["update_weights"]["weights"] = w
+            w_dict = {"idx":n, "weights":w, "timestamp":time.ctime()}
+            self.shared_vars["update_weights"].update(w_dict)
             self.shared_vars["update_weights_lock"].release()
 
     def save_weights(self):

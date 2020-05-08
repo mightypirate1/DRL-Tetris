@@ -23,11 +23,12 @@ class worker_thread(mp.Process):
         self.gpu_count = 1 if (not self.settings["worker_net_on_cpu"]) or self.settings["run_standalone"] else 0
         self.random_actions = init_weights is None #Speed up initial datagathering by making random moves.
         self.current_weights = 0 #I have really old weights
+        self.current_weights_timestamp = None
         self.last_global_clock = 0
         self.stashed_experience = None
         self.old_reset_list = []
-        self.print_frequency = 10 * self.settings["n_workers"]
-        self.last_print_out = 10 * (self.settings["n_workers"] - self.id - 1 )
+        self.print_frequency = 5 * self.settings["n_workers"]
+        self.last_print_out = 5 * (self.settings["n_workers"] - self.id - 1 )
         if self.id > 0:
             self.settings["render"] = False #At most one worker renders stuff...
         self.running = False
@@ -177,9 +178,13 @@ class worker_thread(mp.Process):
             self.last_global_clock = self.shared_vars["global_clock"].value
             self.agent.update_clock(self.last_global_clock)
         if self.shared_vars["update_weights"]["idx"] > self.current_weights:
+            #unlock the weight-box
             self.shared_vars["update_weights_lock"].acquire()
+            #get the data
             w = self.shared_vars["update_weights"]["weights"]
             self.current_weights = self.shared_vars["update_weights"]["idx"]
+            self.current_weights_timestamp = self.shared_vars["update_weights"]["timestamp"]
+            #lock then update
             self.shared_vars["update_weights_lock"].release()
             self.agent.update_weights(w)
             self.random_actions = False
@@ -206,7 +211,7 @@ class worker_thread(mp.Process):
     def print_stats(self, loop_time):
         if self.walltime() < self.last_print_out + self.print_frequency:
             return
-        t = self.walltime()
+        self.last_print_out = self.walltime()
         print("-------worker{} info-------".format(self.id))
         print("real time:", time.ctime())
         print("loop-time:", loop_time, "/",self.n_steps)
@@ -218,8 +223,7 @@ class worker_thread(mp.Process):
         print("action temperature: {}".format(self.agent.theta))
         print("action entropy: {}".format(self.agent.action_entropy))
         print("Epsilon: {}".format(self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1)))
-        print("current weights: {}".format(self.current_weights))
-        self.last_print_out = t
+        print("current weights: {} : {}".format(self.current_weights, self.current_weights_timestamp))
         if self.quick_summary is not None:
             s = {
                 #"Avg. combo-reward"          : self.agent.env.tot_combo_reward / self.agent.rounds_played,

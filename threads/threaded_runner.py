@@ -24,7 +24,7 @@ class threaded_runner:
                             #Time
                              "global_clock"        : mp.Value("i", init_c),
                             #Weights
-                             "update_weights"      : manager.dict(zip(["idx", "weights"], [0,None] ) ), #This means that the last issued weights is "None" with batch_no "0"
+                             "update_weights"      : manager.dict(zip(["idx", "weights", "timestamp"], [0,None, None] ) ), #This means that the last issued weights is "None" with batch_no "0"
                              "update_weights_lock" : mp.Lock(),
                             #data_flag signals that a worker put something on it's data_bus
                              # "data_queue"          : mp.Queue(),
