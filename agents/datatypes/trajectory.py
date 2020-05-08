@@ -25,17 +25,6 @@ class trajectory:
     def process_trajectory(self, model, state_fcn, reward_shaper=None, gamma_discount=0.99, k_steps=1):
         assert len(self) > 0, "dont process empty trajectories!"
         #Ready the data!
-        # _r = self.r if reward_shaper is None else reward_shaper(self.r)
-        # r = [x() for x in _r]
-        # r = np.array(     r).reshape((-1,1))
-        # d = np.array(self.d).reshape((-1,1))
-        # #Add a dummy state to the end of the trajectory. This doesnt matter since it's effect will be multiplied by 0 due to done
-        # _s = self.s + [self.s[-1]]
-        # _p = self.p + [self.p[-1]]
-        # prios = model((_s, r, d), player=_p)
-        # s  = state_fcn(self.s, player=self.p)
-        # data = (s,0,r,d)
-        # return data, prios
         _s = self.s + [self.s[-1]]
         _p = self.p + [self.p[-1]]
         a = np.array( self.a).reshape((-1,1))
