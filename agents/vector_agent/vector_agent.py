@@ -11,7 +11,6 @@ from agents.vector_agent.vector_agent_base import vector_agent_base
 from agents.vector_agent.vector_agent_trainer import vector_agent_trainer
 import agents.agent_utils as agent_utils
 import agents.datatypes as dt
-from agents.tetris_agent import tetris_agent
 from agents.networks import prio_vnet
 from aux.parameter import *
 
