@@ -46,6 +46,7 @@ class vector_q_agent_base:
                                             separate_piece=True,
                                             )
         self.state_size = self.unpack.get_shapes()
+        self.gamma = self.settings["gamma"] if not self.settings["single_policy"] else -self.settings["gamma"]
         self.n_vec, self.n_vis = len(self.state_size[0]), len(self.state_size[1])
         self.n_rotations = 4
         self.n_translations = self.settings["game_size"][1]
@@ -59,7 +60,7 @@ class vector_q_agent_base:
     def run_model(self, net, states, player=None):
         assert player is not None, "Specify a player to run the model for!"
         vec, vis, piece = self.unpack(states, player)
-        return net.evaluate((vec, vis)), piece
+        return (*net.evaluate((vec, vis)), piece)
 
     def model_runner(self, net):
         if type(net) is str:

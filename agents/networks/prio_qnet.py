@@ -24,6 +24,7 @@ class prio_qnet:
         ###
         ### TIDY THIS UP ONE DAY :)
         #######
+        self.n_used_pieces = len(self.settings["pieces"])
         used_pieces = [0, 0, 0, 0, 0, 0, 0]
         for i in range(7):
             if i in self.settings["pieces"]:
@@ -52,7 +53,7 @@ class prio_qnet:
                 self.vector_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
                 self.visual_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
                 self.rewards_tf       = tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
-                self.dones_tf         = tf.placeholder(tf.float32, (None, k_step+1, 1), name='done')
+                self.dones_tf         = tf.placeholder(tf.int32, (None, k_step+1, 1), name='done')
                 self.actions_tf       =  tf.placeholder(tf.uint8, (None, 1))
                 self.pieces_tf        =  tf.placeholder(tf.uint8, (None, 1))
                 self.actions_training_tf       = tf.placeholder(tf.uint8, (None, k_step+1, 2), name='action')
@@ -60,7 +61,7 @@ class prio_qnet:
                 self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
                 self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
             self.epsilon_tf       = tf.placeholder(tf.float32, shape=())
-            self.output_q_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
+            self.q_tf, self.v_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
                                     = self.create_duelling_qnet(
                                                             self.vector_inputs,
                                                             self.visual_inputs,
@@ -86,7 +87,7 @@ class prio_qnet:
 
     def evaluate(self, inputs, epsilon=0.0):
         vector, visual = inputs
-        run_list = self.output_q_tf
+        run_list = [self.q_tf, self.v_tf]
         feed_dict = {self.epsilon_tf : epsilon}
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
@@ -95,14 +96,14 @@ class prio_qnet:
         return_values = self.session.run(run_list, feed_dict=feed_dict)
         return return_values
 
-    def train(self, vector_states, visual_states, actions, state_pieces, rewards, dones, weights=None, lr=None, epsilon=0.0):
+    def train(self, vector_states, visual_states, actions, pieces, rewards, dones, weights=None, lr=None, epsilon=0.0):
         run_list = [
                     self.training_ops,
                     self.new_prios_tf,
                     self.stats_tensors,
                     ]
         feed_dict = {
-                        self.pieces_training_tf : state_pieces,
+                        self.pieces_training_tf : pieces,
                         self.actions_training_tf : actions,
                         self.rewards_tf : rewards,
                         self.dones_tf : dones,
@@ -115,10 +116,6 @@ class prio_qnet:
             feed_dict[self.vector_inputs_training[idx]] = vec
         for idx, vis in enumerate(visual_states):
             feed_dict[self.visual_inputs_training[idx]] = vis
-        for idx, vec in enumerate(vector_states):
-            feed_dict[self.vector_inputs[idx]] = vec[:,0,:]
-        for idx, vis in enumerate(visual_states):
-            feed_dict[self.visual_inputs[idx]] = vis[:,0,:]
         _, new_prios, stats = self.session.run(run_list, feed_dict=feed_dict)
         return new_prios, zip(self.stats_tensors, stats)
 
@@ -159,9 +156,10 @@ class prio_qnet:
                                         bias_initializer=tf.zeros_initializer(),
                                     )
                 if n in self.settings["visualencoder_peepholes"] and self.settings["peephole_convs"]:
-                    intermediate = tf.concat([y,x], axis=-1)
+                    x = tf.concat([y,x], axis=-1)
                 else:
-                    intermediate = y
+                    x = y
+            intermediate = x
 
             #Reduce-Conv-layer!
             x = tf.layers.conv2d(
@@ -227,8 +225,10 @@ class prio_qnet:
                                 1,
                                 # self.n_pieces,
                                 name='values',
+                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                bias_initializer=tf.contrib.layers.xavier_initializer(),
                                 activation=self.settings["nn_output_activation"],
-                                bias_initializer=tf.zeros_initializer(),
+                                # bias_initializer=tf.zeros_initializer(),
                                )
             _V = tf.reshape(V,[-1,1,1,1]) #One value for the board!
             # _V = tf.reshape(_V,[-1,1,1,self.n_pieces]) #One value for each possible piece!
@@ -236,36 +236,44 @@ class prio_qnet:
             #
             ###
             #####
-            a = my_keyboard
-            _max_a = tf.reduce_max(       a, axis=[1,2],   keepdims=True )
-            max_a  = tf.reduce_mean( _max_a, axis=3,       keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
-            mean_a = tf.reduce_mean(      a, axis=[1,2,3], keepdims=True )
-            A_q    = (a - max_a)  * self.used_pieces_mask #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
-            A_unif = (a - mean_a) * self.used_pieces_mask #similar but compared to random action
+            a = my_keyboard * self.used_pieces_mask
+            #Don't blend
+            # mean_a = tf.reduce_mean(      a, axis=[1,2], keepdims=True )
+            # max_a = tf.reduce_max(       a, axis=[1,2],   keepdims=True )
+
+            #Blend
+            maxmask = utils.replace_nan_with_value((1-self.used_pieces_mask)*np.infty, 0.0) #This puts a inf on all unused pieces
+            max_a   = tf.reduce_max(a - maxmask,  axis=3,     keepdims=True ) / self.n_used_pieces #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            _mean_a = tf.reduce_mean(a,      axis=[1,2], keepdims=True )
+            mean_a  = tf.reduce_sum(_mean_a, axis=3,     keepdims=True ) / self.n_used_pieces
+
+            A_q    = (a - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
+            A_unif = (a - mean_a) #similar but compared to random action
             Q = _V + self.epsilon_tf * A_unif + (1-self.epsilon_tf) * A_q
         return Q, V, scope
 
     def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
         with tf.variable_scope("prio_q-net") as vs:
-            q_tf, _, main_scope = self.create_q_head(vector_states, visual_states, "main")
+            q_tf, v_tf, main_scope = self.create_q_head(vector_states, visual_states, "main")
 
             #Workers are easy!
             if self.worker_only:
-                return q_tf, None, None, None, main_scope, None
+                return q_tf, v_tf, None, None, None, main_scope, None
 
             # # #
             # Trainers do Q-updates:
             # # #
 
             #1) get all the values and a bool to tell if the round is over
-            dones_tf = tf.minimum(1.0, tf.cumsum(dones, axis=1)) #Maximum ensures there is no stray done from an adjacent trajectory influencing us...
+            dones_tf = tf.minimum(1, tf.cumsum(dones, axis=1)) #Maximum ensures there is no stray done from an adjacent trajectory influencing us...
             done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
 
             q_t_tf, v_t_tf = [], []
             for t in range(self.k_step+1):
+                scope = "main" if t==0 else "reference"
                 s_t_vec = [vec_state[:,t,:] for vec_state in vector_states_training]
                 s_t_vis = [vis_state[:,t,:] for vis_state in visual_states_training]
-                q,v,ref_scope = self.create_q_head(s_t_vec, s_t_vis, "main" if t==0 else "reference")
+                q,v,ref_scope = self.create_q_head(s_t_vec, s_t_vis, scope)
                 q_t_tf.append(q)
                 v_t_tf.append(v)
             gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
@@ -275,7 +283,6 @@ class prio_qnet:
                     e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
                 e += v_t_tf[k] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
                 return e
-            input("CHANGED THE MATH. IS IT OK?")
             estimators_tf = [k_step_estimate(k) for k in range(1,self.k_step+1)]
             #3) GAE-style aggregation
             weight = 0
@@ -293,11 +300,12 @@ class prio_qnet:
             r_mask = tf.reshape(tf.one_hot(actions_training[:,0,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
             t_mask = tf.reshape(tf.one_hot(actions_training[:,0,1], self.n_translations), (-1,  1, self.n_translations, 1), name='t_mask')
             p_mask = tf.reshape(tf.one_hot(pieces_training[:,0,:],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ), name='p_mask')
-            _Q_s = Q_s_all * (r_mask*t_mask*p_mask)
+            rtp_mask = r_mask*t_mask*p_mask
+            _Q_s = Q_s_all * rtp_mask
             Q_s = tf.reduce_sum(_Q_s, axis=[1,2,3])
             training_values_tf = tf.expand_dims(Q_s,1)
 
-            # Prio-V-net is true to it's name and computes the sample priorities for you!
+            # Prio-Q-net is true to it's name and computes the sample priorities for you!
             if self.settings["optimistic_prios"] == 0.0:
                 prios_tf = tf.abs(training_values_tf - target_values_tf) #priority for the experience replay
             else:
@@ -310,7 +318,7 @@ class prio_qnet:
             for i,e in enumerate(estimators_tf):
                 self.output_as_stats(e, name='{}_step_val_est'.format(i+1))
                 self.output_as_stats(tf.abs(target_values_tf-e), name='{}-step_val_est_diff'.format(i+1))
-        return q_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
+        return q_tf, v_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
         if self.worker_only:
@@ -383,4 +391,4 @@ class prio_qnet:
 
     @property
     def output(self):
-        return self.output_q_tf
+        return self.q_tf

@@ -25,14 +25,25 @@ class trajectory:
     def process_trajectory(self, model, state_fcn, reward_shaper=None, gamma_discount=0.99, k_steps=1):
         assert len(self) > 0, "dont process empty trajectories!"
         #Ready the data!
+        # _r = self.r if reward_shaper is None else reward_shaper(self.r)
+        # r = [x() for x in _r]
+        # r = np.array(     r).reshape((-1,1))
+        # d = np.array(self.d).reshape((-1,1))
+        # #Add a dummy state to the end of the trajectory. This doesnt matter since it's effect will be multiplied by 0 due to done
+        # _s = self.s + [self.s[-1]]
+        # _p = self.p + [self.p[-1]]
+        # prios = model((_s, r, d), player=_p)
+        # s  = state_fcn(self.s, player=self.p)
+        # data = (s,0,r,d)
+        # return data, prios
         _s = self.s + [self.s[-1]]
         _p = self.p + [self.p[-1]]
-        a = np.array( self.a          )
+        a = np.array( self.a).reshape((-1,1))
         r = self.r if reward_shaper is None else reward_shaper(self.r)
         r = np.array( [R() for R in r]).reshape((-1,1))
         d = np.array( self.d          ).reshape((-1,1))
         #Prelinary prios! (They may differ from the "real" prios, since they are computed as a 1-step td-error without a reference net)
-        vals = model((_s), player=_p)
+        vals = model(_s, player=_p)
         td_error = r+gamma_discount*vals[1:]*(1-d) - vals[:-1]
         prios = np.abs(td_error)
         s  = state_fcn(self.s, player=self.p)
@@ -60,13 +71,13 @@ class q_trajectory(trajectory):
         r = self.r if reward_shaper is None else reward_shaper(self.r)
         r = np.array( [R() for R in r]).reshape((-1,1))
         d = np.array( self.d          ).reshape((-1,1))
+
         # #Prelinary prios! (They may differ from the "real" prios, since they are computed as a 1-step td-error without a reference net)
-        # _Q, _V = model((_s), player=_p)
-        # q_s = np.array([_Q[i,_a[0],_a[1]] for i,_a in enumerate(self.a)])
-        # val_sp =
-        # td_error = r+gamma_discount*vals[1:]*(1-d) - vals[:-1]
-        # prios = np.abs(td_error)
-        prios = np.ones((len(self),1))
+        _Q, V, pieces = model((_s), player=_p)
+        Qs = np.array([q[r,t,p] for (r,t,p),q in zip(self.a,_Q[:-1])]).reshape(-1,1)
+        Vsp = V[1:]
+        td_error = r + gamma_discount * Vsp - Qs
+        prios = np.abs(td_error)
         s  = state_fcn(self.s, player=self.p)
         data = (s,a,r,d) # s[t,0,:] <- s_t, s[t,1,:] <- s_(t+1) etc
         return data, prios

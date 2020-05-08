@@ -35,7 +35,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-beta3-newmath",
+            "run-id" : "SVENton-alpha_small3-r1-0",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
 
@@ -46,33 +46,34 @@ settings = {
             "n_step_value_estimates"    : 3,
             "n_samples_each_update"     : 16384,
             # "n_samples_each_update"     : 8192,
-            "minibatch_size"            : 128, #128
+            "minibatch_size"            : 256, #128
             "n_train_epochs_per_update" : 1,  #5
-            "time_to_reference_update"  : 7, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : exp_parameter(3e-6, base=10.0, decay=2/total_steps),
+            "time_to_reference_update"  : 13, #How after how many do_training calls do we update the reference-model?
+            "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=2/total_steps),
             # "n_samples_to_start_training" : 40000, #0
 
             #Exp-replay parameters
-            "prioritized_replay_alpha"      : constant_parameter(0.6),
-            "prioritized_replay_beta"       : linear_parameter(0.4, final_val=1.0, time_horizon=total_steps),
+            "prioritized_replay_alpha"      : constant_parameter(0.7),
+            "prioritized_replay_beta"       : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
             "experience_replay_size"        : 2*10**6,
-            "experience_replay_sample_mode" : 'proportional',
+            "experience_replay_sample_mode" : 'rank',
+            # "experience_replay_sample_mode" : 'proportional',
 
             "alternating_models"        : False,
             "time_to_training"          : 10**3,
             "single_policy"             : True,
 
             #Dithering
-            # "dithering_scheme"    : "distribution_pareto",
-            # "action_temperature"  : linear_parameter(2, final_val=4.0, time_horizon=total_steps),
-            "dithering_scheme"    : "adaptive_epsilon",
-            "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
+            "dithering_scheme"    : "pareto_distribution",
+            "action_temperature"  : linear_parameter(1, final_val=4.0, time_horizon=total_steps),
+            # "dithering_scheme"    : "adaptive_epsilon",
+            # "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
             "optimistic_prios" : 0.0,
 
             #Rewards
             "gamma"             :  0.98,
             "extra_rewards" : False,
-            # "reward_ammount" : (1.0, 0.0,),
+            # "reward_ammount" : (1.0, 0.5,),
             # "reward_shaper" :  linear_reshaping,
             # "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
 
@@ -80,6 +81,7 @@ settings = {
             # "pieces" : [6,],
             "pieces" : [0,6],
             "game_size" : [22,10],
+            "game_size" : [10,5],
             "time_elapsed_each_action" : 400,
             #Types
             "env_vector_type"   : tetris_environment_vector,
@@ -108,15 +110,15 @@ settings = {
             "vectorencoder_output_size" : 32,
             ###
             "pad_visuals"      : True,
-            "visualencoder_n_convs" : 4,
-            "visualencoder_n_filters" : (64,128,128,128),
-            "visualencoder_filter_sizes" : ((3,3),(5,5), (7,7), (7,7)),
-            # "peephole_convs"   : True,
+            "visualencoder_n_convs" : 5,
+            "visualencoder_n_filters" : (64,64,64,32,32),
+            "visualencoder_filter_sizes" : ((5,5),(3,3),(3,3), (3,3), (3,3)),
+            "peephole_convs"   : False,
             # "visualencoder_poolings" : [], #Pooling after layer numbers in this list
             # "visualencoder_peepholes" : [0,1,2],
             ###
-            "valuenet_n_hidden" : 2,
-            "valuenet_hidden_size" : 512,
+            "valuenet_n_hidden" : 1,
+            "valuenet_hidden_size" : 256,
             "nn_regularizer" : 0.001,
             "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,

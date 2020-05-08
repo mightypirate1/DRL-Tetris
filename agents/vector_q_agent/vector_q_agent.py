@@ -88,44 +88,34 @@ class vector_q_agent(vector_q_agent_base):
         #Set up some stuff that depends on what type of training we do...
         if self.settings["single_policy"]:
             model = self.model_dict["q_net"]
-            k, perspective =  1, lambda x:x
-            # k, perspective =  -1, lambda x:1-x
         else:
             assert False, "not tested yet. comment out this line if you brave"
             assert p_list[0] == p_list[-1], "{} ::: In dual-policy mode we require queries to be for one policy at a time... (for speed)".format(p_list)
             model = self.model_dict["policy_{}".format(p_list[0])]
-            k, perspective = 1, lambda x:x
 
         #Run model!
-        _Q, pieces = self.run_model(model, state_vec, player=[perspective(_p) for _p in p_list])
-        Q = k * _Q
+        Q, _, pieces = self.run_model(model, state_vec, player=p_list)
 
         #Choose an action . . .
         distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
         action_idxs = [None for _ in state_vec]
-        for state_idx, statepieceplayer in enumerate(zip(state_vec,pieces,p_list)):
-            state, _piece, player = statepieceplayer
+        for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
             piece = _piece[player]
-            r, t = q.action_argmax(Q[state_idx,:,:,piece])
-            if distribution is not "argmax":
-                if "distribution" in distribution:
-                    assert False, "only epsilon-based dithering is implemented :("
-                    theta = self.theta = self.settings["action_temperature"](self.clock)
-                    if "boltzman" in distribution:
-                        p = softmax(theta*Q[state_idx,:n_actions]).ravel()
-                    elif "pareto" in distribution:
-                        p = utils.pareto(Q[state_idx,:n_actions], temperature=theta)
-                    self.action_entropy = utils.entropy(p)
-                    r, t = None,None#np.random.choice(np.arange(n_actions), p=p)
-                if "epsilon" in distribution or distribution is "uniform":
-                    epsilon = np.infty if distribution is "uniform" else self.settings["epsilon"](self.clock)
-                    if "adaptive" in distribution:
-                        epsilon *= self.avg_trajectory_length**(-1)
-                    dice = random.random()
-                    if dice < epsilon:
-                        r = np.random.choice(np.arange(self.n_rotations))
-                        t = np.random.choice(np.arange(self.n_translations))
-            action_idxs[state_idx] = (r,t,piece)
+            if distribution == "argmax":
+                (r, t), entropy = q.action_argmax(Q[i,:,:,piece])
+            elif distribution == "pareto_distribution":
+                theta = self.theta = self.settings["action_temperature"](self.clock)
+                (r, t), entropy = q.action_pareto(Q[i,:,:,piece], theta)
+            elif distribution == "boltzman_distribution":
+                theta = self.theta = self.settings["action_temperature"](self.clock)
+                (r, t), entropy = q.action_boltzman(Q[i,:,:,piece], theta)
+            elif distribution == "adaptive_epsilon":
+                epsilon = self.settings["epsilon"](self.clock) * self.avg_trajectory_length**(-1)
+                (r, t), entropy = q.action_epsilongreedy(Q[i,:,:,piece], epsilon)
+            else:
+                raise Exception("specify a supported distribution for selecting actions please! see code right above this line to see what the options are :)")
+            self.action_entropy = entropy
+            action_idxs[i] = (r,t,piece)
 
         #Nearly done! Just need to create the actions...
         actions = [q.make_q_action(r,t) for r,t,_ in action_idxs]
@@ -157,7 +147,7 @@ class vector_q_agent(vector_q_agent_base):
                                                 self.model_runner(model),
                                                 self.unpack,
                                                 reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
-                                                gamma_discount=self.settings["gamma"],
+                                                gamma_discount=self.gamma,
                                                )
                 else:
                     data = t

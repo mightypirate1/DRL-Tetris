@@ -47,7 +47,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
             self.model_dict[model] = m
             self.experience_replay_dict[model] = experience_replay(
                                                                     state_size=self.state_size,
-                                                                    action_size=3,
+                                                                    action_size=3, #rotation, translation and piece
                                                                     max_size=int(self.settings["experience_replay_size"]/len(models)),
                                                                     k_step=self.settings["n_step_value_estimates"],
                                                                     sample_mode=self.settings["experience_replay_sample_mode"],
@@ -84,7 +84,6 @@ class vector_q_agent_trainer(vector_q_agent_base):
                 input_data += d
         else: input_data = data_list
         n_trajectories, tot = 0, 0
-
         for metadata,data in input_data:
                 n_trajectories += 1
                 # print("trainer recieved:", metadata["worker"], metadata["packet_id"], "len", metadata["length"])
@@ -93,7 +92,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
                                                     self.model_runner(metadata["policy"]),
                                                     self.unpack,
                                                     reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
-                                                    gamma_discount=self.settings["gamma"]
+                                                    gamma_discount=self.gamma
                                                     ) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
 
                 else:
@@ -110,7 +109,10 @@ class vector_q_agent_trainer(vector_q_agent_base):
         avg = tot/n_trajectories if n_trajectories>0 else 0
         return tot, avg
 
+
     def do_training(self, sample=None, policy=None):
+        minibatch_size, n_epochs, n, update_prio_flag = self.settings["minibatch_size"], self.settings["n_train_epochs_per_update"], self.settings["n_samples_each_update"], False
+
         #Figure out what policy, model, and experience replay to use...
         if self.settings["single_policy"]:
             policy = "q_net"
@@ -122,28 +124,21 @@ class vector_q_agent_trainer(vector_q_agent_base):
                 return False
         exp_rep = self.experience_replay_dict[policy]
         model = self.model_dict[policy]
-
         #If we dont have enough samples yet we quit early...
         if sample is None and len(exp_rep) < self.n_samples_to_start_training:
             if not self.settings["run_standalone"]: time.sleep(1) #If we are a separate thread, we can be a little patient here
             return False
 
+        # # #
         #Start!
-        self.train_lossstats_raw = list()
-        self.log.debug("trainer[{}] doing training".format(self.id))
+        # # #
 
-        #Some values:
-        minibatch_size = self.settings["minibatch_size"]
-        n_epochs       = self.settings["n_train_epochs_per_update"]
-        n = self.settings["n_samples_each_update"]
-
-        #Get a sample!
-        update_prio_flag = False
+        #1) Get a sample!
         if sample is None: #If no one gave us one, we get one ourselves!
-            update_prio_flag = True
-            sample, is_weights, filter, stats = \
+            update_prio_flag = True #If we sampled this ourselves, we take responsibility for updatig the prio of it
+            sample, is_weights, filter = \
                             exp_rep.get_random_sample(
-                                                        self.settings["n_samples_each_update"],
+                                                        n,
                                                         alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
                                                         beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
                                                         compute_stats=True,
@@ -153,7 +148,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
         actions, pieces = _actions[:,:,:2], _actions[:,:,2,np.newaxis]
         vector_states, visual_states = states
         new_prio = np.empty((n,1))
-        self.stats.update(stats)
+        self.train_lossstats_raw = list()
 
         #TRAIN!
         for t in range(n_epochs):
@@ -176,6 +171,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
                 if last_epoch: new_prio[i:i+minibatch_size] = _new_prio
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
             if self.verbose_training: print("]",flush=False)
+
         #Sometimes we do a reference update
         if self.time_to_reference_update[policy] == 0:
             self.reference_update(net=policy)
@@ -188,6 +184,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
         self.n_train_steps[policy]  += 1
         #Some stats:
         self.generate_training_stats()
+        self.update_stats(exp_rep.stats, scope="ExpRep_"+policy)
 
         #Update prios if we sampled the sample ourselves...
         if update_prio_flag:
@@ -215,6 +212,13 @@ class vector_q_agent_trainer(vector_q_agent_base):
         self.train_stats_raw.clear()
         self.stats.update(stats)
         return self.stats
+    def update_stats(self, stats, scope=None):
+        if scope is None:
+            scope = ""
+        else:
+            scope += "/"
+        for key in stats:
+            self.stats[scope+key] = stats[key]
 
     def update_scoreboard(self, winner):
         if type(winner) is not str:
