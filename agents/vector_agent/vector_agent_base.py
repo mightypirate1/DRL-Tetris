@@ -48,11 +48,6 @@ class vector_agent_base:
         self.n_vec, self.n_vis = len(self.state_size[0]), len(self.state_size[1])
         self.model_dict = {}
 
-    def update_clock(self, clock):
-        old_clock = self.clock
-        self.clock = clock
-        print("{} UPDATED CLOCK {} -> {}".format(self.id,old_clock,clock))
-
     def run_model(self, net, states, player=None):
         assert player is not None, "Specify a player to run the model for!"
         states_np = self.unpack(states, player)
@@ -106,6 +101,10 @@ class vector_agent_base:
         for m,w in zip(models, weight_list):
             model = self.model_dict[m]
             model.set_weights(model.main_net_assign_list,w)
+
+    def update_clock(self, clock):
+        old_clock = self.clock
+        self.clock = clock
 
     def process_settings(self):
         print("process_settings not implemented yet!")
