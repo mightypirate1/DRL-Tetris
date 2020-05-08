@@ -200,7 +200,7 @@ class prio_vnet:
                 e = 0
                 for t in range(k):
                     e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
-                e += val_i_tf[k] * tf.cast((done_time_tf > k),tf.float32) * (gamma**k)
+                e += val_i_tf[k] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
                 return e
             estimators_tf = [k_step_estimate(k) for k in range(1,self.k_step+1)]
             #3) GAE-style aggregation
