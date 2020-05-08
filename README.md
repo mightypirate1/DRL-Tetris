@@ -1,10 +1,17 @@
 # DRL-Tetris
-This repository is two things:
-1. It is the open-source multiplayer tetris game [SpeedBlocks] turned into a reinforcement learning (RL) environment with a simple python front-end. The Environment is highly customizable (game-field size, block types used, action type etc. are all easily changed) and is written to function well with RL at large scale.
+This repository is three things:
 
-2. A multi-process RL algorithm that learns to play two-player tetris through self-play. The multi-processing framework is similar to that of Ape-X (https://arxiv.org/abs/1803.00933) but the RL algorithm itself is different.
+1. It is the open-source multiplayer tetris game [SpeedBlocks] turned into a reinforcement learning (RL) environment with a complete python front-end. The Environment is highly customizable: game-field size, block types used, action type etc. are all easily changed. It is written to function well with RL at large scale by running arbitrary numbers of tetris-games in parallel, in a simple-to-use manner.
 
-These two components may be separated into different repositories at some time in the future, but for now they are one.
+2. A multi-processing framework for running multiple workers gathering trajectories for a trainer thread. The framework is flexible enough to facilitate many different RL algorithms. If you match the format of the template-agent provided, your algorithm should work right away with the framework.
+
+3. A small but family of RL-algorithms that learns to play two-player tetris through self-play:
+
+    **SIXten** learns the value-function thru a k-step estimation scheme, utilizing the world-model of the environment and a prioritized distributed experience replay (modelled on Schaul et al.). Toghether with the multiprocessing framework described above it's similar to Ape-X (https://arxiv.org/abs/1803.00933) but the RL algorithm itself is different.
+
+    **SVENton** is a double[1] duelling[2] k-step DQN-agent with a novel Convolutional Neuro-Keyboard interfacing it with the environment (1: https://arxiv.org/abs/1509.06461 2: https://arxiv.org/abs/1511.06581). It too utilizes the distributed prioritized experience replay, and the multi-processing framework. It is highly experimental, but it's included so SIXten doesn't get lonely.
+
+These components may be separated into different repositories at some time in the future, but for now they are one.
 
 ## Installation:
 * Pull the repository.
@@ -32,7 +39,7 @@ pip3 install docopt scipy numpy tensorflow
 ```
 > Replace tensorflow with tensorflow-gpu for GPU support. This might require some work, but the official documentation should help: [tensorflow].
 
-If the installation of any dependency fails, we refer to their documentation. 
+If the installation of any dependency fails, we refer to their documentation.
 
 If you are not on Ubuntu, install the dependencies as you would on you system and proceed to the next step.
 
