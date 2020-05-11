@@ -95,4 +95,3 @@ def replace_nan_with_value(tensor, value):
             value*tf.ones_like(tensor),
             tensor
             )
-    
