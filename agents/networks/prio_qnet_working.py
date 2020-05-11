@@ -24,7 +24,7 @@ class prio_qnet:
         ###
         ### TIDY THIS UP ONE DAY :)
         #######
-        self.keyboard_range = 0.3
+        self.keyboard_range = 0.7
         self.n_used_pieces = len(self.settings["pieces"])
         used_pieces = [0, 0, 0, 0, 0, 0, 0]
         for i in range(7):
@@ -192,68 +192,14 @@ class prio_qnet:
         # This makes floor and walls look like it's a piece, and cieling like its free space
         return x
 
-    def create_kbd_visual(self,x):
-        x = tf.layers.max_pooling2d(x, 2, 2, padding='valid')
-        x = tf.layers.conv2d(
-                                x,
-                                3,
-                                (3,3),
-                                name='keyboard_vis_conv',
-                                padding='same',
-                                activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                            )
-        # x = tf.layers.max_pooling2d(x, 2, 2, padding='valid')
-        return x
-
-    def create_kbd(self, x):
-        H = self.settings["game_size"][0] + 2 if self.settings["pad_visuals"] else self.settings["game_size"][0]
-        x = tf.layers.conv2d(
-                                x,
-                                32,
-                                (5,5),
-                                name='keyboard_conv0',
-                                padding='same',
-                                activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                            )
-        x = tf.layers.conv2d(
-                                x,
-                                self.n_rotations * self.n_pieces,
-                                (H,3),
-                                name='keyboard_conv1',
-                                padding='valid',
-                                activation=None,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                            )
-        x = tf.reshape(x, [-1, 10, 4, 7]) #split up the channels to become piece-rotations
-        x = tf.transpose(x, perm=[0,2,1,3])
-        x = self.keyboard_activation(x)
-        return x
-
-    def keyboard_activation(self,x):
-        return self.keyboard_range_tf * tf.sign(x) * tf.pow( tf.abs(x), 0.5 )
-        # return self.keyboard_range_tf * tf.nn.tanh(x)
-
     def create_q_head(self,vectors, visuals, name):
         with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
             scope = vs
             hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
-            if self.settings["keyboard_conv"]:
-                _visuals = [self.create_visualencoder(vis) for vis in visuals]
-                hidden_vis = [self.create_kbd_visual(vis) for vis in _visuals]
-                kbd = self.create_kbd(_visuals[0]) #"my screen -> my kbd"
-            else:
-                hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
+            hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
             flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
             flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
             x = tf.concat(flat_vec+flat_vis, axis=-1)
-
-            ###
-            #####
             for n in range(self.settings['valuenet_n_hidden']):
                 x = tf.layers.dense(
                                     x,
@@ -273,28 +219,22 @@ class prio_qnet:
                                 activation=self.settings["nn_output_activation"],
                                 # bias_initializer=tf.zeros_initializer(),
                                )
+            _a = tf.layers.dense(
+                                x,
+                                self.n_rotations * self.n_translations * self.n_pieces,
+                                name='advantages_unshaped',
+                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                bias_initializer=tf.contrib.layers.xavier_initializer(),
+                                activation=self.settings["nn_output_activation"],
+                                # bias_initializer=tf.zeros_initializer(),
+                               )
             _V = tf.reshape(V,[-1,1,1,1]) #One value for the board!
-            #####
-            ###
-
-            if self.settings["keyboard_conv"]:
-                A = kbd
-            else:
-                _A = tf.layers.dense(
-                                    x,
-                                    self.n_rotations * self.n_translations * self.n_pieces,
-                                    name='advantages_unshaped',
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
-                                    activation=self.settings["nn_output_activation"],
-                                    # bias_initializer=tf.zeros_initializer(),
-                                   )
-                A = self.keyboard_range_tf * tf.reshape(_A, [-1, self.n_rotations, self.n_translations, self.n_pieces])
+            # _V = tf.reshape(_V,[-1,1,1,self.n_pieces]) #One value for each possible piece!
 
             #
             ###
             #####
-            a = A
+            a = self.keyboard_range_tf * tf.reshape(_a, [-1, self.n_rotations, self.n_translations, self.n_pieces])
             #Don't blend
             # mean_a = tf.reduce_mean(      a, axis=[1,2], keepdims=True )
             # max_a = tf.reduce_max(       a, axis=[1,2],   keepdims=True )
@@ -310,10 +250,6 @@ class prio_qnet:
             A_unif = (a - mean_a) #similar but compared to random action
             e = tf.clip_by_value(self.epsilon_tf, 0, 1)
             Q = _V + e * A_unif + (1-e) * A_q
-            # print(V,_V)
-            # print(A_q, A_unif)
-            # print(Q)
-            # print(a);exit()
         return Q, V, scope
 
     def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):

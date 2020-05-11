@@ -19,12 +19,12 @@ class prio_qnet:
         self.scope_name = "agent{}_{}".format(agent_id,name)
         self.state_size_vec, self.state_size_vis = state_size
         self.k_step = k_step
+        self.keyboard_range = 1.0
         assert k_step > 0, "k_step AKA n_step_value_estimates has to be greater than 0!"
 
         ###
         ### TIDY THIS UP ONE DAY :)
         #######
-        self.keyboard_range = 0.3
         self.n_used_pieces = len(self.settings["pieces"])
         used_pieces = [0, 0, 0, 0, 0, 0, 0]
         for i in range(7):
@@ -161,7 +161,7 @@ class prio_qnet:
                                )
         return x
 
-    def create_visualencoder(self, x):
+    def create_visualencoder(self, x, keyboard=False):
         with tf.variable_scope("visualencoder", reuse=tf.AUTO_REUSE) as vs:
             if self.settings["pad_visuals"]:
                 x = self.apply_visual_pad(x)
@@ -180,9 +180,38 @@ class prio_qnet:
                     x = tf.concat([y,x], axis=-1)
                 else:
                     x = y
-                if n in self.settings["visualencoder_poolings"]:
-                    y = tf.layers.max_pooling2d(y, 2, 2, padding='same')
-        return x
+            intermediate = x
+
+            #Reduce-Conv-layer!
+            x = tf.layers.conv2d(
+                                 intermediate,
+                                 3,
+                                 (3,3),
+                                 name='visualencoder_ReduceConvlayer',
+                                 activation=tf.nn.elu,
+                                 kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                 bias_initializer=tf.zeros_initializer(),
+                                )
+            reduced = tf.layers.max_pooling2d(x, (5,3), (4,2), padding='same', name='visualencoder_reduced_layer')
+            if not keyboard:
+                return reduced
+            else:
+                #Keyboard-Conv-layer!
+                x = tf.layers.conv2d(
+                                     intermediate,
+                                     self.n_pieces * self.n_rotations,
+                                     (3,3),
+                                     name='visualencoder_KeyConvlayer',
+                                     # padding=None,
+                                     # activation=tf.nn.elu,
+                                     activation=tf.nn.tanh,
+                                     kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                     bias_initializer=tf.zeros_initializer(),
+                                    )
+                x = tf.reduce_mean(x, axis=1)
+                x = tf.reshape(x, [-1, self.n_translations,self.n_rotations,self.n_pieces]) * self.used_pieces_mask_tf
+                keyboard = tf.transpose(x, perm=[0,2,1,3], name='visualencoder_keyboard_layer')
+                return keyboard, reduced
 
     def apply_visual_pad(self, x):
         #Apply zero-padding on top:
@@ -192,68 +221,17 @@ class prio_qnet:
         # This makes floor and walls look like it's a piece, and cieling like its free space
         return x
 
-    def create_kbd_visual(self,x):
-        x = tf.layers.max_pooling2d(x, 2, 2, padding='valid')
-        x = tf.layers.conv2d(
-                                x,
-                                3,
-                                (3,3),
-                                name='keyboard_vis_conv',
-                                padding='same',
-                                activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                            )
-        # x = tf.layers.max_pooling2d(x, 2, 2, padding='valid')
-        return x
-
-    def create_kbd(self, x):
-        H = self.settings["game_size"][0] + 2 if self.settings["pad_visuals"] else self.settings["game_size"][0]
-        x = tf.layers.conv2d(
-                                x,
-                                32,
-                                (5,5),
-                                name='keyboard_conv0',
-                                padding='same',
-                                activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                            )
-        x = tf.layers.conv2d(
-                                x,
-                                self.n_rotations * self.n_pieces,
-                                (H,3),
-                                name='keyboard_conv1',
-                                padding='valid',
-                                activation=None,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                            )
-        x = tf.reshape(x, [-1, 10, 4, 7]) #split up the channels to become piece-rotations
-        x = tf.transpose(x, perm=[0,2,1,3])
-        x = self.keyboard_activation(x)
-        return x
-
-    def keyboard_activation(self,x):
-        return self.keyboard_range_tf * tf.sign(x) * tf.pow( tf.abs(x), 0.5 )
-        # return self.keyboard_range_tf * tf.nn.tanh(x)
-
     def create_q_head(self,vectors, visuals, name):
         with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
             scope = vs
+            my_vis, your_vis = visuals
+            my_keyboard, my_reduced_vis_tf = self.create_visualencoder(my_vis, keyboard=True)
+            your_reduced_vis = self.create_visualencoder(my_vis, keyboard=False)
             hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
-            if self.settings["keyboard_conv"]:
-                _visuals = [self.create_visualencoder(vis) for vis in visuals]
-                hidden_vis = [self.create_kbd_visual(vis) for vis in _visuals]
-                kbd = self.create_kbd(_visuals[0]) #"my screen -> my kbd"
-            else:
-                hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
+            hidden_vis = [my_reduced_vis_tf, your_reduced_vis]
             flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
             flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
             x = tf.concat(flat_vec+flat_vis, axis=-1)
-
-            ###
-            #####
             for n in range(self.settings['valuenet_n_hidden']):
                 x = tf.layers.dense(
                                     x,
@@ -274,34 +252,20 @@ class prio_qnet:
                                 # bias_initializer=tf.zeros_initializer(),
                                )
             _V = tf.reshape(V,[-1,1,1,1]) #One value for the board!
-            #####
-            ###
-
-            if self.settings["keyboard_conv"]:
-                A = kbd
-            else:
-                _A = tf.layers.dense(
-                                    x,
-                                    self.n_rotations * self.n_translations * self.n_pieces,
-                                    name='advantages_unshaped',
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
-                                    activation=self.settings["nn_output_activation"],
-                                    # bias_initializer=tf.zeros_initializer(),
-                                   )
-                A = self.keyboard_range_tf * tf.reshape(_A, [-1, self.n_rotations, self.n_translations, self.n_pieces])
+            # _V = tf.reshape(_V,[-1,1,1,self.n_pieces]) #One value for each possible piece!
 
             #
             ###
             #####
-            a = A
+            a = self.keyboard_range_tf * my_keyboard
             #Don't blend
             # mean_a = tf.reduce_mean(      a, axis=[1,2], keepdims=True )
             # max_a = tf.reduce_max(       a, axis=[1,2],   keepdims=True )
 
             #Blend
             a_maxmasked = self.used_pieces_mask_tf * a + (1-self.used_pieces_mask_tf) * tf.reduce_min(a, axis=[1,2,3], keepdims=True)
-            max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2,3],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            _max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            max_a  = tf.reduce_sum(_max_a, axis=3,     keepdims=True ) / self.n_used_pieces
             #
             _mean_a = tf.reduce_mean(a,      axis=[1,2], keepdims=True )
             mean_a  = tf.reduce_sum(_mean_a, axis=3,     keepdims=True ) / self.n_used_pieces
@@ -310,10 +274,6 @@ class prio_qnet:
             A_unif = (a - mean_a) #similar but compared to random action
             e = tf.clip_by_value(self.epsilon_tf, 0, 1)
             Q = _V + e * A_unif + (1-e) * A_q
-            # print(V,_V)
-            # print(A_q, A_unif)
-            # print(Q)
-            # print(a);exit()
         return Q, V, scope
 
     def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):

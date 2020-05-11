@@ -7,7 +7,7 @@ action_dim_exception = ValueError("action_[...] argument shape needs to be (r,t)
 def make_q_action(rotation, translation):
     action = [8 for _ in range(rotation)] \
             + [2] + [3 for _ in range(translation)] \
-            + [6]
+            + [7]
     return edt.action(action)
 
 def action_argmax(A):
@@ -21,15 +21,15 @@ def action_argmax(A):
 def action_epsilongreedy(A, epsilon):
     if len(A.shape) is not 2:
         raise action_dim_exception
-    if random.random() < epsilon:
+    if np.random.rand() < epsilon:
         r = np.random.choice(np.arange(A.shape[0]))
         t = np.random.choice(np.arange(A.shape[1]))
     else:
-        r,t = action_argmax(A)
+        (r,t), _ = action_argmax(A)
     e = min(1,epsilon)
     _entropy = e*np.full(A.size, 1/A.size)
     _entropy[0] += (1-e)
-    entropy = utils.entropy(entropy)
+    entropy = utils.entropy(_entropy)
     return (r,t), entropy
 
 def action_pareto(A,theta):

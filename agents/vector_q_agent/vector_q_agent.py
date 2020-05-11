@@ -100,7 +100,7 @@ class vector_q_agent(vector_q_agent_base):
         distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
         action_idxs = [None for _ in state_vec]
         for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
-            piece = _piece[player]
+            piece, _ = _piece
             if distribution == "argmax":
                 (r, t), entropy = q.action_argmax(Q[i,:,:,piece])
             elif distribution == "pareto_distribution":
@@ -119,6 +119,15 @@ class vector_q_agent(vector_q_agent_base):
 
         #Nearly done! Just need to create the actions...
         actions = [q.make_q_action(r,t) for r,t,_ in action_idxs]
+
+        # print("---")
+        # print("player:", player)
+        # # # print("my_field:", state[player]["field"])
+        # # # print("your_field:", state[1-player]["field"])
+        # # print("piece:", piece, "(",_piece[1],")")
+        # print("Q:", Q[i,:,:,piece])
+        # # print("A:", actions)
+        # # input("?")
 
         #Keep the clock going...
         if training:
