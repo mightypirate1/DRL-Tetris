@@ -218,7 +218,7 @@ class worker_thread(mp.Process):
         print("clock: {}".format(self.agent.clock))
         print("n_experiences: {}".format(self.agent.n_experiences))
         print("data sent: {} tuples in {} trajectories".format(self.agent.send_length, self.agent.send_count))
-        print("data sent per iteration: {}".format(self.agent.send_length/loop_time))
+        print("data sent per iteration: {}".format(self.agent.send_length/max(1,loop_time)))
         print("average trajectory length: {}".format(self.agent.avg_trajectory_length))
         print("action temperature: {}".format(self.agent.theta))
         print("action entropy: {}".format(self.agent.action_entropy))
