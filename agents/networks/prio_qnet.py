@@ -24,7 +24,9 @@ class prio_qnet:
         ###
         ### TIDY THIS UP ONE DAY :)
         #######
-        self.keyboard_range = 0.3
+        self.keyboard_range = 0.7
+        self.kbd_activation = tf.nn.tanh
+        # self.kbd_activation = self.keyboard_activation_sqrt
         self.n_used_pieces = len(self.settings["pieces"])
         used_pieces = [0, 0, 0, 0, 0, 0, 0]
         for i in range(7):
@@ -231,12 +233,12 @@ class prio_qnet:
                             )
         x = tf.reshape(x, [-1, 10, 4, 7]) #split up the channels to become piece-rotations
         x = tf.transpose(x, perm=[0,2,1,3])
-        x = self.keyboard_activation(x)
+        x = self.keyboard_range_tf * self.kbd_activation(x)
         return x
 
-    def keyboard_activation(self,x):
-        return self.keyboard_range_tf * tf.sign(x) * tf.pow( tf.abs(x), 0.5 )
-        # return self.keyboard_range_tf * tf.nn.tanh(x)
+    def keyboard_activation_sqrt(self,x):
+        # return tf.sign(x) * tf.pow( tf.abs(x), 0.5 )
+        return tf.sign(x) * tf.sqrt( tf.abs(x) )
 
     def create_q_head(self,vectors, visuals, name):
         with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
@@ -310,10 +312,6 @@ class prio_qnet:
             A_unif = (a - mean_a) #similar but compared to random action
             e = tf.clip_by_value(self.epsilon_tf, 0, 1)
             Q = _V + e * A_unif + (1-e) * A_q
-            # print(V,_V)
-            # print(A_q, A_unif)
-            # print(Q)
-            # print(a);exit()
         return Q, V, scope
 
     def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):

@@ -35,7 +35,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-X01-sqrtkbd0",
+            "run-id" : "SVENton-X01-tanhkbd0.7_0",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
             "keyboard_conv" : True,
