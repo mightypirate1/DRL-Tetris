@@ -44,7 +44,7 @@ settings = {
             "minibatch_size"            : 128,
             "n_train_epochs_per_update" : 1,  #5
             "time_to_reference_update"  : 20, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=2/total_steps),
+            "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=3/total_steps),
             "n_samples_to_start_training" : 40000, #0
 
             #Exp-replay parameters

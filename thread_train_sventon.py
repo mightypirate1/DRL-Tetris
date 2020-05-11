@@ -35,20 +35,22 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-alpha_small3-r1-0",
+            "run-id" : "SVENton-X01-sqrtkbd0",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
+            "keyboard_conv" : True,
 
             "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True
 
             #Train parameters
-            "n_step_value_estimates"    : 3,
+            "gae_lambda"                : 0.95, #0.95 default
+            "n_step_value_estimates"    : 37,
             "n_samples_each_update"     : 16384,
             # "n_samples_each_update"     : 8192,
-            "minibatch_size"            : 256, #128
+            "minibatch_size"            : 128, #128
             "n_train_epochs_per_update" : 1,  #5
-            "time_to_reference_update"  : 13, #How after how many do_training calls do we update the reference-model?
+            "time_to_reference_update"  : 5, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=2/total_steps),
             # "n_samples_to_start_training" : 40000, #0
 
@@ -78,10 +80,10 @@ settings = {
             # "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
 
             #Game settings
-            # "pieces" : [6,],
+            # "pieces" : [6],
+            # "game_size" : [10,5],
             "pieces" : [0,6],
             "game_size" : [22,10],
-            "game_size" : [10,5],
             "time_elapsed_each_action" : 400,
             #Types
             "env_vector_type"   : tetris_environment_vector,
@@ -98,7 +100,7 @@ settings = {
             "trainer_net_on_cpu"   : False,
 
             #Communication
-            "trainer_thread_save_freq"  : 1000,
+            "trainer_thread_save_freq"  : 100,
             "trainer_thread_backup_freq"  : 10,
             "worker_data_send_fequency" : 5,
             "weight_transfer_frequency" : 1,
@@ -110,15 +112,15 @@ settings = {
             "vectorencoder_output_size" : 32,
             ###
             "pad_visuals"      : True,
-            "visualencoder_n_convs" : 5,
-            "visualencoder_n_filters" : (64,64,64,32,32),
-            "visualencoder_filter_sizes" : ((5,5),(3,3),(3,3), (3,3), (3,3)),
+            "visualencoder_n_convs" : 4,
+            "visualencoder_n_filters" : (64,64,64,32),
+            "visualencoder_filter_sizes" : ((5,5),(5,5),(3,3), (3,3),),
             "peephole_convs"   : False,
             # "visualencoder_poolings" : [], #Pooling after layer numbers in this list
             # "visualencoder_peepholes" : [0,1,2],
             ###
             "valuenet_n_hidden" : 1,
-            "valuenet_hidden_size" : 256,
+            "valuenet_hidden_size" : 512,
             "nn_regularizer" : 0.001,
             "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,
