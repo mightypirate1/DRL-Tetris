@@ -57,6 +57,7 @@ default_settings = {
                     "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
                     "pad_visuals"      : False,
                     "peephole_convs"   : False,
+                    "keyboard_conv" : False,
                     #Value net:
                     "vectorencoder_n_hidden" : 2,
                     "vectorencoder_hidden_size" : 256,
