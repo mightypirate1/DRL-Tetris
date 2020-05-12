@@ -41,7 +41,6 @@ settings = {
             "keyboard_conv" : True,
             "keyboard_range" : 0.7,
             "keyboard_separate_piecevalues" : False,
-            "keyboard_tanh_activation" : False,
 
             "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True
