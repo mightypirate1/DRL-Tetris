@@ -120,15 +120,6 @@ class vector_q_agent(vector_q_agent_base):
         #Nearly done! Just need to create the actions...
         actions = [q.make_q_action(r,t) for r,t,_ in action_idxs]
 
-        # print("---")
-        # print("player:", player)
-        # # # print("my_field:", state[player]["field"])
-        # # # print("your_field:", state[1-player]["field"])
-        # # print("piece:", piece, "(",_piece[1],")")
-        # print("Q:", Q[i,:,:,piece])
-        # # print("A:", actions)
-        # # input("?")
-
         #Keep the clock going...
         if training:
             self.clock += self.n_envs * self.n_workers
