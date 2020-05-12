@@ -35,19 +35,19 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-Q01-k23-actual",
+            "run-id" : "SVENton-Q01-k37-pieceAdv",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
             "keyboard_conv" : True,
             "keyboard_range" : 0.7,
-            "keyboard_separate_piecevalues" : False,
+            "keyboard_separate_piecevalues" : True,
 
             "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True
 
             #Train parameters
             "gae_lambda"                : 0.95, #0.95 default
-            "n_step_value_estimates"    : 23,
+            "n_step_value_estimates"    : 37,
             "n_samples_each_update"     : 16384,
             # "n_samples_each_update"     : 8192,
             "minibatch_size"            : 128, #128
