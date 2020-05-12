@@ -18,9 +18,9 @@ Usage:
   thread_train.py restart <file> <clock> [options]
 
 Options:
-    --n N           N envs per thread. [default: 16]
+    --n N           N envs per thread. [default: 128]
     --m M           M workers. [default: 4]
-    --steps S       Run S environments steps in total. [default: 1000]
+    --steps S       Run S environments steps in total. [default: 1000000]
     --no-rendering  Disables rendering.
     --debug         Runs a single thread doing both data-gathering and training.
 '''

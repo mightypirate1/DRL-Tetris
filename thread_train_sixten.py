@@ -19,7 +19,7 @@ Usage:
 Options:
     --n N           N envs per thread. [default: 16]
     --m M           M workers. [default: 4]
-    --steps S       Run S environments steps in total. [default: 1000]
+    --steps S       Run S environments steps in total. [default: 1000000]
     --no-rendering  Disables rendering.
     --debug         Runs a single thread doing both data-gathering and training.
 '''
