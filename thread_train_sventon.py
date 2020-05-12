@@ -35,11 +35,12 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-X01-sqrtkbd0.7_0",
+            "run-id" : "SVENton-Q01-k23-actual",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
             "keyboard_conv" : True,
             "keyboard_range" : 0.7,
+            "keyboard_separate_piecevalues" : False,
             "keyboard_tanh_activation" : False,
 
             "render_screen_dims" : (3840,2160), #My screen is huge
@@ -47,7 +48,7 @@ settings = {
 
             #Train parameters
             "gae_lambda"                : 0.95, #0.95 default
-            "n_step_value_estimates"    : 37,
+            "n_step_value_estimates"    : 23,
             "n_samples_each_update"     : 16384,
             # "n_samples_each_update"     : 8192,
             "minibatch_size"            : 128, #128
@@ -115,8 +116,8 @@ settings = {
             ###
             "pad_visuals"      : True,
             "visualencoder_n_convs" : 4,
-            "visualencoder_n_filters" : (64,64,64,32),
-            "visualencoder_filter_sizes" : ((5,5),(5,5),(3,3), (3,3),),
+            "visualencoder_n_filters" : (64,32,32,32),
+            "visualencoder_filter_sizes" : ((3,3),(5,5),(3,3), (3,3),),
             "peephole_convs"   : False,
             # "visualencoder_poolings" : [], #Pooling after layer numbers in this list
             # "visualencoder_peepholes" : [0,1,2],

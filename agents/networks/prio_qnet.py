@@ -234,12 +234,14 @@ class prio_qnet:
         # [?, 1, T, R*P] -> [?, T, R, P] -> [?, R, T, P]
         x = tf.reshape(x, [-1, 10, 4, 7])
         x = tf.transpose(x, perm=[0,2,1,3])
-        x = self.keyboard_range_tf * self.kbd_activation(x)
+        x = self.kbd_activation(x)
         return x
 
     def keyboard_activation_sqrt(self,x):
-        ret = tf.sign(x) * tf.sqrt( tf.abs(x) )
         # ret = tf.sign(x) * tf.minimum( tf.sqrt( tf.abs(x) ), tf.abs(x))
+        alpha = 0.01
+        ret = tf.sign(x) * (tf.sqrt( tf.abs(x) + alpha**2) - alpha)
+        ret = tf.where( tf.is_nan(ret), x, ret)
         return ret
 
     def create_q_head(self,vectors, visuals, name):
@@ -258,6 +260,7 @@ class prio_qnet:
 
             ###
             #####
+            n_val_outputs = self.n_pieces if self.settings["keyboard_separate_piecevalues"] else 1
             for n in range(self.settings['valuenet_n_hidden']):
                 x = tf.layers.dense(
                                     x,
@@ -269,20 +272,19 @@ class prio_qnet:
                                    )
             V = tf.layers.dense(
                                 x,
-                                1,
-                                # self.n_pieces,
+                                n_val_outputs,
                                 name='values',
                                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                 bias_initializer=tf.contrib.layers.xavier_initializer(),
                                 activation=self.settings["nn_output_activation"],
                                 # bias_initializer=tf.zeros_initializer(),
                                )
-            _V = tf.reshape(V,[-1,1,1,1]) #One value for the board!
+            _V = tf.reshape(V,[-1,1,1,n_val_outputs]) #Shape for Q-calc!
             #####
             ###
 
             if self.settings["keyboard_conv"]:
-                A = kbd
+                A = self.keyboard_range_tf * kbd
             else:
                 _A = tf.layers.dense(
                                     x,
@@ -299,16 +301,19 @@ class prio_qnet:
             ###
             #####
             a = A
-            #Don't blend
-            # mean_a = tf.reduce_mean(      a, axis=[1,2], keepdims=True )
-            # max_a = tf.reduce_max(       a, axis=[1,2],   keepdims=True )
-
-            #Blend
-            a_maxmasked = self.used_pieces_mask_tf * a + (1-self.used_pieces_mask_tf) * tf.reduce_min(a, axis=[1,2,3], keepdims=True)
-            max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2,3],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
-            #
-            _mean_a = tf.reduce_mean(a,      axis=[1,2], keepdims=True )
-            mean_a  = tf.reduce_sum(_mean_a, axis=3,     keepdims=True ) / self.n_used_pieces
+            if self.settings["keyboard_separate_piecevalues"]:
+                #Don't blend
+                mean_a = tf.reduce_mean(      a, axis=[1,2], keepdims=True )
+                max_a = tf.reduce_max(       a, axis=[1,2],   keepdims=True )
+                #The value of the state is the average of the values of the state-piece combinations
+                V = tf.reshape(tf.reduce_sum(_V * self.used_pieces_mask_tf, axis=3), [-1,1]) / self.n_used_pieces
+            else:
+                #Blend
+                a_maxmasked = self.used_pieces_mask_tf * a + (1-self.used_pieces_mask_tf) * tf.reduce_min(a, axis=[1,2,3], keepdims=True)
+                max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2,3],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+                #
+                _mean_a = tf.reduce_mean(a,      axis=[1,2], keepdims=True )
+                mean_a  = tf.reduce_sum(_mean_a, axis=3,     keepdims=True ) / self.n_used_pieces
 
             A_q    = (a - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
             A_unif = (a - mean_a) #similar but compared to random action

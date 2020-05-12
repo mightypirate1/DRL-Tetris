@@ -58,6 +58,8 @@ default_settings = {
                     "pad_visuals"      : False,
                     "peephole_convs"   : False,
                     "keyboard_conv" : False,
+                    "keyboard_range" : 0.7,
+                    "keyboard_separate_piecevalues" : False,
                     #Value net:
                     "vectorencoder_n_hidden" : 2,
                     "vectorencoder_hidden_size" : 256,
