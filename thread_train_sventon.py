@@ -35,10 +35,12 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-X01-tanhkbd0.7_0",
+            "run-id" : "SVENton-X01-sqrtkbd0.7_0",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
             "keyboard_conv" : True,
+            "keyboard_range" : 0.7,
+            "keyboard_tanh_activation" : False,
 
             "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True

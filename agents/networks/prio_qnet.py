@@ -24,9 +24,8 @@ class prio_qnet:
         ###
         ### TIDY THIS UP ONE DAY :)
         #######
-        self.keyboard_range = 0.7
-        self.kbd_activation = tf.nn.tanh
-        # self.kbd_activation = self.keyboard_activation_sqrt
+        self.keyboard_range = self.settings["keyboard_range"]
+        self.kbd_activation = tf.nn.tanh if self.settings["keyboard_tanh_activation"] else self.keyboard_activation_sqrt
         self.n_used_pieces = len(self.settings["pieces"])
         used_pieces = [0, 0, 0, 0, 0, 0, 0]
         for i in range(7):
@@ -231,14 +230,17 @@ class prio_qnet:
                                 kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                                 bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                             )
-        x = tf.reshape(x, [-1, 10, 4, 7]) #split up the channels to become piece-rotations
+        #Interpret with of field as translations for the piece W ~> T, then:
+        # [?, 1, T, R*P] -> [?, T, R, P] -> [?, R, T, P]
+        x = tf.reshape(x, [-1, 10, 4, 7])
         x = tf.transpose(x, perm=[0,2,1,3])
         x = self.keyboard_range_tf * self.kbd_activation(x)
         return x
 
     def keyboard_activation_sqrt(self,x):
-        # return tf.sign(x) * tf.pow( tf.abs(x), 0.5 )
-        return tf.sign(x) * tf.sqrt( tf.abs(x) )
+        ret = tf.sign(x) * tf.sqrt( tf.abs(x) )
+        # ret = tf.sign(x) * tf.minimum( tf.sqrt( tf.abs(x) ), tf.abs(x))
+        return ret
 
     def create_q_head(self,vectors, visuals, name):
         with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
