@@ -25,7 +25,6 @@ class prio_qnet:
         ### TIDY THIS UP ONE DAY :)
         #######
         self.keyboard_range = self.settings["keyboard_range"]
-        self.kbd_activation = tf.nn.tanh if self.settings["keyboard_tanh_activation"] else self.keyboard_activation_sqrt
         self.n_used_pieces = len(self.settings["pieces"])
         used_pieces = [0, 0, 0, 0, 0, 0, 0]
         for i in range(7):
@@ -226,7 +225,7 @@ class prio_qnet:
                                 (H,3),
                                 name='keyboard_conv1',
                                 padding='valid',
-                                activation=None,
+                                activation=self.advantage_activation_sqrt,
                                 kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                                 bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                             )
@@ -234,10 +233,9 @@ class prio_qnet:
         # [?, 1, T, R*P] -> [?, T, R, P] -> [?, R, T, P]
         x = tf.reshape(x, [-1, 10, 4, 7])
         x = tf.transpose(x, perm=[0,2,1,3])
-        x = self.kbd_activation(x)
         return x
 
-    def keyboard_activation_sqrt(self,x):
+    def advantage_activation_sqrt(self,x):
         # ret = tf.sign(x) * tf.minimum( tf.sqrt( tf.abs(x) ), tf.abs(x))
         alpha = 0.01
         ret = tf.sign(x) * (tf.sqrt( tf.abs(x) + alpha**2) - alpha)
@@ -260,7 +258,6 @@ class prio_qnet:
 
             ###
             #####
-            n_val_outputs = self.n_pieces if self.settings["keyboard_separate_piecevalues"] else 1
             for n in range(self.settings['valuenet_n_hidden']):
                 x = tf.layers.dense(
                                     x,
@@ -272,13 +269,24 @@ class prio_qnet:
                                    )
             V = tf.layers.dense(
                                 x,
-                                n_val_outputs,
+                                1,
                                 name='values',
                                 kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                 bias_initializer=tf.contrib.layers.xavier_initializer(),
                                 activation=self.settings["nn_output_activation"],
                                 # bias_initializer=tf.zeros_initializer(),
                                )
+            n_val_outputs = 1 if not self.settings["keyboard_separate_piecevalues"] else self.n_pieces
+            if self.settings["keyboard_separate_piecevalues"]:
+                _A_p = tf.layers.dense(
+                                    x,
+                                    self.n_pieces,
+                                    name='value_pieceadvantages_unnormalized',
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
+                                    activation=self.advantage_activation_sqrt,
+                                   )
+                V = V + 0.3 * (_A_p - tf.reduce_mean(_A_p, axis=1, keepdims=True))
             _V = tf.reshape(V,[-1,1,1,n_val_outputs]) #Shape for Q-calc!
             #####
             ###
