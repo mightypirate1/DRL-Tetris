@@ -35,7 +35,7 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-Q01-k37-pieceAdv",
+            "run-id" : "SVENton-Z01-k37-pieceAdv",
             "state_processor_separate_piece" : True,
             "old_state_dict" : False,
             "keyboard_conv" : True,
@@ -115,8 +115,8 @@ settings = {
             ###
             "pad_visuals"      : True,
             "visualencoder_n_convs" : 4,
-            "visualencoder_n_filters" : (64,32,32,32),
-            "visualencoder_filter_sizes" : ((3,3),(5,5),(3,3), (3,3),),
+            "visualencoder_n_filters" : (64,64,64,32),
+            "visualencoder_filter_sizes" : ((5,5),(5,5),(5,5), (5,5),),
             "peephole_convs"   : False,
             # "visualencoder_poolings" : [], #Pooling after layer numbers in this list
             # "visualencoder_peepholes" : [0,1,2],
