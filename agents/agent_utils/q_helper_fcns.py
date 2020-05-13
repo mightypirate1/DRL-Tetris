@@ -1,5 +1,7 @@
-import aux.utils as utils
 import numpy as np
+from scipy.special import softmax
+
+import aux.utils as utils
 import environment.data_types as edt
 
 action_dim_exception = ValueError("action_[...] argument shape needs to be (r,t); usually (4,10).")
