@@ -196,7 +196,7 @@ class prio_qnet:
         x = tf.layers.max_pooling2d(x, 2, 2, padding='valid')
         x = tf.layers.conv2d(
                                 x,
-                                16,
+                                16, #3 for old
                                 (3,3),
                                 name='keyboard_vis_conv',
                                 padding='same',
@@ -204,7 +204,7 @@ class prio_qnet:
                                 kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                                 bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                             )
-        x = tf.layers.max_pooling2d(x, 2, 2, padding='valid')
+        x = tf.layers.max_pooling2d(x, 2, 2, padding='valid') #comment out for old
         return x
 
     def create_kbd(self, x):
@@ -286,7 +286,7 @@ class prio_qnet:
                                     bias_initializer=tf.contrib.layers.xavier_initializer(),
                                     activation=self.advantage_activation_sqrt,
                                    )
-                V = V + 0.3 * (_A_p - tf.reduce_mean(_A_p, axis=1, keepdims=True))
+                V = V + 0.3 * (_A_p - tf.reduce_sum(_A_p*self.used_pieces_mask_tf, axis=1, keepdims=True)/self.n_used_pieces)
             _V = tf.reshape(V,[-1,1,1,n_val_outputs]) #Shape for Q-calc!
             #####
             ###
