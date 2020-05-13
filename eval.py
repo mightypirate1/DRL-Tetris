@@ -35,7 +35,7 @@ docoptstring = \
 Eval
 
 Usage:
-    eval.py <weights> <weights> ... [--no-reload] [--all-pieces] [--nonull|--null] [--fast] [--debug] [--ref]
+    eval.py <weights> <weights> ... [--no-reload] [--all-pieces] [--nonull|--null] [--fast] [--debug] [--res]
 '''
 run_settings = docopt.docopt(docoptstring)
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
