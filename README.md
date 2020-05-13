@@ -70,6 +70,13 @@ python3 eval.py path/to/weightfile1.w path/to/weightfile2.w
 ```
 Settings are saved along with the weights so that it is normally possible to make bots made with different settings, neural-nets etc. play each other. As long as the game_size setting is the same across projects, they should be compatible! See "Customization" for more details.
 
+#### Demo weights:
+The project ships with some pre-trained weights as a demo. When in the DRL-Tetris folder, try for instance
+```
+python3 eval.py models/demo_weights/SIXten/weightsDEMO1.w models/demo_weights/SIXten/weightsDEMO1.w
+```
+to watch SIXten play.
+
 ## Customization:
 The entire repository uses a settings-dictionary (the default values of which are found in aux/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation. For examples of how to create such a dictionary, see "thread_train.py", and for how to pass it to the environment constructor, see "threads/worker_thread.py".
 

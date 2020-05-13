@@ -12,6 +12,12 @@ from aux.settings import default_settings
 import aux.utils as utils
 import threads
 
+#####
+##  This is just a script with a main-loop for evaluations.
+##
+##  TODO: remake to use the code from the worker_thread!
+#####
+
 def adjust_settings(S):
     if run_settings["--null"]:
         S["bar_null_moves"] = False
@@ -19,7 +25,9 @@ def adjust_settings(S):
         S["bar_null_moves"] = True
     if run_settings["--all-pieces"]:
         S["pieces"] = default_settings["pieces"]
-    S["tau_learning_rate"] = 0.99
+    if not run_settings["--res"]:
+        S["render_screen_dims"] = default_settings["render_screen_dims"]
+    S["tau_learning_rate"] = 0.995
     return S
 
 docoptstring = \
@@ -27,7 +35,7 @@ docoptstring = \
 Eval
 
 Usage:
-    eval.py <weights> <weights> ... [--no-reload] [--all-pieces] [--nonull|--null] [--fast] [--debug] [--inf]
+    eval.py <weights> <weights> ... [--no-reload] [--all-pieces] [--nonull|--null] [--fast] [--debug] [--ref]
 '''
 run_settings = docopt.docopt(docoptstring)
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
@@ -38,19 +46,17 @@ assert utils.test_setting_compatibility(*settings), "Incompatible settings :("
 s = settings[0].copy()
 s["render"] = True
 s = adjust_settings(s)
-###### #### ### ## ## # # #
-###### Eval run...
-###### #### ### ## ## # # #
 with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': 1})) as session:
     n_envs = len(settings) // 2
     assert n_envs == 1, "More or less than 2 players is not yet implemented"
-    #Initialize!
+    #Initialize env!
     env = s["env_vector_type"](
                                n_envs,
                                s["env_type"],
                                settings=s,
                                )
     agent, scoreboard = list(), dict()
+    #Initialize agents!
     for i, setting, weight in zip(range(len(settings)), settings, run_settings["<weights>"]):
         setting = adjust_settings(setting)
         a = setting["agent_type"](
@@ -65,6 +71,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         agent.append(a)
         scoreboard[i] = 0
 
+    #Initialize run!
     trajectory_start = 0
     s_prime = env.get_state()
     current_player = np.random.choice([i for i in range(s["n_players"])], size=n_envs )
@@ -112,9 +119,6 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                     a.ready_for_new_round(training=False, env=i)
                 print("Round ended. {} steps (avg: {}), score: {}-{}".format(t-trajectory_start, agent[0].avg_trajectory_length, scoreboard[0], scoreboard[1]))
                 current_player[i] = np.random.choice([0,1])
-                # input("?")
                 env.reset(env=i)
                 round_reward = [0,0]
                 trajectory_start = t+1
-                if run_settings["--inf"]:
-                    t = 1
