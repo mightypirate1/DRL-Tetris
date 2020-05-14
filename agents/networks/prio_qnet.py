@@ -5,6 +5,10 @@ import numpy as np
 import aux
 import aux.utils as utils
 
+'''
+TODO: Clean up by separating out default chunks of neural-net construction. We don't need a bunch of conv-layer loops all over, do we?
+'''
+
 class prio_qnet:
     def __init__(self, agent_id, name, state_size, output_shape, sess, k_step=1, settings=None, worker_only=False):
         assert len(output_shape) == 3, "expected 3D-actions"
@@ -14,26 +18,21 @@ class prio_qnet:
         self.output_activation = settings["nn_output_activation"]
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
         self.output_size = self.n_rotations * self.n_translations * self.n_pieces
+        self.n_used_pieces = len(self.settings["pieces"])
         self.worker_only = worker_only
-        self.stats_tensors = []
+        self.stats_tensors, self.debug_tensors = [], []
         self.scope_name = "agent{}_{}".format(agent_id,name)
         self.state_size_vec, self.state_size_vis = state_size
         self.k_step = k_step
         assert k_step > 0, "k_step AKA n_step_value_estimates has to be greater than 0!"
-
-        ###
-        ### TIDY THIS UP ONE DAY :)
         #######
         self.keyboard_range = self.settings["keyboard_range"]
-        self.n_used_pieces = len(self.settings["pieces"])
         used_pieces = [0, 0, 0, 0, 0, 0, 0]
         for i in range(7):
             if i in self.settings["pieces"]:
                 used_pieces[i] = 1
         self.used_pieces_mask_tf = tf.constant(np.array(used_pieces).reshape((1,1,1,7)).astype(np.float32))
         #######
-        #####
-        ###
 
         #Define tensors/placeholders
         with tf.variable_scope(self.scope_name):
@@ -62,7 +61,6 @@ class prio_qnet:
                 self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
                 self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
             self.epsilon_tf       = tf.placeholder(tf.float32, shape=())
-            self.keyboard_range_tf       = tf.placeholder(tf.float32, shape=())
             self.q_tf, self.v_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
                                     = self.create_duelling_qnet(
                                                             self.vector_inputs,
@@ -89,13 +87,10 @@ class prio_qnet:
 
     def evaluate(self,
                 inputs,
-                epsilon=0.0,
-                keyboard_range=None,
                 ):
         vector, visual = inputs
         run_list = [self.q_tf, self.v_tf]
-        if keyboard_range is None: keyboard_range = self.keyboard_range
-        feed_dict = {self.epsilon_tf : epsilon,self.keyboard_range_tf : keyboard_range,}
+        feed_dict = {}
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
         for idx, vis in enumerate(visual):
@@ -112,24 +107,19 @@ class prio_qnet:
                 dones,
                 weights=None,
                 lr=None,
-                epsilon=0.0,
-                keyboard_range=None,
               ):
-
         run_list = [
                     self.training_ops,
                     self.new_prios_tf,
                     self.stats_tensors,
+                    self.debug_tensors,
                     ]
-        if keyboard_range is None: keyboard_range = self.keyboard_range
         feed_dict = {
                         self.pieces_training_tf : pieces,
                         self.actions_training_tf : actions,
                         self.rewards_tf : rewards,
                         self.dones_tf : dones,
                         self.learning_rate_tf : lr,
-                        self.epsilon_tf : epsilon,
-                        self.keyboard_range_tf : keyboard_range,
                         self.loss_weights_tf : weights,
                     }
         #Add also the state information to the appropriate placeholders..
@@ -137,7 +127,10 @@ class prio_qnet:
             feed_dict[self.vector_inputs_training[idx]] = vec
         for idx, vis in enumerate(visual_states):
             feed_dict[self.visual_inputs_training[idx]] = vis
-        _, new_prios, stats = self.session.run(run_list, feed_dict=feed_dict)
+        _, new_prios, stats, dbg = self.session.run(run_list, feed_dict=feed_dict)
+        for val,tensor in zip(dbg,self.debug_tensors):
+            print("---")
+            print(tensor,val[0])
         return new_prios, zip(self.stats_tensors, stats)
 
     def create_vectorencoder(self, x):
@@ -184,46 +177,43 @@ class prio_qnet:
                     y = tf.layers.max_pooling2d(y, 2, 2, padding='same')
         return x
 
-    def apply_visual_pad(self, x):
-        #Apply zero-padding on top:
-        x = tf.pad(x, [[0,0],[1,0],[0,0],[0,0]], constant_values=0.0)
-        #Apply one-padding left, right and bottom:
-        x = tf.pad(x, [[0,0],[0,1],[1,1],[0,0]], constant_values=1.0)
-        # This makes floor and walls look like it's a piece, and cieling like its free space
-        return x
-
     def create_kbd_visual(self,x):
+        def layer_pool(X, n_filters, filter_size, name=None):
+            y = tf.layers.conv2d(
+                                    X,
+                                    n_filters, #3 for old
+                                    filter_size,
+                                    name=name,
+                                    padding='same',
+                                    activation=tf.nn.elu,
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                    bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                )
+            return tf.layers.max_pooling2d(y, 2, 2, padding='same') #comment out for old
         x = tf.layers.max_pooling2d(x, 2, 2, padding='valid')
-        x = tf.layers.conv2d(
-                                x,
-                                16, #3 for old
-                                (3,3),
-                                name='keyboard_vis_conv',
-                                padding='same',
-                                activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                            )
-        x = tf.layers.max_pooling2d(x, 2, 2, padding='valid') #comment out for old
+        for i in range(self.settings["kbd_vis_n_convs"]):
+            x = layer_pool(x,self.settings["kbd_vis_n_filters"][i],(3,3))
+        x = tf.reduce_mean(x, axis=[1,2])
         return x
 
     def create_kbd(self, x):
         H = self.settings["game_size"][0] + 2 if self.settings["pad_visuals"] else self.settings["game_size"][0]
-        x = tf.layers.conv2d(
-                                x,
-                                32,
-                                (5,5),
-                                name='keyboard_conv0',
-                                padding='same',
-                                activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                            )
+        for i in range(self.settings["keyboard_n_convs"]-1):
+            x = tf.layers.conv2d(
+                                    x,
+                                    32,
+                                    (5,5),
+                                    name='keyboard_conv{}'.format(i),
+                                    padding='same',
+                                    activation=tf.nn.elu,
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                    bias_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                )
         x = tf.layers.conv2d(
                                 x,
                                 self.n_rotations * self.n_pieces,
                                 (H,3),
-                                name='keyboard_conv1',
+                                name='keyboard_conv{}'.format(self.settings["keyboard_n_convs"]-1),
                                 padding='valid',
                                 activation=self.advantage_activation_sqrt,
                                 kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
@@ -235,16 +225,31 @@ class prio_qnet:
         x = tf.transpose(x, perm=[0,2,1,3])
         return x
 
-    def advantage_activation_sqrt(self,x):
-        # ret = tf.sign(x) * tf.minimum( tf.sqrt( tf.abs(x) ), tf.abs(x))
-        alpha = 0.01
-        ret = tf.sign(x) * (tf.sqrt( tf.abs(x) + alpha**2) - alpha)
-        ret = tf.where( tf.is_nan(ret), x, ret)
-        return ret
+    def create_value_head(self, x):
+        for n in range(self.settings['valuenet_n_hidden']):
+            x = tf.layers.dense(
+                                x,
+                                self.settings['valuenet_hidden_size'],
+                                name='layer{}'.format(n),
+                                activation=tf.nn.elu,
+                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                bias_initializer=tf.contrib.layers.xavier_initializer(),
+                               )
+        x = tf.layers.dense(
+                            x,
+                            1,
+                            name='values',
+                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            bias_initializer=tf.contrib.layers.xavier_initializer(),
+                            activation=self.settings["nn_output_activation"],
+                            # bias_initializer=tf.zeros_initializer(),
+                           )
+        return x
 
     def create_q_head(self,vectors, visuals, name):
         with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
             scope = vs
+            #1) create visual- and vector-encoders for the inputs!
             hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
             if self.settings["keyboard_conv"]:
                 _visuals = [self.create_visualencoder(vis) for vis in visuals]
@@ -254,45 +259,15 @@ class prio_qnet:
                 hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
             flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
             flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
+
+            #2) Take some of the data-stream and compute a value-estimate
             x = tf.concat(flat_vec+flat_vis, axis=-1)
+            V = self.create_value_head(x)
+            V_qshaped = tf.reshape(V,[-1,1,1,1]) #Shape for Q-calc!
 
-            ###
-            #####
-            for n in range(self.settings['valuenet_n_hidden']):
-                x = tf.layers.dense(
-                                    x,
-                                    self.settings['valuenet_hidden_size'],
-                                    name='layer{}'.format(n),
-                                    activation=tf.nn.elu,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
-                                   )
-            V = tf.layers.dense(
-                                x,
-                                1,
-                                name='values',
-                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer(),
-                                activation=self.settings["nn_output_activation"],
-                                # bias_initializer=tf.zeros_initializer(),
-                               )
-            n_val_outputs = 1 if not self.settings["keyboard_separate_piecevalues"] else self.n_pieces
-            if self.settings["keyboard_separate_piecevalues"]:
-                _A_p = tf.layers.dense(
-                                    x,
-                                    self.n_pieces,
-                                    name='value_pieceadvantages_unnormalized',
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
-                                    activation=self.advantage_activation_sqrt,
-                                   )
-                V = V + 0.3 * (_A_p - tf.reduce_sum(_A_p*self.used_pieces_mask_tf, axis=1, keepdims=True)/self.n_used_pieces)
-            _V = tf.reshape(V,[-1,1,1,n_val_outputs]) #Shape for Q-calc!
-            #####
-            ###
-
+            #3) Compute advantages
             if self.settings["keyboard_conv"]:
-                A = self.keyboard_range_tf * kbd
+                A = self.keyboard_range * kbd
             else:
                 _A = tf.layers.dense(
                                     x,
@@ -303,30 +278,19 @@ class prio_qnet:
                                     activation=self.settings["nn_output_activation"],
                                     # bias_initializer=tf.zeros_initializer(),
                                    )
-                A = self.keyboard_range_tf * tf.reshape(_A, [-1, self.n_rotations, self.n_translations, self.n_pieces])
+                A = self.keyboard_range * tf.reshape(_A, [-1, self.n_rotations, self.n_translations, self.n_pieces])
 
             #
             ###
             #####
-            a = A
-            if self.settings["keyboard_separate_piecevalues"]:
-                #Don't blend
-                mean_a = tf.reduce_mean(      a, axis=[1,2], keepdims=True )
-                max_a = tf.reduce_max(       a, axis=[1,2],   keepdims=True )
-                #The value of the state is the average of the values of the state-piece combinations
-                V = tf.reshape(tf.reduce_sum(_V * self.used_pieces_mask_tf, axis=3), [-1,1]) / self.n_used_pieces
-            else:
-                #Blend
-                a_maxmasked = self.used_pieces_mask_tf * a + (1-self.used_pieces_mask_tf) * tf.reduce_min(a, axis=[1,2,3], keepdims=True)
-                max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2,3],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
-                #
-                _mean_a = tf.reduce_mean(a,      axis=[1,2], keepdims=True )
-                mean_a  = tf.reduce_sum(_mean_a, axis=3,     keepdims=True ) / self.n_used_pieces
-
-            A_q    = (a - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
-            A_unif = (a - mean_a) #similar but compared to random action
-            e = tf.clip_by_value(self.epsilon_tf, 0, 1)
-            Q = _V + e * A_unif + (1-e) * A_q
+            #4) Combine values and advantages to form the Q-fcn (Duelling-Q-style)
+            a_maxmasked = self.used_pieces_mask_tf * A + (1-self.used_pieces_mask_tf) * tf.reduce_min(A, axis=[1,2,3], keepdims=True)
+            _max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            max_a   = tf.reduce_sum(_max_a * self.used_pieces_mask_tf,  axis=3,     keepdims=True ) / self.n_used_pieces #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            # _mean_a = tf.reduce_mean(A,      axis=[1,2], keepdims=True )
+            # mean_a  = tf.reduce_sum(_mean_a * self.used_pieces_mask_tf, axis=3,     keepdims=True ) / self.n_used_pieces
+            A_q  = (A - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
+            Q = V_qshaped + A_q
         return Q, V, scope
 
     def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
@@ -360,18 +324,18 @@ class prio_qnet:
                     e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
                 e += v_t_tf[k] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
                 return e
-            estimators_tf = [k_step_estimate(k) for k in range(1,self.k_step+1)]
+
+            estimator_steps = range(1,self.k_step+1) if self.settings["sparse_k_step_estimates"] is None else self.settings["sparse_k_step_estimates"]
+            estimators = [(k,k_step_estimate(k)) for k in estimator_steps]
+
             #3) GAE-style aggregation
             weight = 0
             estimator_sum_tf = 0
             gae_lambda = self.settings["gae_lambda"]
-            for e in reversed(estimators_tf):
-                estimator_sum_tf *= gae_lambda
-                weight *= gae_lambda
-                estimator_sum_tf += e
-                weight += 1
-            target_values_tf = tf.stop_gradient(estimator_sum_tf / weight)
-
+            for k,e in estimators:
+                estimator_sum_tf += e * gae_lambda**k
+                weight += gae_lambda**k
+            value_estimator_tf = estimator_sum_tf / weight
             #Also we need a Q-value to update; Q(s,a,x)!
             Q_s_all = q_t_tf[0]
             r_mask = tf.reshape(tf.one_hot(actions_training[:,0,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
@@ -380,8 +344,8 @@ class prio_qnet:
             rtp_mask = r_mask*t_mask*p_mask
             _Q_s = Q_s_all * rtp_mask
             Q_s = tf.reduce_sum(_Q_s, axis=[1,2,3])
+            target_values_tf = tf.stop_gradient(value_estimator_tf)
             training_values_tf = tf.expand_dims(Q_s,1)
-
             # Prio-Q-net is true to it's name and computes the sample priorities for you!
             if self.settings["optimistic_prios"] == 0.0:
                 prios_tf = tf.abs(training_values_tf - target_values_tf) #priority for the experience replay
@@ -389,18 +353,19 @@ class prio_qnet:
                 prios_tf = tf.abs(training_values_tf - target_values_tf) + self.settings["optimistic_prios"] * tf.nn.relu(target_values_tf - training_values_tf)
 
             #As always - we like some stats!
-            self.output_as_stats(training_values_tf, name="training-val")
-            self.output_as_stats(target_values_tf, name="target-val")
+            self.output_as_stats(value_estimator_tf, name="target-val")
             self.output_as_stats(done_time_tf, name="done_time")
-            for i,e in enumerate(estimators_tf):
-                self.output_as_stats(e, name='{}_step_val_est'.format(i+1))
-                self.output_as_stats(tf.abs(target_values_tf-e), name='{}-step_val_est_diff'.format(i+1))
+            # self.output_as_stats(training_values_tf, name="training-val")
+            # for k,e in estimators:
+            #     self.output_as_stats(e, name='{}_step_val_est'.format(k))
+            #     self.output_as_stats(tf.abs(target_values_tf-e), name='{}-step_val_est_diff'.format(k))
         return q_tf, v_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
     def create_training_ops(self):
         if self.worker_only:
             return None
-        self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.training_values_tf, weights=self.loss_weights_tf)
+        weights = self.loss_weights_tf
+        self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.training_values_tf, weights=weights)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
         self.loss_tf = self.value_loss_tf + self.regularizer_tf
         training_ops = self.settings["optimizer"](learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
@@ -409,6 +374,19 @@ class prio_qnet:
         self.output_as_stats(self.value_loss_tf, name='value_loss', only_mean=True)
         self.output_as_stats(self.regularizer_tf, name='reg_loss', only_mean=True)
         return training_ops
+
+    def apply_visual_pad(self, x):
+        #Apply zero-padding on top:
+        x = tf.pad(x, [[0,0],[1,0],[0,0],[0,0]], constant_values=0.0)
+        #Apply one-padding left, right and bottom:
+        x = tf.pad(x, [[0,0],[0,1],[1,1],[0,0]], constant_values=1.0)
+        # This makes floor and walls look like it's a piece, and cieling like its free space
+        return x
+
+    def advantage_activation_sqrt(self,x):
+        alpha = 0.01
+        ret = tf.sign(x) * (tf.sqrt( tf.abs(x) + alpha**2) - alpha)
+        return ret
 
     def create_weight_setting_ops(self, collection):
         assign_placeholder_list = []

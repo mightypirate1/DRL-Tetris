@@ -165,7 +165,6 @@ class vector_q_agent_trainer(vector_q_agent_base):
                                                dones[perm[i:i+minibatch_size]],
                                                weights=is_weights[perm[i:i+minibatch_size]],
                                                lr=self.settings["value_lr"].get_value(self.clock),
-                                               epsilon=self.settings["epsilon"].get_value(self.clock),
                                               )
                 self.train_stats_raw.append(stats)
                 if last_epoch: new_prio[i:i+minibatch_size] = _new_prio

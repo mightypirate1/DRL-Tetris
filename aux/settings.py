@@ -56,10 +56,6 @@ default_settings = {
                     "field_as_image"   : True, #This preserves the 2D structure of the playing field, and keeps them separate from the vector part of the state
                     "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
                     "pad_visuals"      : False,
-                    "peephole_convs"   : False,
-                    "keyboard_conv" : False,
-                    "keyboard_range" : 0.7,
-                    "keyboard_separate_piecevalues" : False,
                     #Value net:
                     "vectorencoder_n_hidden" : 2,
                     "vectorencoder_hidden_size" : 256,
@@ -67,6 +63,7 @@ default_settings = {
                     "visualencoder_n_convs" : 3,
                     "visualencoder_n_filters" : (32,32, 16),
                     "visualencoder_filter_sizes" : ((5,5), (5,5), (5,5), (5,5)),
+                    "peephole_convs"   : False,
                     "visualencoder_poolings" : [], #Pooling after layer numbers in this list
                     "visualencoder_peepholes" : [0,1,],
                     "valuenet_n_hidden" : 1,
@@ -74,7 +71,14 @@ default_settings = {
                     "nn_regularizer" : 0.001,
                     "nn_output_activation" : tf.nn.tanh,
                     "optimizer" : tf.train.GradientDescentOptimizer,
-
+                    #Prio-Q-Net
+                    "keyboard_conv" : False,
+                    "keyboard_range" : 0.7,
+                    ##Kbd-vis
+                    "kbd_vis_n_convs" : 2,
+                    "kbd_vis_n_filters" : [16,16],
+                    ##Kbd
+                    "keyboard_n_convs" : 2,
                 ##MULTIPROCESSING:
                     "worker_net_on_cpu" : True,
                     "trainer_net_on_cpu" : False,
