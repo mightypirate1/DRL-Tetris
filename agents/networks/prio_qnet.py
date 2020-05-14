@@ -254,7 +254,7 @@ class prio_qnet:
             if self.settings["keyboard_conv"]:
                 _visuals = [self.create_visualencoder(vis) for vis in visuals]
                 hidden_vis = [self.create_kbd_visual(vis) for vis in _visuals]
-                kbd = self.create_kbd(_visuals[0]) #"my screen -> my kbd"
+                A_kbd = self.create_kbd(_visuals[0]) #"my screen -> my kbd"
             else:
                 hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
             flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
@@ -267,7 +267,8 @@ class prio_qnet:
 
             #3) Compute advantages
             if self.settings["keyboard_conv"]:
-                A = self.keyboard_range * kbd
+                #Or if we just have them... (if I move that line down, I break some backward compatibility)
+                A = self.keyboard_range * A_kbd
             else:
                 _A = tf.layers.dense(
                                     x,
@@ -305,10 +306,9 @@ class prio_qnet:
             # Trainers do Q-updates:
             # # #
 
-            #1) get all the values and a bool to tell if the round is over
-            dones_tf = tf.minimum(1, tf.cumsum(dones, axis=1)) #Maximum ensures there is no stray done from an adjacent trajectory influencing us...
+            #1) Evaluate all the states, and create a bool to tell if the round is over
+            dones_tf = tf.minimum(1, tf.cumsum(dones, axis=1)) #Minimum ensures there is no stray done from an adjacent trajectory influencing us...
             done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
-
             q_t_tf, v_t_tf = [], []
             for t in range(self.k_step+1):
                 scope = "main" if t==0 else "reference"
@@ -317,6 +317,8 @@ class prio_qnet:
                 q,v,ref_scope = self.create_q_head(s_t_vec, s_t_vis, scope)
                 q_t_tf.append(q)
                 v_t_tf.append(v)
+
+            #2) Do all the V-estimators, k-step style
             gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
             def k_step_estimate(k):
                 e = 0
@@ -324,8 +326,7 @@ class prio_qnet:
                     e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
                 e += v_t_tf[k] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
                 return e
-
-            estimator_steps = range(1,self.k_step+1) if self.settings["sparse_k_step_estimates"] is None else self.settings["sparse_k_step_estimates"]
+            estimator_steps = range(1,self.k_step+1) #if self.settings["sparse_k_step_estimates"] is None else self.settings["sparse_k_step_estimates"]
             estimators = [(k,k_step_estimate(k)) for k in estimator_steps]
 
             #3) GAE-style aggregation
@@ -336,7 +337,8 @@ class prio_qnet:
                 estimator_sum_tf += e * gae_lambda**k
                 weight += gae_lambda**k
             value_estimator_tf = estimator_sum_tf / weight
-            #Also we need a Q-value to update; Q(s,a,x)!
+
+            #4) Prepare a training value!
             Q_s_all = q_t_tf[0]
             r_mask = tf.reshape(tf.one_hot(actions_training[:,0,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
             t_mask = tf.reshape(tf.one_hot(actions_training[:,0,1], self.n_translations), (-1,  1, self.n_translations, 1), name='t_mask')
@@ -344,9 +346,11 @@ class prio_qnet:
             rtp_mask = r_mask*t_mask*p_mask
             _Q_s = Q_s_all * rtp_mask
             Q_s = tf.reduce_sum(_Q_s, axis=[1,2,3])
+
+            #5) Target and predicted values. Also prios for the exp-rep.
             target_values_tf = tf.stop_gradient(value_estimator_tf)
             training_values_tf = tf.expand_dims(Q_s,1)
-            # Prio-Q-net is true to it's name and computes the sample priorities for you!
+            # Prio-Q-net is true to it's name and computes the sample priorities!
             if self.settings["optimistic_prios"] == 0.0:
                 prios_tf = tf.abs(training_values_tf - target_values_tf) #priority for the experience replay
             else:
