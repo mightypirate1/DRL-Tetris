@@ -61,7 +61,7 @@ class prio_qnet:
                 self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
                 self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
             self.epsilon_tf       = tf.placeholder(tf.float32, shape=())
-            self.q_tf, self.v_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
+            self.q_tf, self.v_tf, self.a_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
                                     = self.create_duelling_qnet(
                                                             self.vector_inputs,
                                                             self.visual_inputs,
@@ -87,9 +87,10 @@ class prio_qnet:
 
     def evaluate(self,
                 inputs,
+                only_policy=False,
                 ):
         vector, visual = inputs
-        run_list = [self.q_tf, self.v_tf]
+        run_list = [self.q_tf, self.v_tf] if not only_policy else [self.a_tf]
         feed_dict = {}
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
@@ -128,10 +129,128 @@ class prio_qnet:
         for idx, vis in enumerate(visual_states):
             feed_dict[self.visual_inputs_training[idx]] = vis
         _, new_prios, stats, dbg = self.session.run(run_list, feed_dict=feed_dict)
-        for val,tensor in zip(dbg,self.debug_tensors):
-            print("---")
-            print(tensor,val[0])
+        self.debug_prints(dbg,self.debug_tensors)
         return new_prios, zip(self.stats_tensors, stats)
+
+    def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
+        with tf.variable_scope("prio_q-net") as vs:
+            q_tf, v_tf, a_tf, main_scope = self.create_q_head(vector_states, visual_states, "main")
+
+            #Workers are easy!
+            if self.worker_only:
+                return q_tf, v_tf, a_tf, None, None, None, main_scope, None
+
+            # # #
+            # Trainers do Q-updates:
+            # # #
+
+            #1) Evaluate all the states, and create a bool to tell if the round is over
+            dones_tf = tf.minimum(1, tf.cumsum(dones, axis=1)) #Minimum ensures there is no stray done from an adjacent trajectory influencing us...
+            done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
+            q_t_tf, v_t_tf = [], []
+            for t in range(self.k_step+1):
+                scope = "main" if t==0 else "reference"
+                s_t_vec = [vec_state[:,t,:] for vec_state in vector_states_training]
+                s_t_vis = [vis_state[:,t,:] for vis_state in visual_states_training]
+                q,v,_,ref_scope = self.create_q_head(s_t_vec, s_t_vis, scope)
+                q_t_tf.append(q)
+                v_t_tf.append(v)
+
+            #2) Do all the V-estimators, k-step style
+            gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
+            def k_step_estimate(k):
+                e = 0
+                for t in range(k):
+                    e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
+                e += v_t_tf[k] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
+                return e
+            estimator_steps = range(1,self.k_step+1) #if self.settings["sparse_k_step_estimates"] is None else self.settings["sparse_k_step_estimates"]
+            estimators = [(k,k_step_estimate(k)) for k in estimator_steps]
+
+            #3) GAE-style aggregation
+            weight = 0
+            estimator_sum_tf = 0
+            gae_lambda = self.settings["gae_lambda"]
+            for k,e in estimators:
+                estimator_sum_tf += e * gae_lambda**k
+                weight += gae_lambda**k
+            value_estimator_tf = estimator_sum_tf / weight
+
+            #4) Prepare a training value!
+            Q_s_all = q_t_tf[0]
+            r_mask = tf.reshape(tf.one_hot(actions_training[:,0,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
+            t_mask = tf.reshape(tf.one_hot(actions_training[:,0,1], self.n_translations), (-1,  1, self.n_translations, 1), name='t_mask')
+            p_mask = tf.reshape(tf.one_hot(pieces_training[:,0,:],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ), name='p_mask')
+            rtp_mask = r_mask*t_mask*p_mask
+            _Q_s = Q_s_all * rtp_mask
+            Q_s = tf.reduce_sum(_Q_s, axis=[1,2,3])
+
+
+            #5) Target and predicted values. Also prios for the exp-rep.
+            target_values_tf = tf.stop_gradient(value_estimator_tf)
+            training_values_tf = tf.expand_dims(Q_s,1)
+            prios_tf = tf.abs(training_values_tf - target_values_tf)
+            if self.settings["optimistic_prios"] != 0.0:
+                prios_tf += self.settings["optimistic_prios"] * tf.nn.relu(prios_tf)
+
+            if self.settings["q_target_locked_for_other_actions"]:
+                # self.LOSS_FCN_DBG(Q_s_all, rtp_mask, value_estimator_tf)
+                target_values_tf = self.create_fixed_targets(Q_s_all, rtp_mask, target_values_tf)
+                training_values_tf = Q_s_all
+
+            #As always - we like some stats!
+            self.output_as_stats(value_estimator_tf, name="target-val")
+            self.output_as_stats(done_time_tf, name="done_time")
+            # self.output_as_stats(training_values_tf, name="training-val")
+            # for k,e in estimators:
+            #     self.output_as_stats(e, name='{}_step_val_est'.format(k))
+            #     self.output_as_stats(tf.abs(target_values_tf-e), name='{}-step_val_est_diff'.format(k))
+        return q_tf, v_tf, a_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
+
+    def create_q_head(self,vectors, visuals, name):
+        with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
+            scope = vs
+            #1) create visual- and vector-encoders for the inputs!
+            hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
+            if self.settings["keyboard_conv"]:
+                _visuals = [self.create_visualencoder(vis) for vis in visuals]
+                hidden_vis = [self.create_kbd_visual(vis) for vis in _visuals]
+                A_kbd = self.create_kbd(_visuals[0]) #"my screen -> my kbd"
+            else:
+                hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
+            flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
+            flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
+
+            #2) Take some of the data-stream and compute a value-estimate
+            x = tf.concat(flat_vec+flat_vis, axis=-1)
+            V = self.create_value_head(x)
+            V_qshaped = tf.reshape(V,[-1,1,1,1]) #Shape for Q-calc!
+
+            #3) Compute advantages
+            if self.settings["keyboard_conv"]:
+                #Or if we just have them... (if I move that line down, I break some backward compatibility)
+                A = self.keyboard_range * A_kbd
+            else:
+                _A = tf.layers.dense(
+                                    x,
+                                    self.n_rotations * self.n_translations * self.n_pieces,
+                                    name='advantages_unshaped',
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
+                                    activation=self.settings["nn_output_activation"],
+                                    # bias_initializer=tf.zeros_initializer(),
+                                   )
+                A = self.keyboard_range * tf.reshape(_A, [-1, self.n_rotations, self.n_translations, self.n_pieces])
+
+            #4) Combine values and advantages to form the Q-fcn (Duelling-Q-style)
+            a_maxmasked = self.used_pieces_mask_tf * A + (1-self.used_pieces_mask_tf) * tf.reduce_min(A, axis=[1,2,3], keepdims=True)
+            _max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            max_a   = tf.reduce_sum(_max_a * self.used_pieces_mask_tf,  axis=3,     keepdims=True ) / self.n_used_pieces #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            # _mean_a = tf.reduce_mean(A,      axis=[1,2], keepdims=True )
+            # mean_a  = tf.reduce_sum(_mean_a * self.used_pieces_mask_tf, axis=3,     keepdims=True ) / self.n_used_pieces
+            A_q  = (A - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
+            Q = V_qshaped + A_q
+        return Q, V, A, scope
 
     def create_vectorencoder(self, x):
         with tf.variable_scope("vectorencoder", reuse=tf.AUTO_REUSE) as vs:
@@ -170,7 +289,7 @@ class prio_qnet:
                                         bias_initializer=tf.zeros_initializer(),
                                     )
                 if n in self.settings["visualencoder_peepholes"] and self.settings["peephole_convs"]:
-                    x = tf.concat([y,x], axis=-1)
+                    x = self.peephole_join(x,y,mode=self.settings["peephole_join_style"])
                 else:
                     x = y
                 if n in self.settings["visualencoder_poolings"]:
@@ -246,130 +365,15 @@ class prio_qnet:
                            )
         return x
 
-    def create_q_head(self,vectors, visuals, name):
-        with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
-            scope = vs
-            #1) create visual- and vector-encoders for the inputs!
-            hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
-            if self.settings["keyboard_conv"]:
-                _visuals = [self.create_visualencoder(vis) for vis in visuals]
-                hidden_vis = [self.create_kbd_visual(vis) for vis in _visuals]
-                A_kbd = self.create_kbd(_visuals[0]) #"my screen -> my kbd"
-            else:
-                hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
-            flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
-            flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
-
-            #2) Take some of the data-stream and compute a value-estimate
-            x = tf.concat(flat_vec+flat_vis, axis=-1)
-            V = self.create_value_head(x)
-            V_qshaped = tf.reshape(V,[-1,1,1,1]) #Shape for Q-calc!
-
-            #3) Compute advantages
-            if self.settings["keyboard_conv"]:
-                #Or if we just have them... (if I move that line down, I break some backward compatibility)
-                A = self.keyboard_range * A_kbd
-            else:
-                _A = tf.layers.dense(
-                                    x,
-                                    self.n_rotations * self.n_translations * self.n_pieces,
-                                    name='advantages_unshaped',
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
-                                    activation=self.settings["nn_output_activation"],
-                                    # bias_initializer=tf.zeros_initializer(),
-                                   )
-                A = self.keyboard_range * tf.reshape(_A, [-1, self.n_rotations, self.n_translations, self.n_pieces])
-
-            #
-            ###
-            #####
-            #4) Combine values and advantages to form the Q-fcn (Duelling-Q-style)
-            a_maxmasked = self.used_pieces_mask_tf * A + (1-self.used_pieces_mask_tf) * tf.reduce_min(A, axis=[1,2,3], keepdims=True)
-            _max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
-            max_a   = tf.reduce_sum(_max_a * self.used_pieces_mask_tf,  axis=3,     keepdims=True ) / self.n_used_pieces #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
-            # _mean_a = tf.reduce_mean(A,      axis=[1,2], keepdims=True )
-            # mean_a  = tf.reduce_sum(_mean_a * self.used_pieces_mask_tf, axis=3,     keepdims=True ) / self.n_used_pieces
-            A_q  = (A - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
-            Q = V_qshaped + A_q
-        return Q, V, scope
-
-    def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
-        with tf.variable_scope("prio_q-net") as vs:
-            q_tf, v_tf, main_scope = self.create_q_head(vector_states, visual_states, "main")
-
-            #Workers are easy!
-            if self.worker_only:
-                return q_tf, v_tf, None, None, None, main_scope, None
-
-            # # #
-            # Trainers do Q-updates:
-            # # #
-
-            #1) Evaluate all the states, and create a bool to tell if the round is over
-            dones_tf = tf.minimum(1, tf.cumsum(dones, axis=1)) #Minimum ensures there is no stray done from an adjacent trajectory influencing us...
-            done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
-            q_t_tf, v_t_tf = [], []
-            for t in range(self.k_step+1):
-                scope = "main" if t==0 else "reference"
-                s_t_vec = [vec_state[:,t,:] for vec_state in vector_states_training]
-                s_t_vis = [vis_state[:,t,:] for vis_state in visual_states_training]
-                q,v,ref_scope = self.create_q_head(s_t_vec, s_t_vis, scope)
-                q_t_tf.append(q)
-                v_t_tf.append(v)
-
-            #2) Do all the V-estimators, k-step style
-            gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
-            def k_step_estimate(k):
-                e = 0
-                for t in range(k):
-                    e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
-                e += v_t_tf[k] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
-                return e
-            estimator_steps = range(1,self.k_step+1) #if self.settings["sparse_k_step_estimates"] is None else self.settings["sparse_k_step_estimates"]
-            estimators = [(k,k_step_estimate(k)) for k in estimator_steps]
-
-            #3) GAE-style aggregation
-            weight = 0
-            estimator_sum_tf = 0
-            gae_lambda = self.settings["gae_lambda"]
-            for k,e in estimators:
-                estimator_sum_tf += e * gae_lambda**k
-                weight += gae_lambda**k
-            value_estimator_tf = estimator_sum_tf / weight
-
-            #4) Prepare a training value!
-            Q_s_all = q_t_tf[0]
-            r_mask = tf.reshape(tf.one_hot(actions_training[:,0,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
-            t_mask = tf.reshape(tf.one_hot(actions_training[:,0,1], self.n_translations), (-1,  1, self.n_translations, 1), name='t_mask')
-            p_mask = tf.reshape(tf.one_hot(pieces_training[:,0,:],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ), name='p_mask')
-            rtp_mask = r_mask*t_mask*p_mask
-            _Q_s = Q_s_all * rtp_mask
-            Q_s = tf.reduce_sum(_Q_s, axis=[1,2,3])
-
-            #5) Target and predicted values. Also prios for the exp-rep.
-            target_values_tf = tf.stop_gradient(value_estimator_tf)
-            training_values_tf = tf.expand_dims(Q_s,1)
-            # Prio-Q-net is true to it's name and computes the sample priorities!
-            if self.settings["optimistic_prios"] == 0.0:
-                prios_tf = tf.abs(training_values_tf - target_values_tf) #priority for the experience replay
-            else:
-                prios_tf = tf.abs(training_values_tf - target_values_tf) + self.settings["optimistic_prios"] * tf.nn.relu(target_values_tf - training_values_tf)
-
-            #As always - we like some stats!
-            self.output_as_stats(value_estimator_tf, name="target-val")
-            self.output_as_stats(done_time_tf, name="done_time")
-            # self.output_as_stats(training_values_tf, name="training-val")
-            # for k,e in estimators:
-            #     self.output_as_stats(e, name='{}_step_val_est'.format(k))
-            #     self.output_as_stats(tf.abs(target_values_tf-e), name='{}-step_val_est_diff'.format(k))
-        return q_tf, v_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
-
     def create_training_ops(self):
         if self.worker_only:
             return None
-        weights = self.loss_weights_tf
-        self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.training_values_tf, weights=weights)
+        if self.settings["q_target_locked_for_other_actions"]:
+            sq_error = tf.math.squared_difference(self.target_values_tf, self.training_values_tf)
+            ssq_error = tf.expand_dims(tf.reduce_sum(sq_error,axis=[1,2,3]),1)
+            self.value_loss_tf = tf.losses.mean_squared_error(ssq_error, [[0.0]], weights=self.loss_weights_tf)
+        else:
+            self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.training_values_tf, weights=self.loss_weights_tf)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
         self.loss_tf = self.value_loss_tf + self.regularizer_tf
         training_ops = self.settings["optimizer"](learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
@@ -447,6 +451,35 @@ class prio_qnet:
             return
         self.stats_tensors.append(tf.reduce_max(tensor, axis=0, name=name+'_max'))
         self.stats_tensors.append(tf.reduce_min(tensor, axis=0, name=name+'_min'))
+
+    def debug_prints(self,vals,tensors):
+        for val,tensor in zip(vals,tensors):
+            v = val if tensor.shape.rank == 0 else val[0]
+            print(tensor,v)
+
+    def create_fixed_targets(self, Q, mask, target):
+        _target = tf.reshape(target, [-1,1,1,1]) * mask
+        return _target + (1-mask) * Q
+    def peephole_join(self,x,y, mode="concat"):
+        if mode == "add":
+            nx,ny = x.shape[3], y.shape[3]
+            larger = x if nx > ny else y
+            smaller = y if nx > ny else x
+            x = larger[:,:,:,:smaller.shape[3]] + smaller
+            y = larger[:,:,:,smaller.shape[3]:]
+        return tf.concat([y,x], axis=-1)
+
+    # def LOSS_FCN_DBG(self, Q, mask, target):
+    #     train_val1 = tf.expand_dims(tf.reduce_sum(Q * mask, axis=[1,2,3]),1)
+    #     target_val1 = target
+    #     loss1 = tf.losses.mean_squared_error(target_val1, train_val1)
+    #
+    #     _target = tf.reshape(target, [-1,1,1,1]) * mask
+    #     target_val2 = _target + (1-mask) * Q
+    #     train_val2 = Q
+    #     loss2 = tf.losses.mean_squared_error(target_val2, train_val2)
+    #     self.debug_tensors.append(loss1)
+    #     self.debug_tensors.append(loss2)
 
     @property
     def output(self):

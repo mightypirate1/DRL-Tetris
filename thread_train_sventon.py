@@ -35,8 +35,9 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-X05-maxAdvantage-rerun0",
+            "run-id" : "SVENton-Q02-0",
             "state_processor_separate_piece" : True,
+            "q_target_locked_for_other_actions" : True,
             "old_state_dict" : False,
             "keyboard_conv" : True,
             "keyboard_range" : 0.7,
@@ -45,14 +46,14 @@ settings = {
             # "render_simulation" : True
 
             #Train parameters
-            "gae_lambda"                : 0.96, #0.95 default
+            "gae_lambda"                : 0.92, #0.95 default
             "n_step_value_estimates"    : 37,
-            "n_samples_each_update"     : 16384,
-            # "n_samples_each_update"     : 8192,
-            "minibatch_size"            : 64, #128
+            # "n_samples_each_update"     : 16384,
+            "n_samples_each_update"     : 8192,
+            "minibatch_size"            : 128, #128
             "n_train_epochs_per_update" : 1,  #5
-            "time_to_reference_update"  : 2, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=2/total_steps),
+            "time_to_reference_update"  : 1, #How after how many do_training calls do we update the reference-model?
+            "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=2/total_steps),
             # "n_samples_to_start_training" : 40000, #0
 
             #Exp-replay parameters
@@ -101,28 +102,29 @@ settings = {
             #Communication
             "trainer_thread_save_freq"  : 100,
             "trainer_thread_backup_freq"  : 10,
-            "worker_data_send_fequency" : 5,
+            "worker_data_send_fequency" : 1,
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
 
             #Value net:
             "vectorencoder_n_hidden" : 0,
             "vectorencoder_hidden_size" : 256,
-            "vectorencoder_output_size" : 32,
+            "vectorencoder_output_size" : 27,
             ###
             "pad_visuals"      : True,
-            "visualencoder_n_convs" : 4,
-            "visualencoder_n_filters" : (64,64,32,32),
-            "visualencoder_filter_sizes" : ((3,3),(4,4),(5,5),(5,5),),
-            "peephole_convs"   : False,
+            "visualencoder_n_convs" : 3,
+            "visualencoder_n_filters" : (64,32,32,32),
+            "visualencoder_filter_sizes" : ((3,3),(4,4),(4,4),(5,5),),
+            "peephole_convs"   : True,
+            "peephole_join_style"   : "add", #"concat"
+            "visualencoder_peepholes" : [0,],
             ##Kbd-vis
-            "kbd_vis_n_convs" : 1,
-            "kbd_vis_n_filters" : [32,32],
+            "kbd_vis_n_convs" : 3,
+            "kbd_vis_n_filters" : [64,64,32],
             ##Kbd
             "keyboard_n_convs" : 2,
 
             # "visualencoder_poolings" : [], #Pooling after layer numbers in this list
-            # "visualencoder_peepholes" : [0,1,2],
             ###
             "valuenet_n_hidden" : 1,
             "valuenet_hidden_size" : 256,

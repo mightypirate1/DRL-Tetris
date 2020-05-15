@@ -57,10 +57,10 @@ class vector_q_agent_base:
         old_clock = self.clock
         self.clock = clock
 
-    def run_model(self, net, states, player=None):
+    def run_model(self, net, states, player=None, only_policy=False):
         assert player is not None, "Specify a player to run the model for!"
         vec, vis, piece = self.unpack(states, player)
-        return (*net.evaluate((vec, vis)), piece)
+        return (*net.evaluate((vec, vis), only_policy=only_policy), piece)
 
     def model_runner(self, net):
         if type(net) is str:

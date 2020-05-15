@@ -94,7 +94,7 @@ class vector_q_agent(vector_q_agent_base):
             model = self.model_dict["policy_{}".format(p_list[0])]
 
         #Run model!
-        Q, _, pieces = self.run_model(model, state_vec, player=p_list)
+        A, pieces = self.run_model(model, state_vec, only_policy=True, player=p_list)
 
         #Choose an action . . .
         distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
@@ -102,16 +102,17 @@ class vector_q_agent(vector_q_agent_base):
         for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
             piece, _ = _piece
             if distribution == "argmax":
-                (r, t), entropy = q.action_argmax(Q[i,:,:,piece])
+                (r, t), entropy = q.action_argmax(A[i,:,:,piece])
             elif distribution == "pareto_distribution":
                 theta = self.theta = self.settings["action_temperature"](self.clock)
-                (r, t), entropy = q.action_pareto(Q[i,:,:,piece], theta)
+                (r, t), entropy = q.action_pareto(A[i,:,:,piece], theta)
             elif distribution == "boltzman_distribution":
+                assert False, "boltzman_distribution is deprecated"
                 theta = self.theta = self.settings["action_temperature"](self.clock)
-                (r, t), entropy = q.action_boltzman(Q[i,:,:,piece], theta)
+                (r, t), entropy = q.action_boltzman(A[i,:,:,piece], theta)
             elif distribution == "adaptive_epsilon":
                 epsilon = self.settings["epsilon"](self.clock) * self.avg_trajectory_length**(-1)
-                (r, t), entropy = q.action_epsilongreedy(Q[i,:,:,piece], epsilon)
+                (r, t), entropy = q.action_epsilongreedy(A[i,:,:,piece], epsilon)
             else:
                 raise Exception("specify a supported distribution for selecting actions please! see code right above this line to see what the options are :)")
             self.action_entropy = entropy
