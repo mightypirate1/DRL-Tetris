@@ -78,6 +78,7 @@ class trainer_thread(mp.Process):
                                                          settings=self.settings,
                                                          init_weights=self.init_weights,
                                                          init_clock=self.init_clock,
+                                                         summarizer=self.quick_summary,
                                                         )
 
             ### ## ## # # #
@@ -139,7 +140,8 @@ class trainer_thread(mp.Process):
                  "Current speed"             : current_speed,
                  "Time spent training"       : frac_train,
                 }
-            s.update(self.trainer.stats)
+            # s.update(self.trainer.stats)
+            self.trainer.report_stats()
             self.quick_summary.update(s, time=self.current_step())
         # print("load!",flush=True)
 

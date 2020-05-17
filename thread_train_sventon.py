@@ -35,25 +35,26 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-Q02-0",
+            "run-id" : "SVENton-Q06-k7-1-batch1024-experimentalPRIO",
             "state_processor_separate_piece" : True,
             "q_target_locked_for_other_actions" : True,
+            "advantage_type" : "mean", # "max",
             "old_state_dict" : False,
             "keyboard_conv" : True,
-            "keyboard_range" : 0.7,
-
+            "keyboard_range" : 0.3,
+            # "EXPERIMENTAL_PRIOS" : True,
             "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True
 
             #Train parameters
-            "gae_lambda"                : 0.92, #0.95 default
-            "n_step_value_estimates"    : 37,
+            "gae_lambda"                : 0.87, #0.95 default
+            "n_step_value_estimates"    : 7,
             # "n_samples_each_update"     : 16384,
             "n_samples_each_update"     : 8192,
-            "minibatch_size"            : 128, #128
-            "n_train_epochs_per_update" : 1,  #5
-            "time_to_reference_update"  : 1, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=2/total_steps),
+            "minibatch_size"            : 1024, #128
+            "n_train_epochs_per_update" : 1,
+            "time_to_reference_update"  : 3, #How after how many do_training calls do we update the reference-model?
+            "value_lr"                  : exp_parameter(5e-5, base=10.0, decay=2/total_steps),
             # "n_samples_to_start_training" : 40000, #0
 
             #Exp-replay parameters
@@ -64,14 +65,16 @@ settings = {
             # "experience_replay_sample_mode" : 'proportional',
 
             "alternating_models"        : False,
-            "time_to_training"          : 10**3,
+            "time_to_training"          : 0,#10**3,
             "single_policy"             : True,
 
             #Dithering
             "dithering_scheme"    : "pareto_distribution",
-            "action_temperature"  : linear_parameter(1, final_val=4.0, time_horizon=total_steps),
+            "action_temperature"  : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
             # "dithering_scheme"    : "adaptive_epsilon",
-            # "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
+            # "epsilon"  : linear_parameter(10, final_val=0.0, time_horizon=total_steps),
+            # "dithering_scheme"    : "epsilon",
+            # "epsilon"  : exp_parameter(0.5, base=10.0, decay=2/total_steps),
             "optimistic_prios" : 0.0,
 
             #Rewards
@@ -101,34 +104,36 @@ settings = {
 
             #Communication
             "trainer_thread_save_freq"  : 100,
-            "trainer_thread_backup_freq"  : 10,
+            "trainer_thread_backup_freq"  : 1,
             "worker_data_send_fequency" : 1,
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
 
             #Value net:
-            "vectorencoder_n_hidden" : 0,
-            "vectorencoder_hidden_size" : 256,
+            "vectorencoder_n_hidden" : 2,
+            "vectorencoder_hidden_size" : 512,
             "vectorencoder_output_size" : 27,
             ###
             "pad_visuals"      : True,
-            "visualencoder_n_convs" : 3,
-            "visualencoder_n_filters" : (64,32,32,32),
-            "visualencoder_filter_sizes" : ((3,3),(4,4),(4,4),(5,5),),
-            "peephole_convs"   : True,
+            "visualencoder_n_convs" : 5,
+            "visualencoder_n_filters" : (64,64,64,64,128),
+            "visualencoder_filter_sizes" : ((5,5),(5,3),(3,5),(4,4),(4,4),),
+            "visualencoder_poolings" : [1,3], #Pooling after layer numbers in this list
+            "visualencoder_dropout" : 0.15, #Is this keep-rate or drop-rate...?
+            "peephole_convs"   : False,
             "peephole_join_style"   : "add", #"concat"
-            "visualencoder_peepholes" : [0,],
+            "visualencoder_peepholes" : [0,4],
             ##Kbd-vis
             "kbd_vis_n_convs" : 3,
-            "kbd_vis_n_filters" : [64,64,32],
+            "kbd_vis_n_filters" : [128,128,128],
             ##Kbd
             "keyboard_n_convs" : 2,
+            "keyboard_filter_sizes" : (64,),
 
-            # "visualencoder_poolings" : [], #Pooling after layer numbers in this list
             ###
             "valuenet_n_hidden" : 1,
-            "valuenet_hidden_size" : 256,
-            "nn_regularizer" : 0.001,
+            "valuenet_hidden_size" : 512,
+            "nn_regularizer" : 0.0001,
             "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,
             "optimizer" : tf.train.AdamOptimizer,

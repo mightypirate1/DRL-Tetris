@@ -113,6 +113,9 @@ class vector_q_agent(vector_q_agent_base):
             elif distribution == "adaptive_epsilon":
                 epsilon = self.settings["epsilon"](self.clock) * self.avg_trajectory_length**(-1)
                 (r, t), entropy = q.action_epsilongreedy(A[i,:,:,piece], epsilon)
+            elif distribution == "epsilon":
+                epsilon = self.settings["epsilon"](self.clock)
+                (r, t), entropy = q.action_epsilongreedy(A[i,:,:,piece], epsilon)
             else:
                 raise Exception("specify a supported distribution for selecting actions please! see code right above this line to see what the options are :)")
             self.action_entropy = entropy
@@ -120,6 +123,12 @@ class vector_q_agent(vector_q_agent_base):
 
         #Nearly done! Just need to create the actions...
         actions = [q.make_q_action(r,t) for r,t,_ in action_idxs]
+
+        # DBG
+        # _A = A[0,:,:,piece]
+        # # print(_A / np.max(np.abs(_A)))
+        # print(_A)
+        # print(r,t);input()
 
         #Keep the clock going...
         if training:

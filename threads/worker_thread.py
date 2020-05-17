@@ -216,23 +216,7 @@ class worker_thread(mp.Process):
         print("real time:", time.ctime())
         print("loop-time:", loop_time, "/",self.n_steps)
         print("clock: {}".format(self.agent.clock))
-        print("n_experiences: {}".format(self.agent.n_experiences))
-        print("data sent: {} tuples in {} trajectories".format(self.agent.send_length, self.agent.send_count))
-        print("data sent per iteration: {}".format(self.agent.send_length/max(1,loop_time)))
-        print("average trajectory length: {}".format(self.agent.avg_trajectory_length))
-        print("action temperature: {}".format(self.agent.theta))
-        print("action entropy: {}".format(self.agent.action_entropy))
-        print("Epsilon: {}".format(self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1)))
         print("current weights: {} : {}".format(self.current_weights, self.current_weights_timestamp))
-        if self.quick_summary is not None:
-            s = {
-                #"Avg. combo-reward"          : self.agent.env.tot_combo_reward / self.agent.rounds_played,
-                 "Epsilon (adative)"         : self.settings["epsilon"].get_value(self.agent.clock) * self.agent.avg_trajectory_length**(-1),
-                 "Action entropy"            : self.agent.action_entropy,
-                 "Action temperature"        : self.agent.theta,
-                 }
-            s.update(self.agent.stats)
-            self.quick_summary.update(s, time=self.agent.clock)
     def report_wasted_data(self):
         # Some people are curious to see how much data is still in the worker when the training is finnished.
         waste = sum([len(t) for t in self.agent.current_trajectory])
@@ -242,7 +226,8 @@ class worker_thread(mp.Process):
             return self.agent.clock
         else:
             return self.shared_vars["global_clock"].value
-    def walltime(self):        return time.time() - self.t_thread_start
+    def walltime(self):
+        return time.time() - self.t_thread_start
 
     def __str__(self):
         return "thread( type={}, ID={})".format(type(self), self.id)

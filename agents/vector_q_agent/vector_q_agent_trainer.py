@@ -19,6 +19,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
                  settings=None,             # Settings-dict passed down from the ancestors
                  init_weights=None,
                  init_clock=0,
+                 summarizer=None,
                 ):
 
         #Some general variable initialization etc...
@@ -64,6 +65,8 @@ class vector_q_agent_trainer(vector_q_agent_base):
             self.n_samples_to_start_training = self.settings["restart_training_delay"]
             self.load_weights(init_weights,init_weights)
 
+        self.summarizer = summarizer
+        self.conv_visualizations = {}
         self.n_train_steps["total"] = 0
         self.n_samples_from = [0 for _ in range(self.settings["n_workers"])]
         self.train_time_log = {
@@ -156,7 +159,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
             last_epoch = t+1 == n_epochs
             perm = np.random.permutation(n) if not last_epoch else np.arange(n)
             for i in range(0,n,minibatch_size):
-                _new_prio, stats = model.train(
+                _new_prio, stats, vis = model.train(
                                                [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
                                                [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
                                                actions[perm[i:i+minibatch_size]],
@@ -165,6 +168,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
                                                dones[perm[i:i+minibatch_size]],
                                                weights=is_weights[perm[i:i+minibatch_size]],
                                                lr=self.settings["value_lr"].get_value(self.clock),
+                                               fetch_visualizations=last_epoch,
                                               )
                 self.train_stats_raw.append(stats)
                 if last_epoch: new_prio[i:i+minibatch_size] = _new_prio
@@ -182,7 +186,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
         self.n_train_steps['total'] += 1
         self.n_train_steps[policy]  += 1
         #Some stats:
-        self.generate_training_stats()
+        self.generate_training_stats(vis)
         self.update_stats(exp_rep.stats, scope="ExpRep_"+policy)
 
         #Update prios if we sampled the sample ourselves...
@@ -191,7 +195,7 @@ class vector_q_agent_trainer(vector_q_agent_base):
 
         return True
 
-    def generate_training_stats(self):
+    def generate_training_stats(self,vis):
         stats, counts = {}, {}
         for train_stat_batch in self.train_stats_raw:
             for tensor, data in train_stat_batch:
@@ -210,7 +214,11 @@ class vector_q_agent_trainer(vector_q_agent_base):
             stats[tensor_name] = stats[tensor_name] / counts[tensor_name]
         self.train_stats_raw.clear()
         self.stats.update(stats)
+        self.conv_visualizations = {}
+        for tensor,img in vis:
+            self.conv_visualizations[tensor.name] = vis
         return self.stats
+
     def update_stats(self, stats, scope=None):
         if scope is None:
             scope = ""
@@ -218,6 +226,10 @@ class vector_q_agent_trainer(vector_q_agent_base):
             scope += "/"
         for key in stats:
             self.stats[scope+key] = stats[key]
+
+    def report_stats(self):
+        self.summarizer.update(self.stats, time=self.clock)
+        self.summarizer.image(self.conv_visualizations, time=self.clock)
 
     def update_scoreboard(self, winner):
         if type(winner) is not str:

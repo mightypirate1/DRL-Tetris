@@ -16,4 +16,10 @@ class quick_summary:
         for x in stats_dict:
             summary.value.add(tag=x, simple_value=np.mean(stats_dict[x]))
         self.summary_writer.add_summary(summary, t)
-        self.summary_writer.flush
+        self.summary_writer.flush()
+
+    def image(self, image_dict, time=0):
+        t = time-self.init_time
+        for name in image_dict:
+            img = tf.summary.image(name, image_dict[name], step=t)
+            self.summary_writer.add_summary(img,t)

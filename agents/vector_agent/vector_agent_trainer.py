@@ -19,12 +19,14 @@ class vector_agent_trainer(vector_agent_base):
                  settings=None,             # Settings-dict passed down from the ancestors
                  init_weights=None,
                  init_clock=0,
+                 summarizer=None,
                 ):
 
         #Some general variable initialization etc...
         vector_agent_base.__init__(self, id=id, name="trainer{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
         self.verbose_training = self.settings["run_standalone"]
         self.train_stats_raw = list()
+        self.summarizer = surmmarizer
 
         #Create models
         self.model_dict = {}
@@ -217,6 +219,9 @@ class vector_agent_trainer(vector_agent_base):
             scope += "/"
         for key in stats:
             self.stats[scope+key] = stats[key]
+
+    def report_stats(self):
+        pass
 
     def update_scoreboard(self, winner):
         if type(winner) is not str:

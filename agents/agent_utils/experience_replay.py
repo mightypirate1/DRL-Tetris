@@ -55,7 +55,7 @@ class experience_replay:
 
         #Sample indices to make a batch out of!
         idx_dict = {}
-        indices = np.random.choice(all_indices, replace=True, size=n_samples, p=p).tolist()
+        indices = np.random.choice(all_indices, replace=False, size=n_samples, p=p).tolist()
 
         ##Index-tracking to make prio-updates easy
         i = 0
@@ -82,7 +82,7 @@ class experience_replay:
                           }
         return data, is_weights, filter
 
-    def add_samples(self, data, prio):
+    def add_samples(self, data, prio, retrieve_samples=True):
         s, a, r, d = data
         vec_s, vis_s   = s[:2]
         n = prio.size
@@ -95,6 +95,8 @@ class experience_replay:
         self._dones[idxs,:]    = d
         self._actions[idxs,:]  = a
         self.prios[idxs,:]    = prio
+        if retrieve_samples:
+            return self.retrieve_samples_by_idx(idxs)
 
     def add_indices(self, n):
         if self.current_idx + n > self.max_size:

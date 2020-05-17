@@ -62,10 +62,13 @@ class q_trajectory(trajectory):
         d = np.array( self.d          ).reshape((-1,1))
 
         # #Prelinary prios! (They may differ from the "real" prios, since they are computed as a 1-step td-error without a reference net)
+        '''
         _Q, V, pieces = model((_s), player=_p)
         Qs = np.array([q[r,t,p] for (r,t,p),q in zip(self.a,_Q[:-1])]).reshape(-1,1)
         Vsp = V[1:]
         td_error = r + gamma_discount * Vsp - Qs
+        '''
+        td_error = 4*np.ones_like(r)
         prios = np.abs(td_error)
         s  = state_fcn(self.s, player=self.p)
         data = (s,a,r,d) # s[t,0,:] <- s_t, s[t,1,:] <- s_(t+1) etc
