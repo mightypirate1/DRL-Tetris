@@ -372,6 +372,8 @@ class prio_qnet:
             sq_error = tf.math.squared_difference(self.target_values_tf, self.training_values_tf)
             ssq_error = tf.expand_dims(tf.reduce_sum(sq_error,axis=[1,2,3]),1)
             self.value_loss_tf = tf.losses.mean_squared_error(ssq_error, [[0.0]], weights=self.loss_weights_tf)
+            self.argmax_entropy_tf = self.argmax_entropy_reg(self.training_values_tf)
+            self.output_as_stats(self.argmax_entropy_tf)
         else:
             self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.training_values_tf, weights=self.loss_weights_tf)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
@@ -469,17 +471,12 @@ class prio_qnet:
             y = larger[:,:,:,smaller.shape[3]:]
         return tf.concat([y,x], axis=-1)
 
-    # def LOSS_FCN_DBG(self, Q, mask, target):
-    #     train_val1 = tf.expand_dims(tf.reduce_sum(Q * mask, axis=[1,2,3]),1)
-    #     target_val1 = target
-    #     loss1 = tf.losses.mean_squared_error(target_val1, train_val1)
-    #
-    #     _target = tf.reshape(target, [-1,1,1,1]) * mask
-    #     target_val2 = _target + (1-mask) * Q
-    #     train_val2 = Q
-    #     loss2 = tf.losses.mean_squared_error(target_val2, train_val2)
-    #     self.debug_tensors.append(loss1)
-    #     self.debug_tensors.append(loss2)
+    def argmax_entropy_reg(self, q):
+        q_max = tf.reduce_max(q, axis=[1,2], keepdims=True)
+        q_argmax_mask = tf.cast(q-q_max>=0, tf.float32)
+        #distribution of the argmaxes
+        p = tf.reduce_mean(q_argmax_mask, axis=[0,3])
+        argmax_entropy = tf.reduce_sum( p * tf.math.log(p) )
 
     @property
     def output(self):
