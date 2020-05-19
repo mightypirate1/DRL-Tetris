@@ -74,6 +74,8 @@ default_settings = {
                     #Prio-Q-Net
                     "keyboard_conv" : False,
                     "keyboard_range" : 0.7,
+                    "piece_advantage_range" : 0.5,
+                    "separate_piece_values" : False,
                     "keyboard_n_convs" : 2,
                     "keyboard_filter_sizes" : (32,),
                     ##Kbd-vis
