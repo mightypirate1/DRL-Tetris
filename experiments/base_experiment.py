@@ -15,6 +15,11 @@
 ##
 ##  Note: Settings not specified reverts to their default values found
 ##  in aux/settings.py.
+##
+##  Note: when this code is expecuted, a variable named "total_steps" will
+##  be available. It is an integer value specifying the total number of
+##  steps that will be taken during training.
+
 settings = {
             "run-id" : "base_0",
             }
