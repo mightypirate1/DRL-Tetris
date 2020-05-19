@@ -35,26 +35,31 @@ render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            "run-id" : "SVENton-Q06-k7-1-batch1024-experimentalPRIO",
+            # "run-id" : "SVENton-Q06-k23sparse-16-experimentalPRIO-nokbd",
+            "run-id" : "dbg050-rerun1-kbd",
             "state_processor_separate_piece" : True,
-            "q_target_locked_for_other_actions" : True,
-            "advantage_type" : "mean", # "max",
+            "q_target_locked_for_other_actions" : False,
+            "advantage_type" : "max",#,"none",#"mean", #"max",
             "old_state_dict" : False,
-            "keyboard_conv" : True,
-            "keyboard_range" : 0.3,
-            # "EXPERIMENTAL_PRIOS" : True,
+            "keyboard_conv" : True, #True,
+
+            "separate_piece_values" : False,
+            "keyboard_range" : 0.7,
+            "piece_advantage_range" : 0.5,
+
+            "EXPERIMENTAL_estimate" : True,
             "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True
 
             #Train parameters
-            "gae_lambda"                : 0.87, #0.95 default
-            "n_step_value_estimates"    : 7,
+            "gae_lambda"                : 0.92, #0.95 default
+            "n_step_value_estimates"    : 17,
             # "n_samples_each_update"     : 16384,
             "n_samples_each_update"     : 8192,
-            "minibatch_size"            : 1024, #128
+            "minibatch_size"            : 256,#256, #128
             "n_train_epochs_per_update" : 1,
             "time_to_reference_update"  : 3, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : exp_parameter(5e-5, base=10.0, decay=2/total_steps),
+            "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=2/total_steps),
             # "n_samples_to_start_training" : 40000, #0
 
             #Exp-replay parameters
@@ -69,12 +74,12 @@ settings = {
             "single_policy"             : True,
 
             #Dithering
-            "dithering_scheme"    : "pareto_distribution",
-            "action_temperature"  : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
+            # "dithering_scheme"    : "pareto_distribution",
+            # "action_temperature"  : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
             # "dithering_scheme"    : "adaptive_epsilon",
             # "epsilon"  : linear_parameter(10, final_val=0.0, time_horizon=total_steps),
-            # "dithering_scheme"    : "epsilon",
-            # "epsilon"  : exp_parameter(0.5, base=10.0, decay=2/total_steps),
+            "dithering_scheme"    : "epsilon",
+            "epsilon"  : exp_parameter(1.0, base=10.0, decay=2/total_steps),
             "optimistic_prios" : 0.0,
 
             #Rewards
@@ -85,8 +90,11 @@ settings = {
             # "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
 
             #Game settings
-            "pieces" : [0,6],
-            "game_size" : [22,10],
+            "pieces" : [0,],
+            "game_size" : [10,6],
+            # "game_size" : [10,10],
+            # "pieces" : [0,6],
+            # "game_size" : [22,10],
             "time_elapsed_each_action" : 400,
             #Types
             "env_vector_type"   : tetris_environment_vector,
@@ -110,28 +118,27 @@ settings = {
             "workers_do_processing"     : True,
 
             #Value net:
-            "vectorencoder_n_hidden" : 2,
-            "vectorencoder_hidden_size" : 512,
-            "vectorencoder_output_size" : 27,
+            "vectorencoder_n_hidden" : 1,
+            "vectorencoder_hidden_size" : 256,
+            "vectorencoder_output_size" : 32,
             ###
             "pad_visuals"      : True,
-            "visualencoder_n_convs" : 5,
-            "visualencoder_n_filters" : (64,64,64,64,128),
-            "visualencoder_filter_sizes" : ((5,5),(5,3),(3,5),(4,4),(4,4),),
-            "visualencoder_poolings" : [1,3], #Pooling after layer numbers in this list
+            "visualencoder_n_convs" : 3,
+            "visualencoder_n_filters" : (64,64,128,),
+            "visualencoder_filter_sizes" : ((5,5),(5,3),(5,3),),
+            "visualencoder_poolings" : [3], #Pooling after layer numbers in this list
             "visualencoder_dropout" : 0.15, #Is this keep-rate or drop-rate...?
-            "peephole_convs"   : False,
+            "peephole_convs"   : True,
             "peephole_join_style"   : "add", #"concat"
-            "visualencoder_peepholes" : [0,4],
+            "visualencoder_peepholes" : [0,1],
             ##Kbd-vis
             "kbd_vis_n_convs" : 3,
             "kbd_vis_n_filters" : [128,128,128],
             ##Kbd
-            "keyboard_n_convs" : 2,
-            "keyboard_filter_sizes" : (64,),
-
+            "keyboard_n_convs" : 3,
+            "keyboard_n_filters" : (64,64,),
             ###
-            "valuenet_n_hidden" : 1,
+            "valuenet_n_hidden" : 2,
             "valuenet_hidden_size" : 512,
             "nn_regularizer" : 0.0001,
             "nn_output_activation" : tf.nn.tanh,
@@ -160,6 +167,7 @@ process_manager = threads.threaded_runner.threaded_runner(settings=settings, res
 #We get better error messages if we run just one process. Activate with "--debug"
 if debug:
     print("Executing only thread_0:")
+    process_manager = threads.threaded_runner.threaded_runner(settings=settings, restart=(restart_file, restart_clock))
     process_manager.threads["workers"][0].run()
     print("___")
     exit("thread debug run done.")
