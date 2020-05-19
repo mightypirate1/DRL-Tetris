@@ -133,10 +133,15 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         #Reset the envs that reach terminal states
         for i,d in enumerate(done):
             if d:
+                #End current round, resets etc
                 assert n_envs == 1, "Scoreboard will not be correct unless n_envs == 1"
                 for p,dead in enumerate(env.envs[0].get_info()["is_dead"]):
                     if not dead:
                         game_score.declare_winner(name[p])
+                print(game_score.score_table())
+                print("Round ended. {}".format(t-trajectory_start))
+                env.reset(env=i)
+                #Prepare next round!
                 agent, name = random_match() #change who's go it is!
                 game_score.set_current_players(name)
                 for a,w in zip(agent, run_settings["<weights>"]):
@@ -147,10 +152,6 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                             a.load_weights(*utils.weight_location(w))
                         except:
                             print("Failed to re-load weights...")
-                    a.ready_for_new_round(training=False, env=i)
-                print(game_score.score_table())
-                print("Round ended. {} steps (avg: {})".format(t-trajectory_start))
                 current_player[i] = np.random.choice([0,1])
-                env.reset(env=i)
                 round_reward = [0,0]
                 trajectory_start = t+1

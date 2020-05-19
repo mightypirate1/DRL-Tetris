@@ -2,8 +2,9 @@ from itertools import combinations, repeat
 
 class scoreboard:
     def __init__(self, ids, width=200000000):
-        self._x = dict( zip(combinations(ids, 2), repeat(0) )) #match-up score diff
-        self._n = dict( zip(combinations(ids, 2), repeat(0) )) #match-up count
+
+        self._x = dict( zip(combinations(sorted(ids), 2), repeat(0) )) #match-up score diff
+        self._n = dict( zip(combinations(sorted(ids), 2), repeat(0) )) #match-up count
         self._stats = dict(zip(ids, repeat(0)))     #individual scores
         self._stats_tot = dict(zip(ids, repeat(0))) #individual n_games
         self._ids = ids
