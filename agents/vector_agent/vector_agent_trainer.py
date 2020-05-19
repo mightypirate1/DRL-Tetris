@@ -26,7 +26,7 @@ class vector_agent_trainer(vector_agent_base):
         vector_agent_base.__init__(self, id=id, name="trainer{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
         self.verbose_training = self.settings["run_standalone"]
         self.train_stats_raw = list()
-        self.summarizer = surmmarizer
+        self.summarizer = summarizer
 
         #Create models
         self.model_dict = {}

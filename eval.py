@@ -64,6 +64,8 @@ Options:
     --steps S           Number of steps [default: 5000]
 '''
 run_settings = docopt.docopt(docoptstring)
+if len(run_settings["<weights>"]) < 2:
+    run_settings["<weights>"] += run_settings["<weights>"]
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
 settings =      list(map(utils.load_settings,settingsfiles))
 

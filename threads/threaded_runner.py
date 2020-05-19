@@ -66,7 +66,7 @@ class threaded_runner:
             ret += t
         return ret / len(self.shared_vars["run_time"])
 
-    def run(self, steps):
+    def run(self):
         if len(self.threads["workers"]) == 0:
             print("You have no workers employed. What do you want to run, even???");return
         for thread in self.all_threads:
@@ -84,5 +84,5 @@ class threaded_runner:
             done = True
             for flag in self.shared_vars["run_flag"]:
                 done = done and flag == 0
-            time.sleep(10)
+            time.sleep(1)
         print("join done!")

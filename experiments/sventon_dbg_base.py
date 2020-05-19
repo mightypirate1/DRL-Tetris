@@ -1,42 +1,15 @@
+import tensorflow as tf
+
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
-from agents.vector_agent import vector_agent, vector_agent_trainer
 from agents.vector_q_agent import vector_q_agent, vector_q_agent_trainer
 from agents.agent_utils.reward_shapers import *
 from aux.parameter import *
-import threads.threaded_runner
-
-import sys
-import time
-import docopt
-import tensorflow as tf
-
-docoptstring = \
-'''Threaded trainer!
-Usage:
-  thread_train.py [options]
-  thread_train.py restart <file> <clock> [options]
-
-Options:
-    --n N           N envs per thread. [default: 128]
-    --m M           M workers. [default: 4]
-    --steps S       Run S environments steps in total. [default: 1000000]
-    --no-rendering  Disables rendering.
-    --debug         Runs a single thread doing both data-gathering and training.
-'''
-
-docoptsettings = docopt.docopt(docoptstring)
-debug = docoptsettings["--debug"]
-total_steps = int(docoptsettings["--steps"])
-n_workers = int(docoptsettings["--m"]) if not debug else 1
-n_envs_per_thread = int(docoptsettings["--n"])
-n_envs = n_workers * n_envs_per_thread
-render = not docoptsettings["--no-rendering"]
 
 settings = {
             #Project
-            # "run-id" : "SVENton-Q06-k23sparse-16-experimentalPRIO-nokbd",
-            "run-id" : "dbg050-rerun1-kbd",
+            "run-id" : "bogus0",
+            # "run-id" : "SVENton-alpha0",
             "state_processor_separate_piece" : True,
             "q_target_locked_for_other_actions" : False,
             "advantage_type" : "max",#,"none",#"mean", #"max",
@@ -103,11 +76,11 @@ settings = {
             "trainer_type"      : vector_q_agent_trainer.vector_q_agent_trainer,
 
             #Threading
-            "run_standalone"       : docoptsettings["--debug"],
-            "n_workers"            : n_workers,
-            "n_envs_per_thread"    : n_envs_per_thread,
-            "worker_steps"         : total_steps // n_envs,
-            "worker_net_on_cpu"    : not docoptsettings["--debug"],
+            "run_standalone"       : False,
+            "n_workers"            : 3,
+            "n_envs_per_thread"    : 80,
+            "worker_steps"         : 125000,
+            "worker_net_on_cpu"    : True,
             "trainer_net_on_cpu"   : False,
 
             #Communication
@@ -146,37 +119,13 @@ settings = {
             "optimizer" : tf.train.AdamOptimizer,
 
             #Misc.
-            "render"            : render,
+            "render"            : True,
             "bar_null_moves"    : True,
            }
 
-print("Training script executed with settings:")
-for x in settings:
-    print("\t{} : {}".format(x,settings[x]))
-if docoptsettings['restart']:
-    restart_file  =     docoptsettings["<file>" ]
-    restart_clock = int(docoptsettings["<clock>"])
-    print("Restarting training...\nFile: {}\nClock: {}".format(restart_file,restart_clock))
-else:
-    restart_file, restart_clock = None, 0
-
-process_manager = threads.threaded_runner.threaded_runner(settings=settings, restart=(restart_file, restart_clock))
-
-##
-#Thread debugger
-#We get better error messages if we run just one process. Activate with "--debug"
-if debug:
-    print("Executing only thread_0:")
-    process_manager = threads.threaded_runner.threaded_runner(settings=settings, restart=(restart_file, restart_clock))
-    process_manager.threads["workers"][0].run()
-    print("___")
-    exit("thread debug run done.")
-
-#Init PARALLEL
-###########################
-print("Creating processes...")
-process_manager.run(total_steps // n_envs )
-process_manager.join()
-T_parallel = process_manager.get_avg_runtime()
-sys.stdout.flush()
-print("All processes finished.")
+patches = \
+[
+    {
+        'run-id' : "bogus1"
+    },
+]
