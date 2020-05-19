@@ -129,6 +129,4 @@ environment/game_backend/source/Makefile
 #A secret test-script that doesnt need to be official
 yeah.py
 #Graveyard
-expriments/OLD_SCRIPTS/*
-expriments/OLD_SCRIPTS/
-expriments/OLD_SCRIPTS
+experiments/OLD_SCRIPTS/
