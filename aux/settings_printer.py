@@ -1,7 +1,5 @@
-import aux.utils as utils
-import docopt
 import pickle
-
+import aux.utils as utils
 class settings_printer:
     def __init__(self, s):
         if type(s) not in [str, dict]:
@@ -14,7 +12,7 @@ class settings_printer:
         with open(s, 'rb') as f:
             settings = pickle.load(f)
         return utils.parse_settings(settings)
-    def print(self):
+    def _print(self):
         print("--- {} settings---".format(self.title))
         for key in sorted(self.settings.keys()):
             print("\t{}".format(key).ljust(35),self.settings[key])
@@ -30,20 +28,3 @@ class settings_printer:
             for candidate in [self.settings, other]:
                 if key in candidate:
                     print("\t{}".format(candidate["run-id"]).ljust(20),candidate[key])
-
-if __name__ == "__main__":
-    from agents.vector_agent import vector_agent, vector_agent_trainer
-    docoptstring = \
-    '''
-    Settings printer!
-
-    Usage:
-        settings_printer.py <settings-file1> [--cmp <settings-file2>]
-    '''
-    docoptsettings = docopt.docopt(docoptstring)
-    sp = settings_printer(docoptsettings["<settings-file1>"])
-    if docoptsettings["--cmp"]:
-        s2 = settings_printer(docoptsettings["<settings-file2>"])
-        sp.compare(s2)
-    else:
-        sp.print()
