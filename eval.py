@@ -32,15 +32,20 @@ def adjust_settings(S):
         S["render"] = False
     S["tau_learning_rate"] = 0.995
     return S
-def random_match():
+
+def random_match(agents, names):
     if len(all_agents) > 2:
-        agent_idxs = np.random.choice(np.arange(len(all_agents)), 2, replace=False)
+        # random_player_1 vs random_player_2
+        agent_idxs = np.random.choice(np.arange(len(agents)), 2, replace=False)
     elif len(all_agents) == 1:
+        # me against myself
         agent_idxs = np.array([0,0])
     else:
+        #me against you, same positions
         agent_idxs = np.array([0,1])
-    a = [all_agents[i] for i in agent_idxs]
-    n = [all_names[i]  for i in agent_idxs]
+    a = [agents[i]  for i in agent_idxs]
+    # w = [weights[i] for i in agent_idxs]
+    n = [names[i]   for i in agent_idxs]
     if len(all_agents) > 2:
         print(n[0], "vs", n[1])
     return a, n
@@ -53,7 +58,7 @@ Usage:
     eval.py <weights> ... [options] [--no-null | --null]
 
 Options:
-    --no-reload         Don't attempt to reload weights on reset. [default: False]
+    --reload         Don't attempt to reload weights on reset. [default: False]
     --all-pieces        Force play with all pieces. [default: False]
     --no-null            Forces disabling of null-moves [default: False]
     --null              Forces enabling of null-moves [default: False]
@@ -94,18 +99,20 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                                     session=session,
                                     settings=setting,
                                 )
-        a.load_weights(*utils.weight_location(weight))
+        w = utils.weight_location(weight)
+        a.load_weights(*w)
         all_agents.append(a)
         n = setting["run-id"]
         if n in all_names: n += str(all_names.count(n))
         all_names.append(n)
+        # all_weights.append(w)
 
     #Initialize run!
     trajectory_start, current_player = 0, np.array([1])
     s_prime = env.get_state()
     game_score = scoreboard(all_names, width=120)
 
-    agent, name = random_match()
+    agent, name = random_match(all_agents, all_names)
     game_score.set_current_players(name)
     # Game loop!
     for t in range(0,int(run_settings['--steps'])):
@@ -144,14 +151,14 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                 print("Round ended. {}".format(t-trajectory_start))
                 env.reset(env=i)
                 #Prepare next round!
-                agent, name = random_match() #change who's go it is!
+                agent, name = random_match(all_agents, all_names) #change who's go it is!
                 game_score.set_current_players(name)
-                for a,w in zip(agent, run_settings["<weights>"]):
-                    if not run_settings["--no-reload"]:
+                for a,w in zip(agent, weight):
+                    if run_settings["--reload"]:
                         if run_settings["--debug"]:
                             print("agent loaded:",w,"(",a,")")
                         try:
-                            a.load_weights(*utils.weight_location(w))
+                            a.load_weights(*weight)
                         except:
                             print("Failed to re-load weights...")
                 current_player[i] = np.random.choice([0,1])
