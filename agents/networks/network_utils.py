@@ -5,7 +5,7 @@ from tensorflow.python.client import device_lib
 ### Builder utilities!
 ###
 
-def normalize_advantages(A, mode="mean", axis=[1,2], piece_axis=3, separate_piece_values=True, piece_mask=1.0):
+def normalize_advantages(A, mode="mean", axis=[1,2], piece_axis=3, separate_piece_values=True, piece_mask=1.0, n_used_pieces=7):
     #piece_mask is expected to be shape [1,1,1,7] or constant. 1 for used pieces, 0 for unused.
     all_axis = A.shape.as_list()[1:]
     if  mode == "max":
@@ -14,12 +14,12 @@ def normalize_advantages(A, mode="mean", axis=[1,2], piece_axis=3, separate_piec
         if separate_piece_values:
             max_a = _max_a
         else:
-            max_a   = tf.reduce_sum(_max_a * piece_mask,  axis=piece_axis,     keepdims=True ) / self.n_used_pieces #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+            max_a   = tf.reduce_sum(_max_a * piece_mask,  axis=piece_axis,     keepdims=True ) / n_used_pieces #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
         A  = (A - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
     elif mode == "mean":
         _mean_a = tf.reduce_mean(A,      axis=axis, keepdims=True )
         # mean_a  = tf.reduce_mean(_mean_a, axis=3,     keepdims=True )
-        mean_a  = tf.reduce_sum(_mean_a * piece_mask, axis=piece_axis,     keepdims=True ) / self.n_used_pieces
+        mean_a  = tf.reduce_sum(_mean_a * piece_mask, axis=piece_axis,     keepdims=True ) / n_used_pieces
         A = (A - mean_a)
     return A
 
