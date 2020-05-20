@@ -95,10 +95,11 @@ class prio_qnet:
                 return e
             estimator_steps = [i for i in range(1,self.k_step+1)]
             if "sparse_value_estimate_filter" in self.settings: #filter out all k that are divisible by any of the numbers provided
-                filter = np.array(self.settings["sparse_value_estimate_filter"]).reshape((1,-1))
-                steps = np.array(estimator_steps).reshape((-1,1))
-                filter = np.prod((steps % _filter),axis=1)!=0
-                estimator_steps = steps[np.where(filter)]
+                if len(self.settings["sparse_value_estimate_filter"]) > 0:
+                    filter = np.array(self.settings["sparse_value_estimate_filter"]).reshape((1,-1))
+                    steps = np.array(estimator_steps).reshape((-1,1))
+                    filter = np.prod((steps % _filter),axis=1)!=0
+                    estimator_steps = steps[np.where(filter)]
             estimators = [(k,k_step_estimate(k)) for k in estimator_steps if k <= self.k_step]
 
             #3) GAE-style aggregation
