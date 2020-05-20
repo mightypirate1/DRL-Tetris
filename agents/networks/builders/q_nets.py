@@ -28,7 +28,7 @@ class q_net_silver(q_net_base):
                                             'dropout' : 0.15,
                                             'training' : self.training_tf,
                                           }
-        hidden_vis = [blocks.residual_block(v, **visual_stream_settings) for v in vis]
+        hidden_vis = [blocks.residual_block(v, **visual_stream_resblock_settings) for v in vis]
         #3) Make feature-planes out of vector-data and stack it on hidden stream:
         vec = [N.conv_shape_vector(v, hv.shape) for v,hv in zip(vec, hidden_vis)]
         visvec = [N.peephole_join(_vec,   _vis,   mode="concat") for _vec,_vis in zip(vec,hidden_vis)]
