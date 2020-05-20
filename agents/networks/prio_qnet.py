@@ -1,15 +1,100 @@
 
 import tensorflow as tf
 import numpy as np
-import aux
+
 import aux.utils as utils
+from agents.networks.builders import q_net_builders as Q
 from agents.networks import network_utils as N
 
-'''
-TODO: Clean up by separating out default chunks of neural-net construction. We don't need a bunch of conv-layer loops all over, do we?
-'''
-
 class prio_qnet:
+    ###
+    ### Contents:
+    ###
+    ###  (I)    init (internal variables and placeholders, call the nn-construction etc)
+    ###  (II)   eval(...) function call (for use from the outside)
+    ###  (III)  train(...) function call (for use from the outside)
+    ###  (IV)   builder fcn: constructs a double duelling k-step Q-net, depending on input specs
+    ###  (V)    training_ops builder: once the data in in the right places, we specify Q-updates etc
+    ###  (VI)   utility fcns for ref-updates and weight loading etc
+    ###
+
+    # (I) init
+    def __init__(self, agent_id, name, state_size, output_shape, sess, k_step=1, settings=None, worker_only=False):
+        assert len(output_shape) == 3, "expected 3D-actions"
+        assert k_step > 0, "k_step AKA n_step_value_estimates has to be greater than 0!"
+
+        #Basics
+        self.settings = utils.parse_settings(settings)
+        self.scope_name = "agent{}_{}".format(agent_id,name)
+        self.name = name
+        self.session = sess
+        self.worker_only = worker_only
+
+        #Choose what type of architecture is used for Q-heads!
+        self.network_type = Q.q_net
+
+        #Shapes and params
+        self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
+        self.state_size_vec, self.state_size_vis = state_size
+        self.k_step = k_step
+
+        #DBG
+        self.stats_tensors, self.debug_tensors, self.visualization_tensors = [], [], []
+
+        #Define tensors/placeholders
+        with tf.variable_scope(self.scope_name):
+            if self.worker_only:
+                self.rewards_tf       = None
+                self.dones_tf         = None
+                self.actions_tf       =  tf.placeholder(tf.uint8, (None, 1))
+                self.pieces_tf        =  tf.placeholder(tf.uint8, (None, 1))
+                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
+                self.vector_inputs_training = None
+                self.visual_inputs_training = None
+                self.actions_training_tf = None
+                self.pieces_training_tf = None
+            else:
+                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
+                self.vector_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+                self.visual_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
+                self.rewards_tf       = tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
+                self.dones_tf         = tf.placeholder(tf.int32, (None, k_step+1, 1), name='done')
+                self.actions_tf       =  tf.placeholder(tf.uint8, (None, 1))
+                self.pieces_tf        =  tf.placeholder(tf.uint8, (None, 1))
+                self.actions_training_tf       = tf.placeholder(tf.uint8, (None, k_step+1, 2), name='action')
+                self.pieces_training_tf        = tf.placeholder(tf.uint8, (None, k_step+1, 1), name='piece')
+                self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
+                self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
+            self.training_tf       = tf.placeholder(tf.bool, shape=())
+            self.main_q_net = self.network_type("q-net-main",      output_shape, state_size, self.settings, worker_only=worker_only, training=self.training_tf)
+            self.ref_q_net  = self.network_type("q-net-reference", output_shape, state_size, self.settings, worker_only=worker_only, training=self.training_tf)
+            self.q_tf, self.v_tf, self.a_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
+                                    = self.create_network_with_trainer(
+                                                            self.vector_inputs,
+                                                            self.visual_inputs,
+                                                            self.vector_inputs_training,
+                                                            self.visual_inputs_training,
+                                                            self.actions_tf,
+                                                            self.pieces_tf,
+                                                            self.actions_training_tf,
+                                                            self.pieces_training_tf,
+                                                            self.rewards_tf,
+                                                            self.dones_tf,
+                                                           )
+            self.main_net_vars      = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.main_scope.name)
+            self.main_net_assign_list      = self.create_weight_setting_ops(self.main_net_vars)
+            if not self.worker_only:
+                self.reference_net_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.ref_scope.name)
+                self.reference_net_assign_list = self.create_weight_setting_ops(self.reference_net_vars)
+                self.training_ops = self.create_training_ops()
+            self.all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scope_name)
+            self.init_ops = tf.variables_initializer(self.all_vars)
+        #Run init-op
+        self.session.run(self.init_ops)
+
+    # (II) eval
     def evaluate(self,
                 inputs,
                 only_policy=False,
@@ -24,6 +109,7 @@ class prio_qnet:
         return_values = self.session.run(run_list, feed_dict=feed_dict)
         return return_values
 
+    # (III) train
     def train(  self,
                 vector_states,
                 visual_states,
@@ -35,7 +121,7 @@ class prio_qnet:
                 lr=None,
                 fetch_visualizations=False,
               ):
-        vis_tensors = [] if not fetch_visualizations else self.visualization_tensors
+        vis_tensors = [] #This feature is deactivated for now. Somehow it broke the nn; tf didnt think it had any inputs when I used them :(
         run_list = [
                     self.training_ops,
                     self.new_prios_tf,
@@ -61,9 +147,10 @@ class prio_qnet:
         N.debug_prints(dbg,self.debug_tensors)
         return new_prios, zip(self.stats_tensors, stats), zip(self.visualization_tensors, vis)
 
-    def create_duelling_qnet(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
+    # (IV)
+    def create_network_with_trainer(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
         with tf.variable_scope("prio_q-net") as vs:
-            q_tf, v_tf, a_tf, main_scope = self.create_q_head(vector_states, visual_states, "main")
+            q_tf, v_tf, a_tf, main_scope = self.main_q_net(vector_states, visual_states)
 
             #Workers are easy!
             if self.worker_only:
@@ -78,10 +165,11 @@ class prio_qnet:
             done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
             q_t_tf, v_t_tf = [], []
             for t in range(self.k_step+1):
-                scope = "main" if t==0 else "reference"
+                # Appy our Q-nets to each time step to yield all V- & Q-estimates!
+                q_net = self.main_q_net if t==0 else self.ref_q_net
                 s_t_vec = [vec_state[:,t,:] for vec_state in vector_states_training]
                 s_t_vis = [vis_state[:,t,:] for vis_state in visual_states_training]
-                q,v,_,ref_scope = self.create_q_head(s_t_vec, s_t_vis, scope)
+                q,v,_,ref_scope = q_net(s_t_vec, s_t_vis)
                 q_t_tf.append(q)
                 v_t_tf.append(v)
 
@@ -137,192 +225,7 @@ class prio_qnet:
             self.output_as_stats(done_time_tf, name="done_time")
         return q_tf, v_tf, a_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
 
-    def create_q_head(self,vectors, visuals, name):
-        with tf.variable_scope("q-net-"+name, reuse=tf.AUTO_REUSE) as vs:
-            scope = vs
-            #1) create visual- and vector-encoders for the inputs!
-            hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
-            if self.settings["keyboard_conv"]:
-                _visuals = [self.create_visualencoder(vis) for vis in visuals]
-                hidden_vis = [self.create_kbd_visual(vis) for vis in _visuals]
-                A_kbd = self.create_kbd(_visuals[0]) #"my screen -> my kbd"
-            else:
-                hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
-            flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
-            flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
-
-            #2) Take some of the data-stream and compute a value-estimate
-            x = tf.concat(flat_vec+flat_vis, axis=-1)
-            V = self.create_value_head(x)
-            V_qshaped = tf.reshape(V,[-1,1,1,V.shape.as_list()[-1]]) #Shape for Q-calc!
-
-            #3) Compute advantages
-            if self.settings["keyboard_conv"]:
-                #Or if we just have them... (if I move that line down, I break some backward compatibility)
-                A = self.keyboard_range * A_kbd
-            else:
-                _A = tf.layers.dense(
-                                    x,
-                                    self.n_rotations * self.n_translations * self.n_pieces,
-                                    name='advantages_unshaped',
-                                    activation=N.advantage_activation_sqrt,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.zeros_initializer(),
-                                   )
-                A = self.keyboard_range * tf.reshape(_A, [-1, self.n_rotations, self.n_translations, self.n_pieces])
-
-            #4) Combine values and advantages to form the Q-fcn (Duelling-Q-style)
-            if self.settings["advantage_type"] == "max":
-                a_maxmasked = self.used_pieces_mask_tf * A + (1-self.used_pieces_mask_tf) * tf.reduce_min(A, axis=[1,2,3], keepdims=True)
-                _max_a   = tf.reduce_max(a_maxmasked,  axis=[1,2],     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
-                if self.settings["separate_piece_values"]:
-                    max_a = _max_a
-                else:
-                    max_a   = tf.reduce_sum(_max_a * self.used_pieces_mask_tf,  axis=3,     keepdims=True ) / self.n_used_pieces #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
-                A  = (A - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
-                Q = V_qshaped + A
-            elif self.settings["advantage_type"] == "mean":
-                _mean_a = tf.reduce_mean(A,      axis=[1,2], keepdims=True )
-                # mean_a  = tf.reduce_mean(_mean_a, axis=3,     keepdims=True )
-                mean_a  = tf.reduce_sum(_mean_a * self.used_pieces_mask_tf, axis=3,     keepdims=True ) / self.n_used_pieces
-                A = (A - mean_a)
-                Q = V_qshaped + A
-            else:
-                Q = A
-        V = self.q_to_v(Q)
-        return Q, V, A, scope
-
-    ###
-    ### Above is the blue-print, below the details
-    ###
-
-    def create_vectorencoder(self, x):
-        with tf.variable_scope("vectorencoder", reuse=tf.AUTO_REUSE) as vs:
-            for n in range(self.settings['vectorencoder_n_hidden']):
-                x = tf.layers.dense(
-                                    x,
-                                    self.settings['vectorencoder_hidden_size'],
-                                    name='vectorencoder_layer{}'.format(n),
-                                    activation=tf.nn.elu,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
-                                   )
-            x = tf.layers.dense(
-                                x,
-                                self.settings['vectorencoder_output_size'],
-                                name='layer{}'.format(self.settings['vectorencoder_n_hidden']+1),
-                                activation=self.output_activation,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer(),
-                               )
-        return x
-
-    def create_visualencoder(self, x):
-        with tf.variable_scope("visualencoder", reuse=tf.AUTO_REUSE) as vs:
-            if self.settings["pad_visuals"]:
-                x = N.apply_visual_pad(x)
-                if self.conv_debug.pop("visual_input", False):
-                    self.visualization_tensors.append(self.get_random_conv_layers(x,3))
-            for n in range(self.settings['visualencoder_n_convs']):
-                y = tf.layers.conv2d(
-                                        x,
-                                        self.settings["visualencoder_n_filters"][n],
-                                        self.settings["visualencoder_filter_sizes"][n],
-                                        name='visualencoder_layer{}'.format(n),
-                                        padding='same',
-                                        activation=tf.nn.elu,
-                                        kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                        bias_initializer=tf.zeros_initializer(),
-                                    )
-                if n in self.conv_debug["visualencoder"]:
-                    self.visualization_tensors.append(self.get_random_conv_layers(y,3))
-                    self.conv_debug["visualencoder"].remove(n)
-                if "visualencoder_dropout" in self.settings:
-                    x = tf.keras.layers.SpatialDropout2D(self.settings["visualencoder_dropout"])(x,self.training_tf)
-                if n in self.settings["visualencoder_peepholes"] and self.settings["peephole_convs"]:
-                    x = N.peephole_join(x,y,mode=self.settings["peephole_join_style"])
-                else:
-                    x = y
-                if n in self.settings["visualencoder_poolings"]:
-                    x = tf.layers.max_pooling2d(x, (2,1), (2,1), padding='same')
-        return x
-
-    def create_kbd_visual(self,x):
-        x = tf.layers.max_pooling2d(x, 2, 2, padding='valid')
-        for i in range(self.settings["kbd_vis_n_convs"]):
-            x = N.layer_pool(
-                            x,
-                            n_filters=self.settings["kbd_vis_n_filters"][i],
-                            filter_size=(3,3),
-                            dropout=(self.settings["visualencoder_dropout"],self.training_tf)
-                            )
-        x = tf.reduce_mean(x, axis=[1,2])
-        return x
-
-    def create_kbd(self, x):
-        for i in range(self.settings["keyboard_n_convs"]-1):
-            x = tf.layers.conv2d(
-                                    x,
-                                    self.settings["keyboard_n_filters"][i],
-                                    (5,5),
-                                    name='keyboard_conv{}'.format(i),
-                                    padding='same',
-                                    activation=tf.nn.elu,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                    bias_initializer=tf.zeros_initializer(),
-                                )
-            if "visualencoder_dropout" in self.settings:
-                x = tf.keras.layers.Dropout(self.settings["visualencoder_dropout"])(x,self.training_tf)
-        x = tf.layers.conv2d(
-                                x,
-                                self.n_rotations * self.n_pieces,
-                                (x.shape.as_list()[1],3),
-                                name='keyboard_conv{}'.format(self.settings["keyboard_n_convs"]-1),
-                                padding='valid',
-                                activation=N.advantage_activation_sqrt,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                bias_initializer=tf.zeros_initializer(),
-                            )
-        X = [ x[:,:,:,p*self.n_pieces:(p+1)*self.n_pieces ] for p in range(self.n_rotations) ]
-        x = tf.concat(X, axis=1)
-        return x
-        # #Interpret with of field as translations for the piece W ~> T, then:
-        # # [?, 1, T, R*P] -> [?, T, R, P] -> [?, R, T, P]
-        # x = tf.reshape(x, [-1, 10, 4, 7])
-        # x = tf.transpose(x, perm=[0,2,1,3])
-        # return x
-
-    def create_value_head(self, x):
-        for n in range(self.settings['valuenet_n_hidden']):
-            x = tf.layers.dense(
-                                x,
-                                self.settings['valuenet_hidden_size'],
-                                name='layer{}'.format(n),
-                                activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                bias_initializer=tf.zeros_initializer(),
-                               )
-        v = tf.layers.dense(
-                            x,
-                            1,
-                            name='values',
-                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                            activation=self.settings["nn_output_activation"],
-                            bias_initializer=tf.zeros_initializer(),
-                           )
-        if not self.settings["separate_piece_values"]:
-            return v
-        v_p = tf.layers.dense(
-                              x,
-                              7,
-                              name='piece_values',
-                              kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                              activation=None,
-                              bias_initializer=tf.zeros_initializer(),
-                             )
-        v_p = self.settings["piece_advantage_range"] * N.advantage_activation_sqrt(v_p - tf.reduce_mean(v_p, axis=1, keepdims=True))
-        return v + v_p
-
+    # (V)
     def create_training_ops(self):
         if self.worker_only:
             return None
@@ -330,12 +233,12 @@ class prio_qnet:
             sq_error = tf.math.squared_difference(self.target_values_tf, self.training_values_tf)
             ssq_error = tf.expand_dims(tf.reduce_sum(sq_error,axis=[1,2,3]),1)
             self.value_loss_tf = tf.losses.mean_squared_error(ssq_error, [[0.0]], weights=self.loss_weights_tf)
-            self.argmax_entropy_tf = N.argmax_entropy_reg(
-                                                          self.training_values_tf,
-                                                          mask=self.used_pieces_mask_tf,
-                                                          n_pieces=self.n_used_pieces,
-                                                         )
-            self.output_as_stats(self.argmax_entropy_tf, name="argmax_entropy")
+            # self.argmax_entropy_tf = N.argmax_entropy_reg(
+            #                                               self.training_values_tf,
+            #                                               mask=self.used_pieces_mask_tf,
+            #                                               n_pieces=self.n_used_pieces,
+            #                                              )
+            # self.output_as_stats(self.argmax_entropy_tf, name="argmax_entropy")
         else:
             self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.training_values_tf, weights=self.loss_weights_tf)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
@@ -346,6 +249,10 @@ class prio_qnet:
         self.output_as_stats(self.value_loss_tf, name='value_loss', only_mean=True)
         self.output_as_stats(self.regularizer_tf, name='reg_loss', only_mean=True)
         return training_ops
+
+    ###
+    ###  (VI) Utilities etc...
+    ###
 
     def create_weight_setting_ops(self, collection):
         assign_placeholder_list = []
@@ -401,11 +308,6 @@ class prio_qnet:
         _target = tf.reshape(target, [-1,1,1,1]) * mask
         return _target + (1-mask) * Q
 
-    def q_to_v(self,q):
-        q_p = tf.reduce_max(q, axis=[1,2], keepdims=True)
-        v = tf.reduce_sum(q_p * self.used_pieces_mask_tf, axis=3, keepdims=True) / self.n_pieces
-        return tf.reshape(v, [-1, 1])
-
     def get_random_conv_layers(self,tensor, n):
         _max = tensor.shape.as_list()[3]
         if _max - n > 3:
@@ -418,103 +320,3 @@ class prio_qnet:
     @property
     def output(self):
         return self.q_tf
-
-    ####
-    #### Just a bunch of variable initialization and naming...
-    ####
-    def __init__(self, agent_id, name, state_size, output_shape, sess, k_step=1, settings=None, worker_only=False):
-        assert len(output_shape) == 3, "expected 3D-actions"
-        assert k_step > 0, "k_step AKA n_step_value_estimates has to be greater than 0!"
-
-        #Basics
-        self.settings = utils.parse_settings(settings)
-        self.scope_name = "agent{}_{}".format(agent_id,name)
-        self.name = name
-        self.session = sess
-        self.worker_only = worker_only
-
-        #Shapes and params
-        self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
-        self.output_size = self.n_rotations * self.n_translations * self.n_pieces
-        self.n_used_pieces = len(self.settings["pieces"])
-        self.state_size_vec, self.state_size_vis = state_size
-        self.k_step = k_step
-        self.output_activation = settings["nn_output_activation"]
-
-        #DBG
-        # self.conv_debug = {"visual_input":True, "visualencoder":[0,1,2,3]}
-        self.conv_debug = {"visual_input":False, "visualencoder":[]}
-        self.stats_tensors, self.debug_tensors, self.visualization_tensors = [], [], []
-
-        #Define tensors/placeholders
-        self.keyboard_range = self.settings["keyboard_range"]
-        used_pieces = [0, 0, 0, 0, 0, 0, 0]
-        for i in range(7):
-            if i in self.settings["pieces"]:
-                used_pieces[i] = 1
-                self.used_pieces_mask_tf = tf.constant(np.array(used_pieces).reshape((1,1,1,7)).astype(np.float32))
-
-        print("REMOVE DBG-prints!!!!")
-        print("REMOVE DBG-prints!!!!")
-        print("REMOVE DBG-prints!!!!")
-        # D = np.zeros((1,4,10,7))
-        # for a in range(4):
-        #     for b in range(10):
-        #         for c in range(7):
-        #             D[0,a,b,c] = a*100+b*10+c
-        # D = tf.constant(D, dtype=tf.float32)
-        # d, dmasked = sess.run([D, D*self.used_pieces_mask_tf])
-        # for p in [0,1,5,6,]:
-        #     print("piece",p)
-        #     print(dmasked[0,:,:,p])
-        # exit()
-
-        with tf.variable_scope(self.scope_name):
-            if worker_only:
-                self.rewards_tf       = None
-                self.dones_tf         = None
-                self.actions_tf       =  tf.placeholder(tf.uint8, (None, 1))
-                self.pieces_tf        =  tf.placeholder(tf.uint8, (None, 1))
-                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
-                self.vector_inputs_training = None
-                self.visual_inputs_training = None
-                self.actions_training_tf = None
-                self.pieces_training_tf = None
-            else:
-                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
-                self.vector_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-                self.visual_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
-                self.rewards_tf       = tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
-                self.dones_tf         = tf.placeholder(tf.int32, (None, k_step+1, 1), name='done')
-                self.actions_tf       =  tf.placeholder(tf.uint8, (None, 1))
-                self.pieces_tf        =  tf.placeholder(tf.uint8, (None, 1))
-                self.actions_training_tf       = tf.placeholder(tf.uint8, (None, k_step+1, 2), name='action')
-                self.pieces_training_tf        = tf.placeholder(tf.uint8, (None, k_step+1, 1), name='piece')
-                self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
-                self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
-            self.training_tf       = tf.placeholder(tf.bool, shape=())
-            self.q_tf, self.v_tf, self.a_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
-                                    = self.create_duelling_qnet(
-                                                            self.vector_inputs,
-                                                            self.visual_inputs,
-                                                            self.vector_inputs_training,
-                                                            self.visual_inputs_training,
-                                                            self.actions_tf,
-                                                            self.pieces_tf,
-                                                            self.actions_training_tf,
-                                                            self.pieces_training_tf,
-                                                            self.rewards_tf,
-                                                            self.dones_tf,
-                                                           )
-            self.main_net_vars      = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.main_scope.name)
-            self.main_net_assign_list      = self.create_weight_setting_ops(self.main_net_vars)
-            if not worker_only:
-                self.reference_net_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.ref_scope.name)
-                self.reference_net_assign_list = self.create_weight_setting_ops(self.reference_net_vars)
-                self.training_ops = self.create_training_ops()
-            self.all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scope_name)
-            self.init_ops = tf.variables_initializer(self.all_vars)
-        #Run init-op
-        self.session.run(self.init_ops)
