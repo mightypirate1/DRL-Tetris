@@ -82,7 +82,7 @@ class q_net_silver(q_net_base):
         V_qshaped = tf.reshape(_V,[-1,1,1,_V.shape.as_list()[-1]]) #Shape for Q-calc!
 
         #Finnishing touch
-        A = self.["advantage_range"] * N.normalize_advantages(_A, separate_piece_values=self.settings["separate_piece_values"], mode=self.settings["advantage_type"], piece_mask=self.used_pieces_mask_tf)
+        A = self.settings["advantage_range"] * N.normalize_advantages(_A, separate_piece_values=self.settings["separate_piece_values"], mode=self.settings["advantage_type"], piece_mask=self.used_pieces_mask_tf)
         Q = V_qshaped + A
         V = N.q_to_v(Q, mask=self.used_pieces_mask_tf, n_pieces=self.n_pieces)
         return Q, V, A
