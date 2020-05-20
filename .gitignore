@@ -110,13 +110,15 @@ venv.bak/
 #Maintain models and results as empty folders
 models/*
 !models/.gitkeep
-!models/demo_weights
+!models/demo_weights/
 !models/demo_weights/*
 summaries/*
 !summaries/.gitkeep
-logs/*
-results/*
-!results/.gitkeep
+experiments/*
+!experiments/.gitkeep
+!experiments/base_experiment.py
+!experiments/sixten_base.py
+!experiments/sventon_base.py
 *.pkl
 
 #CMake stuff doenst need to be shared
