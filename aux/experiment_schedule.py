@@ -22,6 +22,8 @@ class experiment_schedule:
         code, ret = compile(raw_code, file, 'exec'), {}
         exec(code,{},{'ret':ret, 'total_steps' : self.total_steps}) #We expect this to give us settings and possible patches
         return ret["settings"], ret["patches"]
+    def __getitem__(self, idx):
+        return self._scheduled_settings[idx]
     def __iter__(self):
         self.idx = -1
         return self
