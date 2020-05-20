@@ -5,6 +5,24 @@ from tensorflow.python.client import device_lib
 ### Builder utilities!
 ###
 
+def normalize_advantages(A, mode="mean", axis=[1,2], piece_axis=3, separate_piece_values=True, piece_mask=1.0):
+    #piece_mask is expected to be shape [1,1,1,7] or constant. 1 for used pieces, 0 for unused.
+    all_axis = A.shape.as_list()[1:]
+    if  mode == "max":
+        a_maxmasked = piece_mask * A + (1-piece_mask) * tf.reduce_min(A, axis=all_axis, keepdims=True)
+        _max_a   = tf.reduce_max(a_maxmasked,  axis=axis,     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+        if separate_piece_values:
+            max_a = _max_a
+        else:
+            max_a   = tf.reduce_sum(_max_a * piece_mask,  axis=piece_axis,     keepdims=True ) / self.n_used_pieces #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
+        A  = (A - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
+    elif mode == "mean":
+        _mean_a = tf.reduce_mean(A,      axis=axis, keepdims=True )
+        # mean_a  = tf.reduce_mean(_mean_a, axis=3,     keepdims=True )
+        mean_a  = tf.reduce_sum(_mean_a * piece_mask, axis=piece_axis,     keepdims=True ) / self.n_used_pieces
+        A = (A - mean_a)
+    return A
+
 def conv_shape_vector(vec, shape_to_match):
     dims = vec.shape.as_list()
     if type(shape_to_match) is not list:
@@ -36,6 +54,11 @@ def apply_visual_pad(x):
     # This makes floor and walls look like it's a piece, and cieling like its free space
     return x
 
+def q_to_v(self,q, mask=1.0, n_pieces=7):
+    q_p = tf.reduce_max(q, axis=[1,2], keepdims=True)
+    v = tf.reduce_sum(q_p * mask, axis=3, keepdims=True) / n_pieces
+    return tf.reshape(v, [-1, 1])
+
 ###
 ### Regularizers & metrics
 ###
@@ -61,6 +84,7 @@ conv_default_kwargs = {
                       }
 drop_default_kwargs = {}
 pool_default_kwargs = {'padding' : 'same'}
+
 
 def layer_pool(
                 X,

@@ -76,12 +76,13 @@ class q_net_silver(q_net_base):
                                              training : self.training_tf,
                                            }
             _V = blocks.residual_block(N.peephole_join(*joined), **val_stream_resblock_settings)
+            _V = self.settings["piece_advantage_range"] * N.normalize_advantages(_V, axis=1) #This works here too!
         else:
             _V = tf.constant([0.0], dtype=tf.float32)
         V_qshaped = tf.reshape(_V,[-1,1,1,_V.shape.as_list()[-1]]) #Shape for Q-calc!
 
         #Finnishing touch
-        A = N.normalize_advantages(_A, separate_piece_values=self.settings["separate_piece_values"], mode=self.settings["advantage_type"], piece_mask=self.used_pieces_mask_tf)
+        A = self.["advantage_range"] * N.normalize_advantages(_A, separate_piece_values=self.settings["separate_piece_values"], mode=self.settings["advantage_type"], piece_mask=self.used_pieces_mask_tf)
         Q = V_qshaped + A
         V = N.q_to_v(Q, mask=self.used_pieces_mask_tf, n_pieces=self.n_pieces)
         return Q, V, A
