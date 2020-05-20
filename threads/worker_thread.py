@@ -217,6 +217,7 @@ class worker_thread(mp.Process):
         print("loop-time:", loop_time, "/",self.n_steps)
         print("clock: {}".format(self.agent.clock))
         print("current weights: {} : {}".format(self.current_weights, self.current_weights_timestamp))
+        print(utils.progress_bar(loop_time, self.n_steps))
     def report_wasted_data(self):
         # Some people are curious to see how much data is still in the worker when the training is finnished.
         waste = sum([len(t) for t in self.agent.current_trajectory])

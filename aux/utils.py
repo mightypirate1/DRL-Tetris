@@ -95,3 +95,9 @@ def replace_nan_with_value(tensor, value):
             value*tf.ones_like(tensor),
             tensor
             )
+
+def progress_bar(current, total, length=30, start="[", stop="]", done="|", remaining="-"):
+    progress = current / total
+    done_ticks = round(progress * length)
+    remaining_ticks = length - done_ticks
+    return start + done * done_ticks + remaining * remaining_ticks + stop

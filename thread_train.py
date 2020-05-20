@@ -53,5 +53,6 @@ for experiment in experiments:
     process_manager = threads.threaded_runner.threaded_runner(settings=experiment)
     print("Training...")
     process_manager.run()
+    # Wait for experiment to finnish :)
     process_manager.join()
     print("Training finished.")

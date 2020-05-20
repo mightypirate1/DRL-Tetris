@@ -69,6 +69,7 @@ Options:
     --steps S           Number of steps [default: 5000]
 '''
 run_settings = docopt.docopt(docoptstring)
+total_steps = int(run_settings["--steps"])
 if len(run_settings["<weights>"]) < 2:
     run_settings["<weights>"] += run_settings["<weights>"]
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
@@ -115,7 +116,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
     agent, name = random_match(all_agents, all_names)
     game_score.set_current_players(name)
     # Game loop!
-    for t in range(0,int(run_settings['--steps'])):
+    for t in range(0,total_steps):
         #Take turns...
         current_player = 1 - current_player
         state = s_prime
@@ -148,7 +149,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                     if not dead:
                         game_score.declare_winner(name[p])
                 print(game_score.score_table())
-                print("Round ended. {}".format(t-trajectory_start))
+                print("{} Round ended. {} steps.".format(utils.progress_bar(t,total_steps),t-trajectory_start))
                 env.reset(env=i)
                 #Prepare next round!
                 agent, name = random_match(all_agents, all_names) #change who's go it is!
