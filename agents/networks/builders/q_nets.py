@@ -14,21 +14,19 @@ from agents.networks.builders import build_blocks as blocks
 ### (Base class is currently a mess, but I'm working on it!)
 
 class q_net_silver(q_net_base):
-    def __init__(self, name, output_shape, state_size, settings, worker_only=False, training=tf.constant(False, dtype=tf.bool)):
-        super().__init__(self, name, output_shape, state_size, settings, worker_only=worker_only, training=training)
     def Q_V_A(self, vec, vis, one_eyed_advantage=False):
         #1) Pad visuals
         vis = [N.apply_visual_pad(v) for v in vis]
         #2) Pass visuals thru 1 res-block:
         visual_stream_resblock_settings = {
-                                            n_layers : 3,
-                                            n_filters : 128,
-                                            filter_size : (3,3),
-                                            strides : (1,1),
-                                            peepholes : True,
-                                            pools : False,
-                                            dropout : 0.15,
-                                            training : self.training_tf,
+                                            'n_layers' : 3,
+                                            'n_filters' : 128,
+                                            'filter_size' : (3,3),
+                                            'strides' : (1,1),
+                                            'peepholes' : True,
+                                            'pools' : False,
+                                            'dropout' : 0.15,
+                                            'training' : self.training_tf,
                                           }
         hidden_vis = [blocks.residual_block(v, **visual_stream_settings) for v in vis]
         #3) Make feature-planes out of vector-data and stack it on hidden stream:
@@ -37,27 +35,27 @@ class q_net_silver(q_net_base):
 
         #4) Another res-block before we split off in V- and A- streams.
         joined_stream_resblock_settings = {
-                                            n_layers : 3,
-                                            n_filters : 128,
-                                            filter_size : (5,5),
-                                            strides : (1,1),
-                                            peepholes : True,
-                                            pools : False,
-                                            dropout : 0.15,
-                                            training : self.training_tf,
+                                            'n_layers' : 3,
+                                            'n_filters' : 128,
+                                            'filter_size' : (5,5),
+                                            'strides' : (1,1),
+                                            'peepholes' : True,
+                                            'pools' : False,
+                                            'dropout' : 0.15,
+                                            'training' : self.training_tf,
                                           }
         joined = [blocks.residual_block(v, **joined_stream_resblock_settings) for v in visvec]
 
         #5) More res-blocks!
         adv_stream_resblock_settings = {
-                                        n_layers : 3,
-                                        n_filters : 128,
-                                        filter_size : (3,3),
-                                        strides : (1,1),
-                                        peepholes : True,
-                                        pools : False,
-                                        dropout : 0.15,
-                                        training : self.training_tf,
+                                        'n_layers' : 3,
+                                        'n_filters' : 128,
+                                        'filter_size' : (3,3),
+                                        'strides' : (1,1),
+                                        'peepholes' : True,
+                                        'pools' : False,
+                                        'dropout' : 0.15,
+                                        'training' : self.training_tf,
                                         }
         #Add your vector-data to my processed joined stream to compute advantges
         adv = blocks.residual_block(N.peephole_join(joined[0], vec[1]), **adv_stream_resblock_settings)
@@ -66,14 +64,14 @@ class q_net_silver(q_net_base):
         #If we are not a worker, we want to compute values!
         if not self.worker_only:
             val_stream_resblock_settings = {
-                                             n_layers : 3,
-                                             n_filters : 256,
-                                             filter_size : (5,5),
-                                             strides : (1,1),
-                                             peepholes : True,
-                                             pools : True,
-                                             dropout : 0.15,
-                                             training : self.training_tf,
+                                             'n_layers' : 3,
+                                             'n_filters' : 256,
+                                             'filter_size' : (5,5),
+                                             'strides' : (1,1),
+                                             'peepholes' : True,
+                                             'pools' : True,
+                                             'dropout' : 0.15,
+                                             'training' : self.training_tf,
                                            }
             _V = blocks.residual_block(N.peephole_join(*joined), **val_stream_resblock_settings)
             _V = self.settings["piece_advantage_range"] * N.normalize_advantages(_V, axis=1) #This works here too!
@@ -88,8 +86,6 @@ class q_net_silver(q_net_base):
         return Q, V, A
 
 class q_net_keyboard(q_net_base):
-    def __init__(self, name, output_shape, state_size, settings, worker_only=False, training=tf.constant(False, dtype=tf.bool)):
-        super().__init__(self, name, output_shape, state_size, settings, worker_only=worker_only, training=training)
     def Q_V_A(self, vector, visuals):
         #1) create visual- and vector-encoders for the inputs!
         hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
@@ -115,9 +111,6 @@ class q_net_keyboard(q_net_base):
         return Q, V, A
 
 class q_net_vanilla(q_net_base):
-    def __init__(self, name, output_shape, state_size, settings, worker_only=False, training=tf.constant(False, dtype=tf.bool)):
-        super().__init__(self, name, output_shape, state_size, settings, worker_only=worker_only, training=training)
-    # # # # # # # # # # # # #
     def Q_V_A(self,vectors, visuals):
         #1) create visual- and vector-encoders for the inputs!
         hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
