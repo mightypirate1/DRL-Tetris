@@ -3,7 +3,7 @@ import numpy as np
 
 from agents.networks import network_utils as N
 from agents.networks.builders.q_net_base import q_net_base
-import agents.networks.builders.build_blocks as blocks
+from agents.networks.builders import build_blocks as blocks
 
 ### Easiest way to do this:
 ### 1) Create a class that inherits the base-class.
