@@ -78,11 +78,13 @@ class threaded_runner:
 
     def join(self):
         # TODO: Make a watch dog thing here. (Check if workers die, if so: warning. Check if trainer dies, if so: terminate.)
+        time.sleep(10)
         print("Tring to join...")
         done = False
         while not done:
             done = True
             for flag in self.shared_vars["run_flag"]:
                 done = done and flag == 0
+            # Give some time for resources to clear proper from the GPU. This seems to avoid a weird crash - possibly due to tf not cleaning up immediately on tf.Session().close()
             time.sleep(10)
         print("join done!")

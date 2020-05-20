@@ -16,6 +16,7 @@ Options:
     --no-rendering  Disables rendering.
 
     --debug       Debug run of the 1st experiment only. No multiprocessing.
+    --skip K      Skips the first K experiments. (Useful in case of a crash) [default: 0]
     --only-last   Only run the fully compounded settings in each experiment.
 '''
 run_settings = docopt.docopt(docoptstring)
@@ -39,7 +40,7 @@ def adjust_settings(s):
 # # #
 if run_settings["--debug"]:
     print("Executing only thread_0:")
-    process_manager = threads.threaded_runner.threaded_runner(settings=settings, restart=(restart_file, restart_clock))
+    process_manager = threads.threaded_runner.threaded_runner(settings=experiments[0], restart=(restart_file, restart_clock))
     process_manager.threads["workers"][0].run()
     print("___")
     exit("thread debug run done.")
@@ -47,7 +48,7 @@ if run_settings["--debug"]:
 # # #
 # Run all scheduled experiments!
 # # #
-for experiment in experiments:
+for experiment in experiments[int(run_settings["--skip"]):]:
     experiment = adjust_settings(experiment)
     settings_printer(experiment)._print()
     process_manager = threads.threaded_runner.threaded_runner(settings=experiment)
