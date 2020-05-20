@@ -40,7 +40,9 @@ def adjust_settings(s):
 # # #
 if run_settings["--debug"]:
     print("Executing only thread_0:")
-    process_manager = threads.threaded_runner.threaded_runner(settings=experiments[0], restart=(restart_file, restart_clock))
+    dbg_settings = experiments[0]
+    dbg_settings.update({"run_standalone" : True, "worker_net_on_cpu" : False, "n_workers" : 1})
+    process_manager = threads.threaded_runner.threaded_runner(settings=dbg_settings)
     process_manager.threads["workers"][0].run()
     print("___")
     exit("thread debug run done.")
