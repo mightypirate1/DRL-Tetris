@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 
 import aux.utils as utils
-from agents.networks.builders import q_net_builders as Q
+from agents.networks.builders import q_nets as Q
 from agents.networks import network_utils as N
 
 class prio_qnet:
@@ -31,7 +31,12 @@ class prio_qnet:
         self.worker_only = worker_only
 
         #Choose what type of architecture is used for Q-heads!
-        self.network_type = Q.q_net
+        if self.settings["q_net_type"] == "vanilla":
+            self.network_type = Q.q_net_vanilla
+        elif self.settings["q_net_type"] == "keyboard":
+            self.network_type = Q.q_net_keyboard
+        elif self.settings["q_net_type"] == "silver":
+            self.network_type = Q.q_net_silver
 
         #Shapes and params
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
@@ -44,51 +49,52 @@ class prio_qnet:
         #Define tensors/placeholders
         with tf.variable_scope(self.scope_name):
             if self.worker_only:
-                self.rewards_tf       = None
-                self.dones_tf         = None
-                self.actions_tf       =  tf.placeholder(tf.uint8, (None, 1))
-                self.pieces_tf        =  tf.placeholder(tf.uint8, (None, 1))
+                self.rewards_tf             =  None
+                self.dones_tf               =  None
+                self.actions_tf             =  tf.placeholder(tf.uint8, (None, 1))
+                self.pieces_tf              =  tf.placeholder(tf.uint8, (None, 1))
                 self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
                 self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
-                self.vector_inputs_training = None
-                self.visual_inputs_training = None
-                self.actions_training_tf = None
-                self.pieces_training_tf = None
+                self.vector_inputs_training =  None
+                self.visual_inputs_training =  None
+                self.actions_training_tf    =  None
+                self.pieces_training_tf     =  None
             else:
                 self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
                 self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
                 self.vector_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
                 self.visual_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
-                self.rewards_tf       = tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
-                self.dones_tf         = tf.placeholder(tf.int32, (None, k_step+1, 1), name='done')
-                self.actions_tf       =  tf.placeholder(tf.uint8, (None, 1))
-                self.pieces_tf        =  tf.placeholder(tf.uint8, (None, 1))
-                self.actions_training_tf       = tf.placeholder(tf.uint8, (None, k_step+1, 2), name='action')
-                self.pieces_training_tf        = tf.placeholder(tf.uint8, (None, k_step+1, 1), name='piece')
-                self.learning_rate_tf       = tf.placeholder(tf.float32, shape=())
-                self.loss_weights_tf        = tf.placeholder(tf.float32, (None,1), name='loss_weights')
-            self.training_tf       = tf.placeholder(tf.bool, shape=())
-            self.main_q_net = self.network_type("q-net-main",      output_shape, state_size, self.settings, worker_only=worker_only, training=self.training_tf)
-            self.ref_q_net  = self.network_type("q-net-reference", output_shape, state_size, self.settings, worker_only=worker_only, training=self.training_tf)
+                self.rewards_tf             =  tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
+                self.dones_tf               =  tf.placeholder(tf.int32, (None, k_step+1, 1), name='done')
+                self.actions_tf             =  tf.placeholder(tf.uint8, (None, 1))
+                self.pieces_tf              =  tf.placeholder(tf.uint8, (None, 1))
+                self.actions_training_tf    =  tf.placeholder(tf.uint8, (None, k_step+1, 2), name='action')
+                self.pieces_training_tf     =  tf.placeholder(tf.uint8, (None, k_step+1, 1), name='piece')
+                self.learning_rate_tf       =  tf.placeholder(tf.float32, shape=())
+                self.loss_weights_tf        =  tf.placeholder(tf.float32, (None,1), name='loss_weights')
+            self.training_tf = tf.placeholder(tf.bool, shape=())
+            self.main_q_net  = self.network_type("q-net-main",      output_shape, state_size, self.settings, worker_only=worker_only, training=self.training_tf)
+            self.ref_q_net   = self.network_type("q-net-reference", output_shape, state_size, self.settings, worker_only=worker_only, training=self.training_tf)
+            #Create trainer and a network to train!
             self.q_tf, self.v_tf, self.a_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
                                     = self.create_network_with_trainer(
-                                                            self.vector_inputs,
-                                                            self.visual_inputs,
-                                                            self.vector_inputs_training,
-                                                            self.visual_inputs_training,
-                                                            self.actions_tf,
-                                                            self.pieces_tf,
-                                                            self.actions_training_tf,
-                                                            self.pieces_training_tf,
-                                                            self.rewards_tf,
-                                                            self.dones_tf,
-                                                           )
-            self.main_net_vars      = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.main_scope.name)
-            self.main_net_assign_list      = self.create_weight_setting_ops(self.main_net_vars)
+                                                                        self.vector_inputs,
+                                                                        self.visual_inputs,
+                                                                        self.vector_inputs_training,
+                                                                        self.visual_inputs_training,
+                                                                        self.actions_tf,
+                                                                        self.pieces_tf,
+                                                                        self.actions_training_tf,
+                                                                        self.pieces_training_tf,
+                                                                        self.rewards_tf,
+                                                                        self.dones_tf,
+                                                                       )
+            self.main_net_vars        = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.main_scope.name)
+            self.main_net_assign_list = self.create_weight_setting_ops(self.main_net_vars)
             if not self.worker_only:
-                self.reference_net_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.ref_scope.name)
+                self.reference_net_vars        = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.ref_scope.name)
                 self.reference_net_assign_list = self.create_weight_setting_ops(self.reference_net_vars)
-                self.training_ops = self.create_training_ops()
+                self.training_ops              = self.create_training_ops()
             self.all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scope_name)
             self.init_ops = tf.variables_initializer(self.all_vars)
         #Run init-op

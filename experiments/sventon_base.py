@@ -10,19 +10,15 @@ settings = {
             #Project
             "run-id" : "SVENton-alpha0",
             # "run-id" : "arch01",
-            "state_processor_separate_piece" : True,
+
+            #Q, V, A
             "q_target_locked_for_other_actions" : False,
-            "advantage_type" : "max",#,"none",#"mean", #"max",
-            "old_state_dict" : False,
-            "keyboard_conv" : True, #True,
-
+            "advantage_type" : "max", #"mean", #"max",
+            "q_net_type" : "keyboard", #"keyboard", "vanilla", "silver",
             "separate_piece_values" : False,
-            "keyboard_range" : 0.7,
+            "advantage_range" : 0.7,
             "piece_advantage_range" : 0.5,
-
             "sparse_value_estimate_filter" : [], #Empty list is no filter
-            "render_screen_dims" : (3840,2160), #My screen is huge
-            # "render_simulation" : True
 
             #Train parameters
             "gae_lambda"                : 0.92, #0.95 default
@@ -121,6 +117,10 @@ settings = {
             "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,
             "optimizer" : tf.train.AdamOptimizer,
+            ##
+            "state_processor_separate_piece" : True,
+            "old_state_dict" : False,
+            "render_screen_dims" : (3840,2160), #My screen is huge
            }
 ###
 ###

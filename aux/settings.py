@@ -72,8 +72,7 @@ default_settings = {
                     "nn_output_activation" : tf.nn.tanh,
                     "optimizer" : tf.train.GradientDescentOptimizer,
                     #Prio-Q-Net
-                    "keyboard_conv" : False,
-                    "keyboard_range" : 0.7,
+                    "advantage_range" : 0.7,
                     "piece_advantage_range" : 0.5,
                     "separate_piece_values" : False,
                     "keyboard_n_convs" : 2,

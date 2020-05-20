@@ -5,6 +5,15 @@ from tensorflow.python.client import device_lib
 ### Builder utilities!
 ###
 
+def conv_shape_vector(vec, shape_to_match):
+    dims = vec.shape.as_list()
+    if type(shape_to_match) is not list:
+        #Hope it's a tensor-shape!
+        shape_to_match = shape_to_match.as_list()
+    assert len(dims) == 2, "Give me a vector ([?, K] tensor)"
+    x = tf.reshape(vec, [-1, 1, 1, dims[-1]])
+    return tf.tile(x, [1, shape_to_match[1], shape_to_match[2], 1])
+
 def peephole_join(x,y, mode="concat"):
     if mode == "add":
         nx,ny = x.shape[3], y.shape[3]
