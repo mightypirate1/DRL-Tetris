@@ -84,5 +84,5 @@ class threaded_runner:
             done = True
             for flag in self.shared_vars["run_flag"]:
                 done = done and flag == 0
-            time.sleep(1)
+            time.sleep(10)
         print("join done!")
