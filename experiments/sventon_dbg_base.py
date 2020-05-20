@@ -8,8 +8,8 @@ from aux.parameter import *
 
 settings = {
             #Project
-            "run-id" : "bogus0",
-            # "run-id" : "SVENton-alpha0",
+            "run-id" : "SVENton-alpha0",
+            # "run-id" : "arch01",
             "state_processor_separate_piece" : True,
             "q_target_locked_for_other_actions" : False,
             "advantage_type" : "max",#,"none",#"mean", #"max",
@@ -20,7 +20,7 @@ settings = {
             "keyboard_range" : 0.7,
             "piece_advantage_range" : 0.5,
 
-            "EXPERIMENTAL_estimate" : True,
+            "sparse_value_estimate_filter" : [], #Empty list is no filter
             "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True
 
@@ -79,7 +79,7 @@ settings = {
             "run_standalone"       : False,
             "n_workers"            : 3,
             "n_envs_per_thread"    : 80,
-            "worker_steps"         : 125000,
+            "worker_steps"         : total_steps // 240,
             "worker_net_on_cpu"    : True,
             "trainer_net_on_cpu"   : False,
 
@@ -89,6 +89,10 @@ settings = {
             "worker_data_send_fequency" : 1,
             "weight_transfer_frequency" : 1,
             "workers_do_processing"     : True,
+
+            #Misc.
+            "render"            : True,
+            "bar_null_moves"    : True,
 
             #Value net:
             "vectorencoder_n_hidden" : 1,
@@ -100,10 +104,10 @@ settings = {
             "visualencoder_n_filters" : (64,64,128,),
             "visualencoder_filter_sizes" : ((5,5),(5,3),(5,3),),
             "visualencoder_poolings" : [3], #Pooling after layer numbers in this list
-            "visualencoder_dropout" : 0.15, #Is this keep-rate or drop-rate...?
+            "visualencoder_dropout" : 0.15,
             "peephole_convs"   : True,
             "peephole_join_style"   : "add", #"concat"
-            "visualencoder_peepholes" : [0,1],
+            "visualencoder_peepholes" : [0,1,2,3,4,5,6,7],
             ##Kbd-vis
             "kbd_vis_n_convs" : 3,
             "kbd_vis_n_filters" : [128,128,128],
@@ -117,15 +121,79 @@ settings = {
             "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,
             "optimizer" : tf.train.AdamOptimizer,
-
-            #Misc.
-            "render"            : True,
-            "bar_null_moves"    : True,
            }
-
-patches = \
-[
-    {
-        'run-id' : "bogus1"
-    },
-]
+###
+###
+###
+#
+# patches = \
+# [
+#     {
+#         'run-id' : "arch02",
+#         ##vis-enc
+#         "visualencoder_n_convs" : 3,
+#         "visualencoder_n_filters" : (32,32,64,),
+#         "visualencoder_filter_sizes" : ((5,5),(5,3),(5,3),),
+#         ##Kbd-vis
+#         "kbd_vis_n_convs" : 3,
+#         "kbd_vis_n_filters" : [64,64,64],
+#         ##Kbd
+#         "keyboard_n_convs" : 3,
+#         "keyboard_n_filters" : (32,32,),
+#         ###
+#         "valuenet_n_hidden" : 2,
+#         "valuenet_hidden_size" : 512,
+#     },
+#
+#
+#     {
+#     'run-id' : "arch03",
+#     ##vis-enc
+#     "visualencoder_n_convs" : 5,
+#     "visualencoder_n_filters" : (64, 64, 64,64,128,),
+#     "visualencoder_filter_sizes" : ((3,3), (3,3), (5,5),(5,3),(5,3),),
+#     ##Kbd-vis
+#     "kbd_vis_n_convs" : 3,
+#     "kbd_vis_n_filters" : [128,128,128],
+#     ##Kbd
+#     "keyboard_n_convs" : 3,
+#     "keyboard_n_filters" : (64,64,),
+#     ###
+#     "valuenet_n_hidden" : 2,
+#     "valuenet_hidden_size" : 512,
+#     },
+#
+#     {
+#         'run-id' : "arch04",
+#         ##vis-enc
+#         "visualencoder_n_convs" : 3,
+#         "visualencoder_n_filters" : (64,64,128,),
+#         "visualencoder_filter_sizes" : ((5,5),(5,3),(5,3),),
+#         ##Kbd-vis
+#         "kbd_vis_n_convs" : 3,
+#         "kbd_vis_n_filters" : [128,128,128],
+#         ##Kbd
+#         "keyboard_n_convs" : 5,
+#         "keyboard_n_filters" : (64,64,64,64,),
+#         ###
+#         "valuenet_n_hidden" : 2,
+#         "valuenet_hidden_size" : 512,
+#     },
+#
+#     {##
+#     'run-id' : "arch05",
+#     ##vis-enc
+#     "visualencoder_n_convs" : 3,
+#     "visualencoder_n_filters" : (64,64,128,),
+#     "visualencoder_filter_sizes" : ((5,5),(5,3),(5,3),),
+#     ##Kbd-vis
+#     "kbd_vis_n_convs" : 3,
+#     "kbd_vis_n_filters" : [128,256,256],
+#     ##Kbd
+#     "keyboard_n_convs" : 3,
+#     "keyboard_n_filters" : (128,128,),
+#     ###
+#     "valuenet_n_hidden" : 2,
+#     "valuenet_hidden_size" : 1024,
+#     },
+# ]

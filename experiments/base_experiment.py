@@ -24,6 +24,7 @@ settings = {
             "run-id" : "base_0",
             }
 
+# Example use: rerun the same project with a new name.
 patches = [
             {
                 "run-id" : "base_1"
