@@ -119,6 +119,7 @@ experiments/*
 !experiments/base_experiment.py
 !experiments/sixten_base.py
 !experiments/sventon_base.py
+!experiments/sventon_silver.py
 *.pkl
 
 #CMake stuff doenst need to be shared
