@@ -22,6 +22,8 @@ These components may be separated into different repositories at some time in th
 * Install dependencies (see "Dependencies").
 * Build the backend module (see "Build backend").
 
+> NOTE: It has come to my attention that this code-base does not easily run on mac or windows. My apologies, I might fix that one day. Feel free to contribute :)
+
 Once these steps are done, you should be able to use the environment, and to train your own agents (see "Usage").
 
 #### Dependencies:
