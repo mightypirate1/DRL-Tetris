@@ -33,9 +33,9 @@ class prio_qnet:
         #Choose what type of architecture is used for Q-heads!
         if self.settings["q_net_type"] == "silver":
             self.network_type = Q.q_net_silver
-        elif self.settings["q_net_type"] == "vanilla" or (self.settings["keyboard_conv"] == False):
+        elif self.settings["q_net_type"] == "vanilla":
             self.network_type = Q.q_net_vanilla
-        elif self.settings["q_net_type"] == "keyboard" or (self.settings["keyboard_conv"] == True):
+        elif self.settings["q_net_type"] == "keyboard":
             self.network_type = Q.q_net_keyboard
 
         #Shapes and params
