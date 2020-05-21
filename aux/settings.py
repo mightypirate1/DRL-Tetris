@@ -122,4 +122,6 @@ default_settings = {
 
                 ##GAME CONTROLLER:
                     "max_round_time" : None,
+                    "keyboard_conv" : False,
+                    "q_net_type" : "keyboard",
                     }

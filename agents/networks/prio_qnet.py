@@ -31,12 +31,12 @@ class prio_qnet:
         self.worker_only = worker_only
 
         #Choose what type of architecture is used for Q-heads!
-        if self.settings["q_net_type"] == "vanilla":
-            self.network_type = Q.q_net_vanilla
-        elif self.settings["q_net_type"] == "keyboard":
-            self.network_type = Q.q_net_keyboard
-        elif self.settings["q_net_type"] == "silver":
+        if self.settings["q_net_type"] == "silver":
             self.network_type = Q.q_net_silver
+        elif self.settings["q_net_type"] == "vanilla" or (self.settings["keyboard_conv"] == False):
+            self.network_type = Q.q_net_vanilla
+        elif self.settings["q_net_type"] == "keyboard" or (self.settings["keyboard_conv"] == True):
+            self.network_type = Q.q_net_keyboard
 
         #Shapes and params
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape

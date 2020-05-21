@@ -13,7 +13,7 @@ settings = {
             "q_target_locked_for_other_actions" : False,
             "advantage_type" : "max",#,"none",#"mean", #"max",
             "old_state_dict" : False,
-            "keyboard_conv" : False, #True,
+            "q_net_type" : "keyboard", #"vanilla", "keyboard", "silver",
 
             "separate_piece_values" : False,
             "keyboard_range" : 0.7,
