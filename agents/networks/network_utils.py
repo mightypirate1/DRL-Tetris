@@ -5,8 +5,16 @@ from tensorflow.python.client import device_lib
 ### Builder utilities!
 ###
 
-def normalize_advantages(A, mode="mean", axis=[1,2], piece_axis=3, separate_piece_values=True, piece_mask=1.0, n_used_pieces=7):
+def normalize_advantages(A, apply_activation=False, inplace=False, mode="mean", axis=[1,2], piece_axis=3, separate_piece_values=True, piece_mask=1.0, n_used_pieces=7):
+    # En garde! - This is a duelling network.
+    if inplace:
+        V = tf.expand_dims(A[:,:,:,0],3)
+        A = A[:,:,:,1:]
+    if apply_activation:
+        A = advantage_activation_sqrt(A)
     #piece_mask is expected to be shape [1,1,1,7] or constant. 1 for used pieces, 0 for unused.
+    if piece_mask == 1.0:
+        n_used_pieces = 1
     all_axis = A.shape.as_list()[1:]
     if  mode == "max":
         a_maxmasked = piece_mask * A + (1-piece_mask) * tf.reduce_min(A, axis=all_axis, keepdims=True)
@@ -18,10 +26,9 @@ def normalize_advantages(A, mode="mean", axis=[1,2], piece_axis=3, separate_piec
         A  = (A - max_a)  #A_q(s,r,t,p) = advantage of applying rotation r and translation t to piece p in state s; compared to playing according to the argmax-policy
     elif mode == "mean":
         _mean_a = tf.reduce_mean(A,      axis=axis, keepdims=True )
-        # mean_a  = tf.reduce_mean(_mean_a, axis=3,     keepdims=True )
         mean_a  = tf.reduce_sum(_mean_a * piece_mask, axis=piece_axis,     keepdims=True ) / n_used_pieces
         A = (A - mean_a)
-    return A
+    return A if not inplace else V + A
 
 def conv_shape_vector(vec, shape_to_match):
     dims = vec.shape.as_list()
@@ -54,10 +61,18 @@ def apply_visual_pad(x):
     # This makes floor and walls look like it's a piece, and cieling like its free space
     return x
 
-def q_to_v(self,q, mask=1.0, n_pieces=7):
+def q_to_v(q, mask=1.0, n_pieces=7):
     q_p = tf.reduce_max(q, axis=[1,2], keepdims=True)
     v = tf.reduce_sum(q_p * mask, axis=3, keepdims=True) / n_pieces
     return tf.reshape(v, [-1, 1])
+
+def pool_spatial_dims_until_singleton(x, warning=False):
+    for axis in [1, 2]:
+        if x.shape[axis].value > 1:
+            if warning:
+                print("applying reduce_mean to ", x, "along axis", axis)
+            x = tf.reduce_mean(x, axis=axis)
+    return x
 
 ###
 ### Regularizers & metrics

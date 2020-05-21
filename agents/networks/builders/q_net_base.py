@@ -19,6 +19,7 @@ class q_net_base:
         self.advantage_range = self.settings["advantage_range"]
         self.n_used_pieces = len(self.settings["pieces"])
         self.used_pieces_mask_tf = self.create_used_pieces_mask()
+        self.initialize_variables()
     def __call__(self,vectors, visuals, *args, **kwargs):
         with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE) as vs:
             scope = vs

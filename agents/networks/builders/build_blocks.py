@@ -12,25 +12,34 @@ def residual_block(x,
                     peepholes=True,
                     pools=False,
                     dropout=0.0,
+                    pool_size=(3,2),
+                    pool_strides=(3,2),
+                    output_n_filters=None,
                     training=tf.constant(False),
                     ):
-    for _ in range(n_layers):
-        y = x
+    for i in range(n_layers):
+        y, n = x, n_filters
+        if i == n_layers - 1 and output_n_filters is not None:
+            n = output_n_filters
         x = tf.layers.conv2d(
                               x,
-                              n_filters,
+                              n,
                               filter_size,
                               padding='same',
                               activation=tf.nn.elu,
                               kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                               bias_initializer=tf.zeros_initializer(),
                             )
-        x = N.peephole_join(x,y, mode="add")
+        if peepholes and (output_n_filters is None or i < n_layers - 1):
+            x = N.peephole_join(x,y, mode="add")
         if dropout > 0:
             x = tf.keras.layers.SpatialDropout2D(dropout)(x,training)
         if pools:
-            x = tf.layers.max_pooling2d(x, (2,2), (2,2), padding='same')
+            _w,_h = x.shape.as_list()[1:3]
+            w, h = min(pool_size[0],_w), min(pool_size[1],_h)
+            x = tf.layers.average_pooling2d(x, (w,h), (w,h), padding='valid')
     return x
+
 
 # This is an idea to preserve game-geometry when producing an action-space.
 def keyboard_conv(x, n_rot, n_p, name='keyboard_conv'):
@@ -40,7 +49,7 @@ def keyboard_conv(x, n_rot, n_p, name='keyboard_conv'):
                             (x.shape.as_list()[1],3),
                             name=name,
                             padding='valid',
-                            activation=N.advantage_activation_sqrt,
+                            activation=None,
                             kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                             bias_initializer=tf.zeros_initializer(),
                         )

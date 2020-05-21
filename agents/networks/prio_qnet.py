@@ -182,6 +182,7 @@ class prio_qnet:
             #2) Do all the V-estimators, k-step style
             gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
             def k_step_estimate(k):
+                k = int(k)
                 e = 0
                 for t in range(k):
                     e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
@@ -192,7 +193,7 @@ class prio_qnet:
                 if len(self.settings["sparse_value_estimate_filter"]) > 0:
                     filter = np.array(self.settings["sparse_value_estimate_filter"]).reshape((1,-1))
                     steps = np.array(estimator_steps).reshape((-1,1))
-                    filter = np.prod((steps % _filter),axis=1)!=0
+                    filter = np.prod((steps % filter),axis=1)!=0
                     estimator_steps = steps[np.where(filter)]
             estimators = [(k,k_step_estimate(k)) for k in estimator_steps if k <= self.k_step]
 
