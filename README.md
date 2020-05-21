@@ -5,7 +5,7 @@ This repository is three things:
 
 2. A multi-processing framework for running multiple workers gathering trajectories for a trainer thread. The framework is flexible enough to facilitate many different RL algorithms. If you match the format of the template-agent provided, your algorithm should work right away with the framework.
 
-3. A small but family of RL-algorithms that learns to play two-player tetris through self-play:
+3. A small but growing family of RL-algorithms that learns to play two-player tetris through self-play:
 
     **SIXten** learns the value-function thru a k-step estimation scheme, utilizing the world-model of the environment and a prioritized distributed experience replay (modelled on Schaul et al.). Toghether with the multiprocessing framework described above it's similar to Ape-X (https://arxiv.org/abs/1803.00933) but the RL algorithm itself is different.
 
@@ -14,6 +14,8 @@ This repository is three things:
 These components may be separated into different repositories at some time in the future, but for now they are one.
 
 > NOTE: The master-branch contains some features that are experiental. If there are issues, revert to the stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/stable)
+
+> NOTE: The quality of code has changed as I learned. Please be lenient when looking at the remnants of old code. There will come a day when it's fixed, let's hope!
 
 ## Installation:
 * Pull the repository.
