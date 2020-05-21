@@ -8,24 +8,27 @@ from aux.parameter import *
 
 settings = {
             #Project
-            "run-id" : "SVENton-alpha0",
-            # "run-id" : "arch01",
-
-            #Q, V, A
+            "run-id" : "SVENton-beta0",
+            "state_processor_separate_piece" : True,
             "q_target_locked_for_other_actions" : False,
-            "advantage_type" : "max", #"mean", #"max",
-            "q_net_type" : "keyboard", #"keyboard", "vanilla", "silver",
+            "advantage_type" : "max",#,"none",#"mean", #"max",
+            "old_state_dict" : False,
+            "keyboard_conv" : False, #True,
+
             "separate_piece_values" : False,
-            "advantage_range" : 0.7,
+            "keyboard_range" : 0.7,
             "piece_advantage_range" : 0.5,
+
             "sparse_value_estimate_filter" : [], #Empty list is no filter
+            "render_screen_dims" : (3840,2160), #My screen is huge
+            # "render_simulation" : True
 
             #Train parameters
             "gae_lambda"                : 0.92, #0.95 default
             "n_step_value_estimates"    : 17,
             # "n_samples_each_update"     : 16384,
             "n_samples_each_update"     : 8192,
-            "minibatch_size"            : 256,#256, #128
+            "minibatch_size"            : 64,#256, #128
             "n_train_epochs_per_update" : 1,
             "time_to_reference_update"  : 3, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=2/total_steps),
@@ -59,10 +62,8 @@ settings = {
             # "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
 
             #Game settings
-            "pieces" : [0,],
+            "pieces" : [0,6],
             "game_size" : [10,6],
-            # "game_size" : [10,10],
-            # "pieces" : [0,6],
             # "game_size" : [22,10],
             "time_elapsed_each_action" : 400,
             #Types
@@ -96,14 +97,15 @@ settings = {
             "vectorencoder_output_size" : 32,
             ###
             "pad_visuals"      : True,
-            "visualencoder_n_convs" : 3,
-            "visualencoder_n_filters" : (64,64,128,),
-            "visualencoder_filter_sizes" : ((5,5),(5,3),(5,3),),
             "visualencoder_poolings" : [3], #Pooling after layer numbers in this list
             "visualencoder_dropout" : 0.15,
             "peephole_convs"   : True,
             "peephole_join_style"   : "add", #"concat"
             "visualencoder_peepholes" : [0,1,2,3,4,5,6,7],
+            ##vis-enc
+            "visualencoder_n_convs" : 5,
+            "visualencoder_n_filters" : (64, 64, 64,64,128,),
+            "visualencoder_filter_sizes" : ((3,3), (3,3), (5,5),(5,3),(5,3),),
             ##Kbd-vis
             "kbd_vis_n_convs" : 3,
             "kbd_vis_n_filters" : [128,128,128],
@@ -117,10 +119,7 @@ settings = {
             "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,
             "optimizer" : tf.train.AdamOptimizer,
-            ##
-            "state_processor_separate_piece" : True,
-            "old_state_dict" : False,
-            "render_screen_dims" : (3840,2160), #My screen is huge
+
            }
 ###
 ###

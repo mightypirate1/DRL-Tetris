@@ -15,8 +15,8 @@ def normalize_advantages(A, apply_activation=False, inplace=False, mode="mean", 
     #piece_mask is expected to be shape [1,1,1,7] or constant. 1 for used pieces, 0 for unused.
     if piece_mask == 1.0:
         n_used_pieces = 1
-    all_axis = A.shape.as_list()[1:]
     if  mode == "max":
+        all_axis = [i+1 for i in range(A.shape.rank-1)]
         a_maxmasked = piece_mask * A + (1-piece_mask) * tf.reduce_min(A, axis=all_axis, keepdims=True)
         _max_a   = tf.reduce_max(a_maxmasked,  axis=axis,     keepdims=True ) #We max over the actions which WE control (rotation, translation) and average over the ones we dont control (piece)
         if separate_piece_values:

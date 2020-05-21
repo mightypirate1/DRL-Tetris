@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+from agents.networks.builders import build_blocks as blocks
 from agents.networks import network_utils as N
 
 # This file survives only due to backwards compatibility (I can not compare to old training settings unless I keep it..).
@@ -20,6 +21,8 @@ class q_net_base:
         self.n_used_pieces = len(self.settings["pieces"])
         self.used_pieces_mask_tf = self.create_used_pieces_mask()
         self.initialize_variables()
+    def initialize_variables(self):
+        pass
     def __call__(self,vectors, visuals, *args, **kwargs):
         with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE) as vs:
             scope = vs

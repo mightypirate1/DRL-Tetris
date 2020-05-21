@@ -33,7 +33,8 @@ class q_net_silver(q_net_base):
         #7) If we are not a worker, we want to compute values!
         _V = tf.constant([0.0], dtype=tf.float32)
         if not self.worker_only: #Worker's need only to compute an arg-max, so we don't need the value for them :)
-            _V = blocks.residual_block(N.peephole_join(*joined), **self.resblock_settings["val_stream"])
+            _joined = N.peephole_join(*joined)
+            _V = blocks.residual_block(_joined, **self.resblock_settings["val_stream"])
             _V = N.pool_spatial_dims_until_singleton(_V, warning=True)
             if self.settings["separate_piece_values"]: #Treat pieces like actions
                 _V = self.settings["piece_advantage_range"] * N.normalize_advantages(_V, apply_activation=True, axis=1, inplace=True, piece_mask=self.used_pieces_mask_tf, n_used_pieces=self.n_used_pieces)
@@ -57,7 +58,7 @@ class q_net_silver(q_net_base):
                     self.resblock_settings[key].update(self.settings["residual_block_settings"][key])
 
 class q_net_keyboard(q_net_base):
-    def Q_V_A(self, vector, visuals):
+    def Q_V_A(self, vectors, visuals):
         #1) create visual- and vector-encoders for the inputs!
         hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
         _visuals = [self.create_visualencoder(vis) for vis in visuals]
@@ -74,7 +75,7 @@ class q_net_keyboard(q_net_base):
         else:
             V = self.create_value_head(x)
         V_qshaped = tf.reshape(V,[-1,1,1,V.shape.as_list()[-1]]) #Shape for Q-calc!
-        A = self.advantage_range * A_kbd
+        _A = self.advantage_range * A_kbd
         #4) Combine values and advantages to form the Q-fcn (Duelling-Q-style)
         A = N.normalize_advantages(_A, apply_activation=True, separate_piece_values=self.settings["separate_piece_values"], mode=self.settings["advantage_type"], piece_mask=self.used_pieces_mask_tf)
         Q = V_qshaped + A
