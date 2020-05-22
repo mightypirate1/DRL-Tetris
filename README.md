@@ -84,10 +84,12 @@ python3 eval.py models/demo_weights/SIXten/weightsDEMO1.w
 to watch SIXten play.
 
 ## Customization:
-The entire repository uses a settings-dictionary (the default values of which are found in aux/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation. For examples of how to create such a dictionary, see "thread_train.py", and for how to pass it to the environment constructor, see "threads/worker_thread.py".
 
-For minor customizations, you can just edit the settings-dictionary in thread_train.py.
-To change the size of the field used, just find the game_field entry and put a new value there. Any option that is in aux/settings.py can be overridden this way.
+The entire repository uses a settings-dictionary (the default values of which are found in aux/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation. For examples of how to create such a dictionary, see the existing experiment-files in "experiments/".
+
+For minor customization, you can just edit the settings-dictionary in the corresponding experiment-file (e.g "experiments/sixten_base.py"). To change the size of the field used, just find the game_field entry and put a new value there. Any option that is in aux/settings.py can be overridden this way. For major customization you might need to code.
+
+> This is a design-choice I am - with the benefit of experience and hindsight - not too impressed with. My attention is finite and directed elsewhere in the project for now, as this works ok for RL-dev. If you hate it, feel free to contribute! ;)
 
 #### Pieces:
 What pieces are being used is specified in the settngs-dictionary's field "pieces". It contains a list of any subset of {0,1,2,3,4,5,6}. [0,1,2,3,4,5,6] means the full set is used. The numbers correspond to the different pieces via the aliasing (L,J,S,Z,I,T,O) <~> (0,1,2,3,4,5,6). If those letters confuse you, you might want to check out https://tetris.fandom.com/wiki/Tetromino
@@ -122,6 +124,8 @@ with
 ```
 env = environment.make("FullSize-v0")
 ```
+
+As I want to maintain full flexibility w.r.t what constitutes an action-space, there are no current plans on full gym-integration, but that - as all other things - might change with time.
 
 ## Contribute!
 If you want to get involved in this project and want to know what needs to be done, feel free to contact me and I will be happy to discuss!
