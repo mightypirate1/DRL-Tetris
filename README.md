@@ -96,7 +96,7 @@ What pieces are being used is specified in the settngs-dictionary's field "piece
 
 The pre-defined settings on the master branch plays with only the O- and the L-piece to speed up training (pieces set to [0,6]).
 
-> Quickest way to enable all pieces is to comment out the line in "thread_train.py" that reduces it to O and L:
+> Quickest way to enable all pieces is to comment out the line  that reduces it to O and L, in the experiment-file you intend to use (e.g. "experiments/sixten_base.py"):
 > ```
 > # "pieces" : [0,6],
 > ```
