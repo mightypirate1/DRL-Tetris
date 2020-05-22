@@ -28,9 +28,7 @@ def adjust_settings(S):
         S["pieces"] = default_settings["pieces"]
     if not run_settings["--res"]:
         S["render_screen_dims"] = default_settings["render_screen_dims"]
-    if run_settings["--no-rendering"]:
-        S["render"] = False
-    S["tau_learning_rate"] = 0.995
+    S["render"] = not run_settings["--no-rendering"]
     return S
 
 def random_match(agents, names):
