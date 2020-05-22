@@ -71,7 +71,7 @@ def pool_spatial_dims_until_singleton(x, warning=False):
         if x.shape[axis].value > 1:
             if warning:
                 print("applying reduce_mean to ", x, "along axis", axis)
-            x = tf.reduce_mean(x, axis=axis)
+            x = tf.reduce_mean(x, axis=axis, keepdims=True)
     return x
 
 ###
