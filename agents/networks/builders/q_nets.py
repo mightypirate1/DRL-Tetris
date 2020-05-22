@@ -45,8 +45,8 @@ class q_net_silver(q_net_base):
         return Q, V, A
     def initialize_variables(self):
         n = 8 if self.settings["separate_piece_values"] else 1
-        resb_default      = {'n_layers' : 3, 'n_filters' : 128,                                                                 'dropout' : 0.15, 'training' : self.training_tf}
-        val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'dropout' : 0.15, 'training' : self.training_tf}
+        resb_default      = {'n_layers' : 3, 'n_filters' : 128,                                                                 'dropout' : self.settings['resblock_dropout'], 'training' : self.training_tf}
+        val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'dropout' : self.settings['resblock_dropout'], 'training' : self.training_tf}
         if "residual_block_settings" not in self.settings:
                 self.resblock_settings = {"visual": resb_default, "visvec": resb_default, "adv_stream" : resb_default, "val_stream": val_resb_settings,}
                 return
