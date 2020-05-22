@@ -58,15 +58,16 @@ Usage:
     eval.py <weights> ... [options] [--no-null | --null]
 
 Options:
-    --reload         Don't attempt to reload weights on reset. [default: False]
+    --reload            Attempt to reload weights on reset. [default: False]
     --all-pieces        Force play with all pieces. [default: False]
-    --no-null            Forces disabling of null-moves [default: False]
+    --no-null           Forces disabling of null-moves [default: False]
     --null              Forces enabling of null-moves [default: False]
     --fast              Go full speed, potentially faster than real-time [default: False]
     --debug             Lot's of prints [default: False]
     --res               Use the resolution used when training. Default behavior is to use the global default. [default: False]
     --no-rendering      Disables rendering [default: False]
     --steps S           Number of steps [default: 5000]
+    --frac              Print scoreboard with fractions instead of floats. [default: False]
 '''
 run_settings = docopt.docopt(docoptstring)
 total_steps = int(run_settings["--steps"])
@@ -74,12 +75,24 @@ if len(run_settings["<weights>"]) < 2:
     run_settings["<weights>"] += run_settings["<weights>"]
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
 settings =      list(map(utils.load_settings,settingsfiles))
+####
+####
+####
+####
+####
+####
+####
+####
+####
+####
+####
+####
 
 #Wedge some settings in...
 assert utils.test_setting_compatibility(*settings), "Incompatible settings :("
-s = settings[0].copy()
-s["render"] = True
-s = adjust_settings(s)
+s = adjust_settings(settings[0].copy())
+frac, weights_str, debug, fast, reload_weights, render = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], s["render"]
+
 with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': 1})) as session:
     n_envs = 1
     #Initialize env!
@@ -90,7 +103,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                                )
     all_agents, all_names = list(), list()
     #Initialize agents!
-    for i, setting, weight in zip(range(len(settings)), settings, run_settings["<weights>"]):
+    for i, setting, weight in zip(range(len(settings)), settings, weights_str):
         setting = adjust_settings(setting)
         a = setting["agent_type"](
                                     n_envs,
@@ -130,14 +143,14 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         s_prime = env.get_state()
 
         #Debug-prints:
-        if run_settings["--debug"]:
+        if debug:
             print("player", current_player[0], action_idx, " -> reward :", reward[0](), "(total", env.envs[0].round_reward,")", done)
             print("---")
 
         #Render?
-        if s["render"]:
+        if render:
             env.render()
-            if not run_settings["--fast"]:
+            if not fast:
                 time.sleep(s["time_elapsed_each_action"]/1000)
 
         #Reset the envs that reach terminal states
@@ -148,15 +161,15 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                 for p,dead in enumerate(env.envs[0].get_info()["is_dead"]):
                     if not dead:
                         game_score.declare_winner(name[p])
-                print(game_score.score_table())
+                print(game_score.score_table(frac=frac))
                 print("{} Round ended. {} steps.".format(utils.progress_bar(t,total_steps),t-trajectory_start))
                 env.reset(env=i)
                 #Prepare next round!
                 agent, name = random_match(all_agents, all_names) #change who's go it is!
                 game_score.set_current_players(name)
                 for a,w in zip(agent, weight):
-                    if run_settings["--reload"]:
-                        if run_settings["--debug"]:
+                    if reload_weights:
+                        if debug:
                             print("agent loaded:",w,"(",a,")")
                         try:
                             a.load_weights(*weight)
