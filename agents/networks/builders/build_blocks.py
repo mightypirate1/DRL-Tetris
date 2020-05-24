@@ -30,8 +30,12 @@ def residual_block(x,
                               kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                               bias_initializer=tf.zeros_initializer(),
                             )
-        if peepholes and (output_n_filters is None or i < n_layers - 1):
-            x = N.peephole_join(x,y, mode="add")
+        if peepholes:
+            #If we have specified the depth of the output, and we are on the output layer, we do a join that outputs a shape matchine the smaller of its inputs (assuming here no one calls this with n_filters < n_pieces, cus that would be really weird)
+            if (output_n_filters is not None and i == n_layers-1):
+                x = N.peephole_join(x,y, mode="truncate_add")
+            else:
+                x = N.peephole_join(x,y, mode="add")
         if dropout > 0:
             x = tf.keras.layers.SpatialDropout2D(dropout)(x,training)
         if pools:

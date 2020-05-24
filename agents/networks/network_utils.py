@@ -40,13 +40,16 @@ def conv_shape_vector(vec, shape_to_match):
     return tf.tile(x, [1, shape_to_match[1], shape_to_match[2], 1])
 
 def peephole_join(x,y, mode="concat"):
-    if mode == "add":
+    if mode in ["add", "truncate_add"]:
         nx,ny = x.shape[3], y.shape[3]
         larger = x if nx > ny else y
         smaller = y if nx > ny else x
         x = larger[:,:,:,:smaller.shape[3]] + smaller
         y = larger[:,:,:,smaller.shape[3]:]
-    return tf.concat([y,x], axis=-1)
+        out_list = [x,y] if mode == "add" else [x]
+    if mode == "concat":
+        out_list = [y,x]
+    return tf.concat(out_list, axis=-1)
 
 def advantage_activation_sqrt(x):
     alpha = 0.01
