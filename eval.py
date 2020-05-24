@@ -66,6 +66,7 @@ Options:
     --no-rendering      Disables rendering [default: False]
     --steps S           Number of steps [default: 5000]
     --frac              Print scoreboard with fractions instead of floats. [default: False]
+    --width W           With of the score crosstable [default: 120]
 '''
 run_settings = docopt.docopt(docoptstring)
 total_steps = int(run_settings["--steps"])
@@ -74,22 +75,11 @@ if len(run_settings["<weights>"]) < 2:
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
 settings =      list(map(utils.load_settings,settingsfiles))
 ####
-####
-####
-####
-####
-####
-####
-####
-####
-####
-####
-####
 
 #Wedge some settings in...
 assert utils.test_setting_compatibility(*settings), "Incompatible settings :("
 s = adjust_settings(settings[0].copy())
-frac, weights_str, debug, fast, reload_weights, render = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], s["render"]
+frac, weights_str, debug, fast, reload_weights, render, score_width = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], s["render"], int(run_settings["--width"])
 
 with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': 1})) as session:
     n_envs = 1
@@ -122,7 +112,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
     #Initialize run!
     trajectory_start, current_player = 0, np.array([1])
     s_prime = env.get_state()
-    game_score = scoreboard(all_names, width=120)
+    game_score = scoreboard(all_names, width=score_width)
 
     agent, name = random_match(all_agents, all_names)
     game_score.set_current_players(name)

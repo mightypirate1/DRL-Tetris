@@ -14,7 +14,7 @@ class scoreboard:
         self._ids = ids
         self._width = width
         max_len = max([len(str(id)) for id in ids])
-        self._strlen = min( max(max_len,12) ,width//len(ids))
+        self._strlen = min( max(max_len,12) ,width//(len(ids)+1))
         self._strlen_first = min(20, max_len)
         self._current = (None,None)
     def set_current_players(self, *args):
