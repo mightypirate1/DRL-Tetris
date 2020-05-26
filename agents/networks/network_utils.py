@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
@@ -39,8 +40,10 @@ def conv_shape_vector(vec, shape_to_match):
     x = tf.reshape(vec, [-1, 1, 1, dims[-1]])
     return tf.tile(x, [1, shape_to_match[1], shape_to_match[2], 1])
 
-def peephole_join(x,y, mode="concat"):
+def peephole_join(*inputs, mode="concat"):
     if mode in ["add", "truncate_add"]:
+        assert len(inputs) == 2, "len>2 not implemented"
+        x, y = inputs
         nx,ny = x.shape[3], y.shape[3]
         larger = x if nx > ny else y
         smaller = y if nx > ny else x
@@ -48,7 +51,7 @@ def peephole_join(x,y, mode="concat"):
         y = larger[:,:,:,smaller.shape[3]:]
         out_list = [x,y] if mode == "add" else [x]
     if mode == "concat":
-        out_list = [y,x]
+        out_list = inputs
     return tf.concat(out_list, axis=-1)
 
 def advantage_activation_sqrt(x):
@@ -63,6 +66,22 @@ def apply_visual_pad(x):
     x = tf.pad(x, [[0,0],[0,1],[1,1],[0,0]], constant_values=1.0)
     # This makes floor and walls look like it's a piece, and cieling like its free space
     return x
+
+def visual_stack(x, items=None): #x assumed to be of shape [N,H,W,1]
+    x_cumsum = tf.cumsum(x, axis=1)
+    x_shadow = tf.minimum(x_cumsum, 1.0)
+    _x_height = np.arange(x.shape.as_list()[1], dtype=np.float32).reshape((1,-1,1,1))
+    x_height = tf.constant( np.tile(_x_height, (1,1,x.shape.as_list()[2],1)) ) + tf.zeros_like(x)
+    x_holes = x_shadow - x
+    #
+    item_dict = {"cumsum":x_cumsum, "shadow":x_shadow, "height":x_height, "holes":x_holes,}
+    if items == True:
+        #temporary backwards comp..
+        items = ["cumsum", "shadow", "height"]
+    if items is None:
+        items = item_dict.keys()
+    x_stack = [x] + [item_dict[key] for key in items]
+    return tf.concat(x_stack, axis=3)
 
 def q_to_v(q, mask=1.0, n_pieces=7):
     q_p = tf.reduce_max(q, axis=[1,2], keepdims=True)

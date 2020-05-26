@@ -18,6 +18,8 @@ class q_net_silver(q_net_base):
         #1) Pad visuals
         # TODO: Get more data into the stacks! (Height? )
         vis = [N.apply_visual_pad(v) for v in vis]
+        if "visual_stack" in self.settings:
+            vis = [N.visual_stack(v, items=self.settings["visual_stack"]) for v in vis]
         #2) Pass visuals thru 1 res-block:
         hidden_vis = [blocks.residual_block(v, **self.resblock_settings["visual"]) for v in vis]
         #3) Make feature-planes out of vector-data and stack it on hidden stream:
@@ -33,8 +35,9 @@ class q_net_silver(q_net_base):
         #7) If we are not a worker, we want to compute values!
         _V = tf.constant([0.0], dtype=tf.float32)
         if not self.worker_only: #Worker's need only to compute an arg-max, so we don't need the value for them :)
-            _joined = N.peephole_join(*joined)
-            _V = blocks.residual_block(_joined, **self.resblock_settings["val_stream"])
+            #merge main-stream with visual-inputs
+            vstream_in = N.peephole_join(*joined, *vis, mode="concat")
+            _V = blocks.residual_block(vstream_in, **self.resblock_settings["val_stream"])
             _V = N.pool_spatial_dims_until_singleton(_V, warning=True)
             if self.settings["separate_piece_values"]: #Treat pieces like actions
                 _V = self.settings["piece_advantage_range"] * N.normalize_advantages(_V, apply_activation=True, axis=1, inplace=True, piece_mask=self.used_pieces_mask_tf, n_used_pieces=self.n_used_pieces)
