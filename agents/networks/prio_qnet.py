@@ -166,18 +166,27 @@ class prio_qnet:
             # Trainers do Q-updates:
             # # #
 
+            #0) Figure out what estimates we need:
+            estimator_steps = [i for i in range(1,self.k_step+1)]
+            if "sparse_value_estimate_filter" in self.settings: #filter out all k that are divisible by any of the numbers provided
+                if len(self.settings["sparse_value_estimate_filter"]) > 0:
+                    filter = np.array(self.settings["sparse_value_estimate_filter"]).reshape((1,-1))
+                    steps = np.array(estimator_steps).reshape((-1,1))
+                    filter = np.prod((steps % filter),axis=1)!=0
+                    estimator_steps = steps[np.where(filter)].ravel().tolist()
+
             #1) Evaluate all the states, and create a bool to tell if the round is over
             dones_tf = tf.minimum(1, tf.cumsum(dones, axis=1)) #Minimum ensures there is no stray done from an adjacent trajectory influencing us...
             done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
-            q_t_tf, v_t_tf = [], []
-            for t in range(self.k_step+1):
+            q_t_tf, v_t_tf = [None for _ in range(self.k_step+1)], [None for _ in range(self.k_step+1)]
+            for t in [0] + estimator_steps:
                 # Appy our Q-nets to each time step to yield all V- & Q-estimates!
                 q_net = self.main_q_net if t==0 else self.ref_q_net
                 s_t_vec = [vec_state[:,t,:] for vec_state in vector_states_training]
                 s_t_vis = [vis_state[:,t,:] for vis_state in visual_states_training]
                 q,v,_,ref_scope = q_net(s_t_vec, s_t_vis)
-                q_t_tf.append(q)
-                v_t_tf.append(v)
+                q_t_tf[t] = q
+                v_t_tf[t] = v
 
             #2) Do all the V-estimators, k-step style
             gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
@@ -188,13 +197,6 @@ class prio_qnet:
                     e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
                 e += v_t_tf[k] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
                 return e
-            estimator_steps = [i for i in range(1,self.k_step+1)]
-            if "sparse_value_estimate_filter" in self.settings: #filter out all k that are divisible by any of the numbers provided
-                if len(self.settings["sparse_value_estimate_filter"]) > 0:
-                    filter = np.array(self.settings["sparse_value_estimate_filter"]).reshape((1,-1))
-                    steps = np.array(estimator_steps).reshape((-1,1))
-                    filter = np.prod((steps % filter),axis=1)!=0
-                    estimator_steps = steps[np.where(filter)]
             estimators = [(k,k_step_estimate(k)) for k in estimator_steps if k <= self.k_step]
 
             #3) GAE-style aggregation
@@ -222,6 +224,7 @@ class prio_qnet:
             if self.settings["optimistic_prios"] != 0.0:
                 prios_tf += self.settings["optimistic_prios"] * tf.nn.relu(prios_tf)
 
+            #If enabled, lock the Q-value for the actions that were not played
             if self.settings["q_target_locked_for_other_actions"]:
                 # self.LOSS_FCN_DBG(Q_s_all, rtp_mask, value_estimator_tf)
                 target_values_tf = self.create_fixed_targets(Q_s_all, rtp_mask, target_values_tf)
