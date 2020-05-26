@@ -31,7 +31,7 @@ def adjust_settings(S):
     S["render"] = not run_settings["--no-rendering"]
     return S
 
-def random_match(agents, names):
+def random_match(agents, names, weights):
     if len(all_agents) > 2:
         # random_player_1 vs random_player_2
         agent_idxs = np.random.choice(np.arange(len(agents)), 2, replace=False)
@@ -42,11 +42,11 @@ def random_match(agents, names):
         #me against you, same positions
         agent_idxs = np.array([0,1])
     a = [agents[i]  for i in agent_idxs]
-    # w = [weights[i] for i in agent_idxs]
+    w = [weights[i] for i in agent_idxs]
     n = [names[i]   for i in agent_idxs]
     if len(all_agents) > 2:
         print(n[0], "vs", n[1])
-    return a, n
+    return a, n, w
 
 docoptstring = \
 '''
@@ -89,7 +89,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                                s["env_type"],
                                settings=s,
                                )
-    all_agents, all_names = list(), list()
+    all_agents, all_names, all_weights = list(), list(), list()
     #Initialize agents!
     for i, setting, weight in zip(range(len(settings)), settings, weights_str):
         setting = adjust_settings(setting)
@@ -107,14 +107,14 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         n = setting["run-id"]
         if n in all_names: n += str(all_names.count(n))
         all_names.append(n)
-        # all_weights.append(w)
+        all_weights.append(w)
 
     #Initialize run!
     trajectory_start, current_player = 0, np.array([1])
     s_prime = env.get_state()
     game_score = scoreboard(all_names, width=score_width)
 
-    agent, name = random_match(all_agents, all_names)
+    agent, name, _ = random_match(all_agents, all_names, all_weights)
     game_score.set_current_players(name)
     # Game loop!
     for t in range(0,total_steps):
@@ -153,16 +153,16 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                 print("{} Round ended. {} steps.".format(utils.progress_bar(t,total_steps),t-trajectory_start))
                 env.reset(env=i)
                 #Prepare next round!
-                agent, name = random_match(all_agents, all_names) #change who's go it is!
+                agent, name, weight = random_match(all_agents, all_names, all_weights) #change who's go it is!
                 game_score.set_current_players(name)
                 for a,w in zip(agent, weight):
                     if reload_weights:
                         if debug:
                             print("agent loaded:",w,"(",a,")")
                         try:
-                            a.load_weights(*weight)
-                        except:
-                            print("Failed to re-load weights...")
+                            a.load_weights(*w)
+                        except Exception as e:
+                            print("Failed to re-load weights...", e)
                 current_player[i] = np.random.choice([0,1])
                 round_reward = [0,0]
                 trajectory_start = t+1
