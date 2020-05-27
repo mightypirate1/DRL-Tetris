@@ -9,7 +9,8 @@ from aux.parameter import *
 settings = {
             #Project
             "run-id" : "SVENton-silver_alpha_0",
-            # "run-id" : "arch01-silver_slim0",
+            "visual_stack" : None, #None means vil stack uses all features
+            # "run-id" : "F1-stackSparse37_096-1M",
             "description" : "A res-block based architecture. In theory it's good when you scale up :)",
             "state_processor_separate_piece" : True,
             "q_target_locked_for_other_actions" : False,
@@ -20,23 +21,28 @@ settings = {
                                                             "n_layers" : 3,
                                                             "n_filters" : 64,
                                                         },
+                                            "val_stream" : {
+                                                            "n_layers" : 3,
+                                                            "n_filters" : 128,
+                                                            }
                                         },
 
             "separate_piece_values" : True,
-            "advantage_range" : 0.7,
+            "advantage_range" : 0.5,
             "piece_advantage_range" : 0.5,
 
-            # "sparse_value_estimate_filter" : [2,3], #Empty list is no filter
             "render_screen_dims" : (3840,2160), #My screen is huge
             # "render_simulation" : True
 
             #Train parameters
-            "gae_lambda"                : 0.92, #0.95 default
-            "n_step_value_estimates"    : 17,
-            "n_samples_each_update"     : 16384,
+            "gae_lambda"                : 0.96, #0.95 default
+            "n_step_value_estimates"    : 37,
+            "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
+            # "n_samples_each_update"     : 16384,
+            "n_samples_each_update"     : 4096,
             "minibatch_size"            : 32, #256, #128
             "n_train_epochs_per_update" : 1,
-            "time_to_reference_update"  : 5, #How after how many do_training calls do we update the reference-model?
+            "time_to_reference_update"  : 1, #How after how many do_training calls do we update the reference-model?
             "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=2/total_steps),
 
             #Exp-replay parameters
@@ -51,13 +57,13 @@ settings = {
             "single_policy"             : True,
 
             #Dithering
-            # "dithering_scheme"    : "pareto_distribution",
-            # "action_temperature"  : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
+            "dithering_scheme"    : "pareto_distribution",
+            "action_temperature"  : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
             # "dithering_scheme"    : "adaptive_epsilon",
             # "epsilon"  : linear_parameter(10, final_val=0.0, time_horizon=total_steps),
-            "dithering_scheme"    : "epsilon",
-            "epsilon"  :   exp_parameter(1.0, base=10.0, decay=2/total_steps),
-            "optimistic_prios" : 0.0,
+            # "dithering_scheme"    : "epsilon",
+            # "epsilon"  :   exp_parameter(1.0, base=10.0, decay=2/total_steps),
+            # "optimistic_prios" : 0.0,
 
             #Rewards
             "gamma"             :  0.98,
@@ -67,7 +73,7 @@ settings = {
             # "reward_shaper_param" : linear_parameter(0.0, final_val=0.0, time_horizon=0.3*total_steps),
 
             #Game settings
-            "pieces" : [0,],
+            "pieces" : [5,],
             "game_size" : [10,6],
             # "game_size" : [10,10],
             # "pieces" : [0,6],
@@ -90,7 +96,7 @@ settings = {
             "trainer_net_on_cpu"   : False,
 
             #Communication
-            "trainer_thread_save_freq"  : 100,
+            "trainer_thread_save_freq"  : 1000,
             "trainer_thread_backup_freq"  : 1,
             "worker_data_send_fequency" : 1,
             "weight_transfer_frequency" : 1,
@@ -111,88 +117,35 @@ settings = {
 
 # patches = \
 # [
-#     {
-#         "run-id" : "arch02-silver",
-#         "residual_block_settings" : {
-#                                         "default" : {
-#                                                         "n_layers" : 2,
-#                                                         "n_filters" : 64,
-#                                                     },
-#                                     },
-#     },
-#     {
-#         "run-id" : "arch03-silver",
-#         "residual_block_settings" : {
-#                                         "default" : {
-#                                                         "n_layers" : 3,
-#                                                         "n_filters" : 64,
-#                                                     },
-#                                     },
-#     },
-#     {
-#         "run-id" : "arch04-silver",
-#         "residual_block_settings" : {
-#                                         "default" : {
-#                                                         "n_layers" : 1,
-#                                                         "n_filters" : 64,
-#                                                     },
-#                                     },
-#     },
-#
-#         ##################
 #         {
-#             "run-id" : "arch01-slim-silver",
-#             "residual_block_settings" : {
-#                                             "default" : {
-#                                                             "n_layers" : 4,
-#                                                             "n_filters" : 64,
-#                                                         },
-#                                             "val_stream" : {
-#                                                             "n_filters" : 256,
-#                                                             }
-#                                         },
-#         },
-#         {
-#             "run-id" : "arch02-slim-silver",
-#             "residual_block_settings" : {
-#                                             "default" : {
-#                                                             "n_layers" : 2,
-#                                                             "n_filters" : 64,
-#                                                         },
-#                                         },
-#         },
-#         {
-#             "run-id" : "arch03-slim-silver",
+#             "run-id" : "ppoparam2-dqnbaseline",
 #             "residual_block_settings" : {
 #                                             "default" : {
 #                                                             "n_layers" : 3,
 #                                                             "n_filters" : 64,
 #                                                         },
+#                                             "val_stream" : {
+#                                                             "n_layers" : 5,
+#                                                             "n_filters" : 64,
+#                                                             }
 #                                         },
+#             "n_step_value_estimates" : 13,
+#             "gae_lambda" : 0.92,
 #         },
 #         {
-#             "run-id" : "arch04-slim-silver",
+#             "run-id" : "ppoparam2-dqnbaselineHighLR",
 #             "residual_block_settings" : {
 #                                             "default" : {
-#                                                             "n_layers" : 1,
+#                                                             "n_layers" : 3,
 #                                                             "n_filters" : 64,
 #                                                         },
+#                                             "val_stream" : {
+#                                                             "n_layers" : 5,
+#                                                             "n_filters" : 64,
+#                                                             }
 #                                         },
-#
+#             "n_step_value_estimates" : 13,
+#             "gae_lambda" : 0.92,
+#             "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=1/total_steps),
 #         },
-    # {
-    #     'run-id' : "arch01-silver_06",
-    #     'pieces' : [0,6],
-    # },
-    #
-    #
-    # {
-    #    'run-id' : "arch01-silver_big06",
-    #    'game_size' : [22,10],
-    # },
-    #
-    # {
-    #     'run-id' : "arch01-silver_big0to7",
-    #     'pieces' : [0,1,2,3,4,5,6],
-    # },
 # ]
