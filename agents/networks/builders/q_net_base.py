@@ -8,7 +8,17 @@ from agents.networks import network_utils as N
 # I wish I knew then what I know now :)
 
 class q_net_base:
-    def __init__(self, name, output_shape, state_size, settings, worker_only=False, training=tf.constant(False, dtype=tf.bool)):
+    def __init__(
+                self,
+                name,
+                output_shape,
+                state_size,
+                settings,
+                worker_only=False,
+                training=tf.constant(False, dtype=tf.bool),
+                kbd_activation=None,
+                raw_outputs=False,
+                ):
         self.name = name
         self.settings = settings
         self.worker_only = worker_only
@@ -20,17 +30,32 @@ class q_net_base:
         self.advantage_range = self.settings["advantage_range"]
         self.n_used_pieces = len(self.settings["pieces"])
         self.used_pieces_mask_tf = self.create_used_pieces_mask()
+        self.kbd_activation = kbd_activation
+        self.raw_outputs = raw_outputs
         self.initialize_variables()
     def initialize_variables(self):
         pass
     def __call__(self,vectors, visuals, *args, **kwargs):
         with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE) as vs:
             scope = vs
-            Q, V, A = self.Q_V_A(vectors, visuals, *args, **kwargs)
-            return Q, V, A, scope
+            #F_s is state-dependent output F1(s), F_sa depends on state and action F2(s,a)
+            F_s, F_sa = self.output_streams(vectors, visuals, *args, **kwargs)
+            if self.raw_outputs:
+                streams = (F_s, F_sa)
+            else:
+                streams = self.Q_V_A(F_s, F_sa)
+            return (*streams, scope)
 
-    def Q_V_A(self, *args, **kwargs):
-        assert False, "Don't apply the base-class!"
+    def Q_V_A(self, _V, _A):
+        Q, V, A = N.qva_from_raw_streams(
+                                        _V,
+                                        self.advantage_range * _A,
+                                        mask=self.used_pieces_mask_tf,
+                                        n_pieces=self.n_pieces,
+                                        separate_piece_values=self.settings["separate_piece_values"],
+                                        mode=self.settings["advantage_type"]
+                                        )
+        return Q, V, A
 
     def create_vectorencoder(self, x):
         with tf.variable_scope("vectorencoder", reuse=tf.AUTO_REUSE) as vs:

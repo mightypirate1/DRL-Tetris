@@ -55,6 +55,8 @@ def peephole_join(*inputs, mode="concat"):
     return tf.concat(out_list, axis=-1)
 
 def advantage_activation_sqrt(x):
+    print("function temporary disabled due to a bug")
+    return x
     alpha = 0.01
     ret = tf.sign(x) * (tf.sqrt( tf.abs(x) + alpha**2) - alpha)
     return ret
@@ -88,6 +90,12 @@ def q_to_v(q, mask=1.0, n_pieces=7):
     v = tf.reduce_sum(q_p * mask, axis=3, keepdims=True) / n_pieces
     return tf.reshape(v, [-1, 1])
 
+def qva_from_raw_streams(_V,_A, mask=1.0, n_pieces=7, separate_piece_values=True, mode="mean"):
+    A = normalize_advantages(_A, apply_activation=True, separate_piece_values=separate_piece_values, mode=mode, piece_mask=mask, n_used_pieces=n_pieces)
+    Q = _V + A
+    V = q_to_v(Q, mask=mask, n_pieces=n_pieces)
+    return Q, V, A
+
 def pool_spatial_dims_until_singleton(x, warning=False):
     for axis in [1, 2]:
         if x.shape[axis].value > 1:
@@ -95,6 +103,19 @@ def pool_spatial_dims_until_singleton(x, warning=False):
                 print("applying reduce_mean to ", x, "along axis", axis)
             x = tf.reduce_mean(x, axis=axis, keepdims=True)
     return x
+
+def action_entropy(pi):
+    #pi.shape == [?, R, T, P]
+    log_pi = tf.math.log( tf.maximum(10**-6, pi) )
+    entropy = -tf.reduce_sum(pi * log_pi, axis=[1,2], keepdims=True)
+    return entropy
+
+def action_softmax(x):
+    #x.shape == [?, R, T, P]
+    max_x = tf.reduce_max(x, axis=[1,2], keepdims=True)
+    pi_unnormalized = tf.math.exp(x - max_x) #for numerical stability
+    pi = pi_unnormalized / tf.reduce_sum(pi_unnormalized, axis=[1,2], keepdims=True)
+    return pi
 
 ###
 ### Regularizers & metrics

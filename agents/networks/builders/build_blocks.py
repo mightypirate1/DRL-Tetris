@@ -15,18 +15,21 @@ def residual_block(x,
                     pool_size=(3,2),
                     pool_strides=(3,2),
                     output_n_filters=None,
+                    output_activation=tf.nn.elu,
                     training=tf.constant(False),
                     ):
     for i in range(n_layers):
-        y, n = x, n_filters
-        if i == n_layers - 1 and output_n_filters is not None:
-            n = output_n_filters
+        y, n, activation = x, n_filters, tf.nn.elu
+        if i == n_layers - 1: #last layer sometimes different
+            if output_n_filters is not None:
+                n = output_n_filters
+            activation = output_activation
         x = tf.layers.conv2d(
                               x,
                               n,
                               filter_size,
                               padding='same',
-                              activation=tf.nn.elu,
+                              activation=activation,
                               kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                               bias_initializer=tf.zeros_initializer(),
                             )
@@ -46,7 +49,7 @@ def residual_block(x,
 
 
 # This is an idea to preserve game-geometry when producing an action-space.
-def keyboard_conv(x, n_rot, n_p, name='keyboard_conv'):
+def keyboard_conv(x, n_rot, n_p, name='keyboard_conv', activation=None):
     x = tf.layers.conv2d(
                             x,
                             n_rot * n_p,
@@ -54,9 +57,11 @@ def keyboard_conv(x, n_rot, n_p, name='keyboard_conv'):
                             name=name,
                             padding='valid',
                             activation=None,
-                            kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                            kernel_initializer=tf.zeros_initializer(),
                             bias_initializer=tf.zeros_initializer(),
                         )
     X = [ x[:,:,:,p*n_p:(p+1)*n_p ] for p in range(n_rot) ]
     x = tf.concat(X, axis=1)
+    if activation is not None:
+        x = activation(x)
     return x
