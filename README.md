@@ -9,11 +9,15 @@ This repository is three things:
 
     **SIXten** learns the value-function thru a k-step estimation scheme, utilizing the world-model of the environment and a prioritized distributed experience replay (modelled on Schaul et al.). Toghether with the multiprocessing framework described above it's similar to Ape-X (https://arxiv.org/abs/1803.00933) but the RL algorithm itself is different.
 
-    **SVENton** is a double[1] duelling[2] k-step DQN-agent with a novel Convolutional Neuro-Keyboard interfacing it with the environment (1: https://arxiv.org/abs/1509.06461 2: https://arxiv.org/abs/1511.06581). It too utilizes the distributed prioritized experience replay, and the multi-processing framework. It is highly experimental, but it's included so SIXten doesn't get lonely.
+    **SVENton** is a double[1] dueling[2] k-step DQN-agent with a novel Convolutional Neuro-Keyboard interfacing it with the environment (1: https://arxiv.org/abs/1509.06461 2: https://arxiv.org/abs/1511.06581). It too utilizes the distributed prioritized experience replay, and the multi-processing framework. It is highly experimental, but it's included so SIXten doesn't get lonely.
+
+    **SVENton-PPO** is similar to SVENton but trains by way of PPO. Trajectories are gathered by the workers, but the trainer computes the advantages in the NN to speed up the sampling. When scaling up this will change, but for running at home this makes sense.
+
+> Both versions of SVENton can easily change between a few NN architectures. The preferred ones empirically are "keyboard" and "silver", and you set them in the experiment files.
 
 These components may be separated into different repositories at some time in the future, but for now they are one.
 
-> NOTE: The master-branch contains some features that are experiental. If there are issues, revert to the stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/stable) or the kinda_stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/kinda_stable). The latter "should" be stable, but testing all features is pretty time-consuming, and I try to make headway.
+> NOTE: The master-branch contains some features that are experimental. If there are issues, revert to the stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/stable) or the kinda_stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/kinda_stable). The latter "should" be stable, but testing all features is pretty time-consuming, and I try to make headway.
 
 > NOTE: The quality of code has changed as I learned. Please be lenient when looking at the remnants of old code. There will come a day when it's fixed, let's hope!
 
@@ -75,6 +79,16 @@ or against other weights
 python3 eval.py path/to/weightfile1.w path/to/weightfile2.w (...)
 ```
 Settings are saved along with the weights so that it is normally possible to make bots made with different settings, neural-nets etc. play each other. As long as the game_size setting is the same across projects, they should be compatible! See "Customization" for more details.
+
+#### Experiment-files:
+A few different experiment files are provided:
+
+* experiments/sixten_base.py  - Trains SIXten.
+* experiments/sventon_base.py - Trains SVENton using the "keyboard"-type NN. (experimental)
+* experiments/sventon_silver.py - Trains SVENton using the "silver" NN. It's similar to "keyboard" but replaces convs and vector-encoder with resnet-like blocks.
+* experiments/sventon_silver_ppo.py - Trains SVENton-PPO with the "silver" NN.
+
+The first of these is considered stable, but if your hardware differs from the test systems' (i5-4690K CPU @ 3.50GHz × 4 + GeForce GTX 1080 Ti + 16GB Ram), you might get different results. The the SVENton versions are very much under development, and good default settings are still to be decided on.
 
 #### Demo weights:
 The project ships with some pre-trained weights as a demo. When in the DRL-Tetris folder, try for instance
