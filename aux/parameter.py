@@ -17,7 +17,9 @@ class parameter:
                 return True
         return False
     def __str__(self):
-        return "{}(init:{}, final:{}, time_horizon:{})".format(type(self).__name__,self.init_val,self.final_val,self.time_horizon)
+        return "{}(init:{}, final:{}, time_horizon:{}{})".format(type(self).__name__,self.init_val,self.final_val,self.time_horizon,self.__str2__())
+    def __str2__(self):
+        return ""
 
 class exp_parameter(parameter): #Very crude exp-decay :)
     def __init__(self, value, **kwargs):
@@ -36,6 +38,8 @@ class exp_parameter(parameter): #Very crude exp-decay :)
             if self.init_val == other.init_val and self.final_val == other.final_val and self.min == other.min and self.max == other.max and self.decay == other.decay and self.base == other.base:
                 return True
         return False
+    def __str2__(self):
+        return ", min:{}, max:{}, decay:{}, base:{}".format(self.min, self.max, self.decay, self.base)
 
 class linear_parameter(parameter):
     def __init__(self, value, **kwargs):
