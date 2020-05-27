@@ -74,7 +74,7 @@ class vector_q_agent_base:
     # # # # #
     # Memory management fcns
     # # #
-    def save_weights(self, folder, file): #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
+    def save_weights(self, folder, file, verbose=False): #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
         #recommended use for standardized naming is .save_weights(*aux.utils.weight_location(...)) and similarily for the load_weights fcn
         output = {}
         for net in self.model_dict:
@@ -84,7 +84,7 @@ class vector_q_agent_base:
         if not os.path.exists(folder):
             os.makedirs(folder)
         with open(file, 'wb') as f:
-            print("SAVED WEIGHTS TO ",file)
+            if verbose: print("SAVED WEIGHTS TO ",file)
             pickle.dump(output, f, protocol=pickle.HIGHEST_PROTOCOL)
         with open(folder+"/settings", 'wb') as f:
             pickle.dump(self.settings, f, protocol=pickle.HIGHEST_PROTOCOL)

@@ -35,7 +35,7 @@ class template_agent_base:
         #self.clock = clock
         pass
 
-    def save_weights(self, folder, file): #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
+    def save_weights(self, folder, file, verbose=False): #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
         ''' useful but not mandatory '''
         pass
 
