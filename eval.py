@@ -28,6 +28,8 @@ def adjust_settings(S):
         S["pieces"] = default_settings["pieces"]
     if not run_settings["--res"]:
         S["render_screen_dims"] = default_settings["render_screen_dims"]
+    if run_settings["--argmax"]:
+        S["eval_distribution"] = "argmax"
     S["render"] = not run_settings["--no-rendering"]
     return S
 
@@ -61,12 +63,13 @@ Options:
     --no-null           Forces disabling of null-moves [default: False]
     --null              Forces enabling of null-moves [default: False]
     --fast              Go full speed, potentially faster than real-time [default: False]
-    --debug             Lot's of prints [default: False]
+    --debug             Lots of prints [default: False]
     --res               Use the resolution used when training. Default behavior is to use the global default. [default: False]
     --no-rendering      Disables rendering [default: False]
     --steps S           Number of steps [default: 5000]
     --frac              Print scoreboard with fractions instead of floats. [default: False]
     --width W           With of the score crosstable [default: 120]
+    --argmax            Force evals to use argmax, regardless of project setting. [default: False]
 '''
 run_settings = docopt.docopt(docoptstring)
 total_steps = int(run_settings["--steps"])
@@ -133,7 +136,6 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         #Debug-prints:
         if debug:
             print("player", current_player[0], action_idx, " -> reward :", reward[0](), "(total", env.envs[0].round_reward,")", done)
-            print("---")
 
         #Render?
         if render:
