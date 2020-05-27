@@ -26,7 +26,7 @@ default_settings = {
                     "n_samples_each_update" : 2048,
                     "n_train_epochs_per_update" : 5,
                     "value_lr" : linear_parameter(5*10**-6, final_val=5*10**-8, time_horizon=10**7),
-                    "alternating_models" : True, #This means that instead of using a reference-model to produce target values for the model, we instead make the two models switch roles periodically. Empirically this seems to maybe have advantages.
+                    "alternating_models" : False, #This means that instead of using a reference-model to produce target values for the model, we instead make the two models switch roles periodically. Empirically this seems to maybe have advantages.
                     "balance_winrate" : True,
                     "winrate_tolerance" : 0.15, #0.15 means that a player does not train if it's winrate is above 0.65
                     "winrate_learningrate" : 0.01,
