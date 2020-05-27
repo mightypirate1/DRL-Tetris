@@ -7,33 +7,32 @@ class experience_replay:
     def __init__(self, max_size=None, action_size=1, state_size=None, k_step=1, log=None, sample_mode='rank'):
         self.log = log
         self.stats = {}
-        self.k_step, self.state_len = k_step, k_step+1
         self.vector_state_size, self.visual_state_size = state_size
         self.action_size = action_size
-
-        #Underlying data
         self._max_size = max_size
+        self.max_size = max_size - k_step
+        self.k_step = k_step
+        self.sample_mode = sample_mode
+        self.initialize()
+
+    def initialize(self):
+        #Underlying data
         self._vector_states   = [np.zeros((self._max_size,*s[1:]), dtype=np.uint8) for s in self.vector_state_size]
         self._visual_states   = [np.zeros((self._max_size,*s[1:]), dtype=np.uint8) for s in self.visual_state_size]
-        self._actions  = np.zeros((self._max_size,action_size), dtype=np.uint8)
+        self._actions  = np.zeros((self._max_size,self.action_size), dtype=np.float32)
         self._dones    = np.zeros((self._max_size,1), dtype=np.uint8)
         self._rewards  = np.zeros((self._max_size,1), dtype=np.float32)
-
         #Presented data
-        self.max_size = max_size - k_step
-        self.vector_states = [agent_utils.k_step_view(_v, k_step+1) for _v in self._vector_states]
-        self.visual_states = [agent_utils.k_step_view(_v, k_step+1) for _v in self._visual_states]
-        self.actions       =  agent_utils.k_step_view(self._actions, k_step+1)
-        self.dones         =  agent_utils.k_step_view(self._dones,   k_step+1)
-        self.rewards       =  agent_utils.k_step_view(self._rewards, k_step+1)
+        self.vector_states = [agent_utils.k_step_view(_v, self.k_step+1) for _v in self._vector_states]
+        self.visual_states = [agent_utils.k_step_view(_v, self.k_step+1) for _v in self._visual_states]
+        self.actions       =  agent_utils.k_step_view(self._actions, self.k_step+1)
+        self.dones         =  agent_utils.k_step_view(self._dones,   self.k_step+1)
+        self.rewards       =  agent_utils.k_step_view(self._rewards, self.k_step+1)
         self.prios    = -np.ones((self.max_size,1), dtype=np.float32)
-
         #Inner workings...
         self.current_size  = 0
         self.current_idx   = 0
         self.total_samples = 0
-        self.sample_mode = sample_mode
-        self.resort_fraction = 0.5
 
     def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False, compute_stats=False):
         #Create the sampling distribution (see Schaul et al. for details)
@@ -45,10 +44,11 @@ class experience_replay:
             #make a ranking-based probability disribution (pareto-ish)
             one_over_rank = 1/rank #Rank-based sampling
             p_unnormalized = one_over_rank**alpha
-        else:
+        elif sample_mode == 'proportional':
             #Proportional
             p_unnormalized = (self.prios[:n].ravel() + 0.0001)**alpha
-
+        else:
+            raise Exception("get_random_sample called, but exp-rep set to non-random")
         p = p_unnormalized / p_unnormalized.sum() #sampling distribution done
         is_weights_unnormalized = ((n*p)**(-beta))[:,np.newaxis] #Compute the importance sampling weights
         is_weights_all = is_weights_unnormalized/is_weights_unnormalized.reshape(-1).max()
@@ -81,6 +81,19 @@ class experience_replay:
                           "ExpRep-sample_size"     : self.current_size,
                           }
         return data, is_weights, filter
+
+    def retrieve_and_clear(self, compute_stats=False):
+        #retrieve
+        all_indices = np.arange(self.current_size)
+        data = self.retrieve_samples_by_idx(all_indices)
+        #clear
+        self.initialize()
+        #Stats?
+        if compute_stats:
+            self.stats = {
+                          "ExpRep-sample_size"     : self.current_size,
+                          }
+        return data
 
     def add_samples(self, data, prio, retrieve_samples=True):
         s, a, r, d = data
