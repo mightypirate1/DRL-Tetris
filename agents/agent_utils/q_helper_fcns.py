@@ -53,3 +53,13 @@ def action_boltzman(A,theta):
     (r,t) = np.unravel_index(amax, A.shape)
     entropy = utils.entropy(p)
     return (r,t), entropy
+
+def action_distribution(A):
+    # print(A);input()
+    if len(A.shape) is not 2:
+        raise action_dim_exception
+    p = A.ravel()
+    a_idx = np.random.choice(np.arange(A.size),p=p)
+    (r,t) = np.unravel_index(a_idx, A.shape)
+    entropy = utils.entropy(p+10**-6)
+    return (r,t), entropy
