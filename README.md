@@ -13,7 +13,7 @@ This repository is three things:
 
 These components may be separated into different repositories at some time in the future, but for now they are one.
 
-> NOTE: The master-branch contains some features that are experiental. If there are issues, revert to the stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/stable)
+> NOTE: The master-branch contains some features that are experiental. If there are issues, revert to the stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/stable) or the kinda_stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/kinda_stable). The latter "should" be stable, but testing all features is pretty time-consuming, and I try to make headway.
 
 > NOTE: The quality of code has changed as I learned. Please be lenient when looking at the remnants of old code. There will come a day when it's fixed, let's hope!
 
