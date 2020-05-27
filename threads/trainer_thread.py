@@ -139,6 +139,7 @@ class trainer_thread(mp.Process):
                  "Average trajectory length" : avg_length,
                  "Current speed"             : current_speed,
                  "Time spent training"       : frac_train,
+                 "Global weights index"      : self.shared_vars["update_weights"]["idx"],
                 }
             # s.update(self.trainer.stats)
             self.trainer.report_stats()
@@ -149,15 +150,14 @@ class trainer_thread(mp.Process):
         if time.time() < self.last_print_out + self.print_frequency:
             return
         self.last_print_out = time.time()
-        frac_load  = self.stats["t_loading_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
-        frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
+        frac_load  = self.stats["t_loading_total"] / self.walltime()
+        frac_train = self.stats["t_training_total"] / self.walltime()
         print("-------trainer info-------")
         print("clock: {}".format(self.current_step()))
         print("samples from workers: {}".format(self.trainer.n_samples_from))
         print("trained for {}s".format(self.stats["t_training"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
-        # print("time to reference update / save: {}".format(self.trainer.time_to_reference_update))
         print("run-id: {}".format(self.settings["run-id"]))
 
     def transfer_weights(self):
@@ -172,9 +172,9 @@ class trainer_thread(mp.Process):
 
     def save_weights(self):
         if self.trainer.n_train_steps["total"] % self.settings["trainer_thread_save_freq"] == 0 and self.trainer.n_train_steps["total"] > self.last_saved_weights:
-            self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps["total"]))
+            self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps["total"]), verbose=True)
         if self.trainer.n_train_steps["total"] % self.settings["trainer_thread_backup_freq"] == 0 and self.trainer.n_train_steps["total"] > self.last_saved_weights:
-            self.trainer.save_weights(*utils.weight_location(self.settings,idx="LATEST"))
+            self.trainer.save_weights(*utils.weight_location(self.settings,idx="LATEST"), verbose=False)
 
     def update_global_clock(self):
         self.shared_vars["global_clock"].value = self.trainer.clock
