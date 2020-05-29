@@ -16,29 +16,38 @@ def residual_block(x,
                     pool_strides=(3,2),
                     output_n_filters=None,
                     output_activation=tf.nn.elu,
+                    normalization=None,
                     training=tf.constant(False),
+                    output_layer=False,
                     ):
     for i in range(n_layers):
-        y, n, activation = x, n_filters, tf.nn.elu
-        if i == n_layers - 1: #last layer sometimes different
+        #default params
+        y, n, activation, join_mode, initializer, normalize, last_layer = x, n_filters, tf.nn.elu, "add", tf.contrib.layers.xavier_initializer_conv2d(), False, (i==n_layers-1)
+        #last layer sometimes different params
+        if last_layer:
+            activation = output_activation
             if output_n_filters is not None:
                 n = output_n_filters
-            activation = output_activation
+                join_mode = "truncate_add"
+                normalize = True if normalization is not None else False
+                if output_layer:
+                    initializer = tf.random_normal_initializer(0,0.001)
+        #Build block!
         x = tf.layers.conv2d(
                               x,
                               n,
                               filter_size,
                               padding='same',
-                              activation=activation,
-                              kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                              activation=None,
+                              kernel_initializer=initializer,
                               bias_initializer=tf.zeros_initializer(),
                             )
         if peepholes:
-            #If we have specified the depth of the output, and we are on the output layer, we do a join that outputs a shape matchine the smaller of its inputs (assuming here no one calls this with n_filters < n_pieces, cus that would be really weird)
-            if (output_n_filters is not None and i == n_layers-1):
-                x = N.peephole_join(x,y, mode="truncate_add")
-            else:
-                x = N.peephole_join(x,y, mode="add")
+            x = N.peephole_join(x,y, mode=join_mode)
+        if normalize:
+            x = N.normalization_layer(x, mode=normalization)
+        if activation is not None:
+            x = activation(x)
         if dropout > 0:
             x = tf.keras.layers.SpatialDropout2D(dropout)(x,training)
         if pools:
@@ -58,7 +67,7 @@ def keyboard_conv(x, n_rot, n_p, name='keyboard_conv', activation=None):
                             padding='valid',
                             activation=None,
                             kernel_initializer=tf.zeros_initializer(),
-                            bias_initializer=tf.zeros_initializer(),
+                            bias_initializer=tf.random_normal_initializer(0,0.00001),
                         )
     X = [ x[:,:,:,p*n_p:(p+1)*n_p ] for p in range(n_rot) ]
     x = tf.concat(X, axis=1)
