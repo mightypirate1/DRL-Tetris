@@ -19,8 +19,8 @@ class tetris_environment:
         self.player_idxs = [p_idx for p_idx in range(self.settings["n_players"])]
 
         #Set up logging
-        self.debug = self.settings["environment_logging"]
-        if self.debug: self.log = logging.getLogger("environment")
+        self.debug = False
+        self.log = logging.getLogger("environment")
 
         ## Stats
         self.rounds_played = None
