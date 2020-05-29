@@ -33,7 +33,7 @@ default_settings = {
                     "restart_training_delay" : 16384,
                     "n_samples_to_start_training" : 0,
                     #exploration
-                    "dithering_scheme" : "adaptive_epsilon",
+                    "train_distriburion" : "adaptive_epsilon",
                     "action_temperature"  : constant_parameter(1.0),
                     "epsilon" : constant_parameter(1.0),
                     "eval_distribution" : "argmax",
@@ -123,5 +123,5 @@ default_settings = {
                     ##GAME CONTROLLER:
                     "max_round_time" : None,
                     #Backwards-compatibility...
-                    "q_net_type" : "keyboard",
+                    "architecture" : "silver",
                     }

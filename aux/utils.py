@@ -4,7 +4,7 @@ import numpy as np
 import itertools
 import tensorflow as tf
 from scipy.stats import rankdata
-
+import experiments.presets
 from aux.settings import default_settings
 
 def parse_arg(_entry_idx, data, fill_up=None, indices=False):
@@ -32,12 +32,17 @@ def parse_arg(_entry_idx, data, fill_up=None, indices=False):
 
 #We pass default settings around everywhere to ensure all hyper-parameters are uniformly customizable
 def parse_settings(settings):
-    s = default_settings.copy()
-    if settings is not None:
-        for x in settings:
-            s[x] = settings[x]
-        #Here we get a chance to add some derived properties
-        s["game_area"] = s["game_size"][0] * s["game_size"][1]
+    if "presets" in settings:
+        preset_keys = settings["presets"]
+        s = {"presets" : preset_keys}
+        for key in preset_keys:
+            s.update(experiments.presets.presets[key])
+    else: #This is the old way
+        s = default_settings.copy()
+    for x in settings:
+        s[x] = settings[x]
+    #Here we get a chance to add some derived properties
+    s["game_area"] = s["game_size"][0] * s["game_size"][1]
     return s
 
 def find_weight_settings(weight_str):
