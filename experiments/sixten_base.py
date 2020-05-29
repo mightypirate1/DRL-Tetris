@@ -31,9 +31,9 @@ settings = {
             "single_policy"             : True,
 
             #Dithering
-            "dithering_scheme"    : "distribution_pareto",
+            "train_distriburion"    : "distribution_pareto",
             "action_temperature"  : linear_parameter(1, final_val=4.0, time_horizon=total_steps),
-            # "dithering_scheme"    : "adaptive_epsilon",
+            # "train_distriburion"    : "adaptive_epsilon",
             # "epsilon"  : linear_parameter(8, final_val=0.0, time_horizon=total_steps),
             "optimistic_prios" : 0.0,
 

@@ -18,7 +18,7 @@ settings = {
             #
             "q_target_locked_for_other_actions" : False,
             "advantage_type" : "mean",#,"none",#"mean", #"max",
-            "q_net_type" : "silver", #it says q, but it's usable for ppo too
+            "architecture" : "silver",
             "residual_block_settings" : {
                                             "default" : {
                                                             "n_layers" : 3,

@@ -15,7 +15,7 @@ settings = {
             "state_processor_separate_piece" : True,
             "q_target_locked_for_other_actions" : False,
             "advantage_type" : "mean",#,"none",#"mean", #"max",
-            "q_net_type" : "silver",
+            "architecture" : "silver",
             "residual_block_settings" : {
                                             "default" : {
                                                             "n_layers" : 3,
@@ -57,11 +57,11 @@ settings = {
             "single_policy"             : True,
 
             #Dithering
-            "dithering_scheme"    : "pareto_distribution",
+            "train_distriburion"    : "pareto_distribution",
             "action_temperature"  : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
-            # "dithering_scheme"    : "adaptive_epsilon",
+            # "train_distriburion"    : "adaptive_epsilon",
             # "epsilon"  : linear_parameter(10, final_val=0.0, time_horizon=total_steps),
-            # "dithering_scheme"    : "epsilon",
+            # "train_distriburion"    : "epsilon",
             # "epsilon"  :   exp_parameter(1.0, base=10.0, decay=2/total_steps),
             # "optimistic_prios" : 0.0,
 
