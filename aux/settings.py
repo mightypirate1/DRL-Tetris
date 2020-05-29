@@ -106,6 +106,7 @@ default_settings = {
                     #State-processor
                     "state_processor" : "state_dict",        #This is a function that is applied to the state before returning it.
                     "state_processor_separate_piece" : False,
+                    "state_processor_piece_in_statevec" : False,
                     "old_state_dict" : True,
                     "action_type" : "place_block",  #This determines if an action represents pressing a key or placing a block. Allowd values is "press_key" and "place_block"
                     "render" : True,                 #Gfx on?,

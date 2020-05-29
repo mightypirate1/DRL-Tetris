@@ -10,6 +10,7 @@ class unpacker:
                  player_mode='vector', #'vector' / 'separate'
                  # piece_mode='1hot',
                  separate_piece=False,
+                 piece_in_statevec=False,
                  ):
         self.state_fcn = self.states_from_perspective if state_from_perspective else self.states_to_vectors
         self.collect_data = self.collect_all_data if observation_mode == 'vector' else self.collect_separate_data
@@ -19,6 +20,7 @@ class unpacker:
         self.player_mode = player_mode
         # self.piece_mode = piece_mode
         self.separate_piece = separate_piece
+        self.piece_in_statevec = piece_in_statevec
         self.state_size = self.get_shapes(state=state)
 
     ##Frontend
@@ -70,7 +72,8 @@ class unpacker:
         for x in state_dict:
             if x in ['piece', 'piece_idx'] and self.separate_piece:
                 piece = state_dict['piece_idx']
-                continue
+                if not self.piece_in_statevec or x in ['piece_idx']:
+                    continue
             tmp.append(state_dict[x].reshape((1,-1)))
         vector = np.concatenate(tmp, axis=1)
         visual = None
