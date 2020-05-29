@@ -130,7 +130,10 @@ environment/game_backend/source/CMakeFiles/*
 environment/game_backend/source/CMakeFiles/
 environment/game_backend/source/Makefile
 
-#A secret test-script that doesnt need to be official
+#Secret test-scripts that doesnt need to be official
 yeah.py
-#Graveyard
 experiments/OLD_SCRIPTS/
+
+#Graveyard
+agents/vector_ppo_agent
+agents/vector_q_agent
