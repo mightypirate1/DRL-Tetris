@@ -4,6 +4,7 @@ import numpy as np
 import time
 import sys
 
+import experiments.presets
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer

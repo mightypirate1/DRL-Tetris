@@ -1,5 +1,6 @@
 import docopt
 
+import experiments.presets
 import threads.threaded_runner
 from aux.experiment_schedule import experiment_schedule
 from aux.settings_printer import settings_printer
