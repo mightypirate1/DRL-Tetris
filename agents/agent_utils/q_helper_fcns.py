@@ -63,3 +63,15 @@ def action_distribution(A):
     (r,t) = np.unravel_index(a_idx, A.shape)
     entropy = utils.entropy(p+10**-6)
     return (r,t), entropy
+
+def value_piece(eval, piece):
+    if len(eval.shape) == 0:
+        return eval
+    pos = len(eval.shape) -1
+    if eval.shape[pos] > 1:
+        assert eval.size == eval.shape[pos]
+        return eval.squeeze()[piece]
+    return eval.squeeze()
+
+def value_mean(eval):
+    return np.mean(eval)

@@ -1,25 +1,19 @@
-import random
-import random
 import numpy as np
-import tensorflow as tf
-from scipy.special import softmax
 
 import threads
 import aux
 import aux.utils as utils
-from agents.vector_agent.vector_agent_base import vector_agent_base
-from agents.vector_agent.vector_agent_trainer import vector_agent_trainer
+from agents.sventon_agent.sventon_agent_base import sventon_agent_base
 import agents.agent_utils as agent_utils
-import agents.datatypes as dt
-from agents.networks import prio_vnet
+from agents.agent_utils import q_helper_fcns as q
 from aux.parameter import *
 
-class vector_agent(vector_agent_base):
+class sventon_agent(sventon_agent_base):
     def __init__(
                  self,
                  n_envs,                    # How many envs in the vector-env?
                  n_workers=1,               # How many workers run in parallel? If you don't know, guess it's just 1
-                 id=0,                      # What's this trainers name?
+                 id=0,                      # What's this workers name?
                  session=None,              # The session to operate in
                  sandbox=None,              # Sandbox to play in!
                  mode=threads.STANDALONE,   # What's our role?
@@ -28,8 +22,11 @@ class vector_agent(vector_agent_base):
                  init_clock=0,
                 ):
 
+        #The base class provides basic functionality, and provides us with types to use! (This is how we are both ppo and q)
+        sventon_agent_base.__init__(self, id=id, name="worker{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
+
         #Some general variable initialization etc...
-        vector_agent_base.__init__(self, id=id, name="worker{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
+
         #Helper variables
         self.env_idxs = [i for i in range(n_envs)]
         self.n_envs = n_envs
@@ -37,7 +34,6 @@ class vector_agent(vector_agent_base):
         self.n_experiences,self.send_count, self.send_length = 0, 0, 0
 
         #In any mode, we need a place to store transitions!
-        self.trajectory_type = dt.trajectory #if self.settings["single_policy"] else dt.trajectory_dualpolicy
         self.current_trajectory = [self.trajectory_type() for _ in range(self.n_envs if self.settings["single_policy"] else 2*self.n_envs)]
         self.stored_trajectories = list()
         self.avg_trajectory_length = 12 #tau is initialized to something...
@@ -47,7 +43,7 @@ class vector_agent(vector_agent_base):
         #If we do our own training, we prepare for that
         if self.mode is threads.STANDALONE:
             #Create a trainer, and link their neural-net and experience-replay to us
-            self.trainer = self.settings["trainer_type"](id="trainer_{}".format(self.id),settings=settings, session=session, sandbox=sandbox, mode=threads.PASSIVE)
+            self.trainer = self.trainer_type(id="trainer_{}".format(self.id),settings=settings, session=session, sandbox=sandbox, mode=threads.PASSIVE)
             self.model_dict = self.trainer.model_dict
             #STANDALONE agents have to keep track of their own training habits!
             self.time_to_training = max(self.settings['time_to_training'],self.settings['n_samples_each_update'])
@@ -55,16 +51,17 @@ class vector_agent(vector_agent_base):
         if self.mode is threads.WORKER: #If we are a WORKER, we bring our own equipment
             #Create models
             self.model_dict = {}
-            models = ["value_net"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
+            models = ["main_net"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
             for model in models:
-                m = prio_vnet(
-                              self.id,
-                              model,
-                              self.state_size,
-                              session,
-                              worker_only=True,
-                              settings=self.settings,
-                             )
+                m = self.network_type(
+                                        self.id,
+                                        model,
+                                        self.state_size,
+                                        self.model_output_shape, #Output_shape
+                                        session,
+                                        worker_only=True,
+                                        settings=self.settings,
+                                     )
                 self.model_dict[model] = m
 
         if init_weights is not None:
@@ -82,67 +79,46 @@ class vector_agent(vector_agent_base):
     def get_action(self, state_vec, player=None, random_action=False, training=False, verbose=False):
         #Get hypothetical future states and turn them into vectors!
         p_list = utils.parse_arg(player, self.player_idxs)
-        player_list_flat   = []
-        future_states_flat = []
-        all_actions        = [None for _ in range(len(state_vec))  ]
-        unflattener        = [0    for _ in range(len(state_vec)+1)]
 
         #Set up some stuff that depends on what type of training we do...
         if self.settings["single_policy"]:
-            model = self.model_dict["value_net"]
-            k, perspective =  -1, lambda x:1-x
+            model = self.model_dict["main_net"]
         else:
+            assert False, "not tested yet. comment out this line if you brave"
             assert p_list[0] == p_list[-1], "{} ::: In dual-policy mode we require queries to be for one policy at a time... (for speed)".format(p_list)
             model = self.model_dict["policy_{}".format(p_list[0])]
-            k, perspective = 1, lambda x:x
-
-        #Simulate future states
-        edge = 0
-        for state_idx, state in enumerate(state_vec):
-            player_action            = self.sandbox.get_actions(state, player=p_list[state_idx])
-            n_actions = len(player_action)
-            all_actions[state_idx]   = player_action
-            unflattener[state_idx]   = slice(edge, edge + n_actions)
-            future_states_flat      += self.sandbox.simulate_actions(player_action, player=p_list[state_idx])
-            player_list_flat        += [ perspective(p_list[state_idx]) for _ in range(len(player_action)) ]
-            edge += n_actions
 
         #Run model!
-        if random_action:
-            values_flat = np.zeros((len(future_states_flat),*model.output.shape[1:]))
-            distribution = "uniform"
-        else:
-            values_flat = k * self.run_model(model, future_states_flat, player=player_list_flat)
-            distribution = self.settings["eval_distribution"] if not training else self.settings["train_distriburion"]
-
-        #Undo flatten
-        values_all = [values_flat[unflattener[state_idx]] for state_idx in range(len(state_vec))]
+        action_eval, state_eval, pieces = self.run_model(model, state_vec, compute_value=self.workers_do_processing, player=p_list)
 
         #Choose an action . . .
-        action_idxs = [ np.argmax(values) for values in values_all ]
+        distribution = self.eval_dist if not training else self.settings["train_distriburion"]
+        action_idxs = [None for _ in state_vec]
+        for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
+            piece, _ = _piece if not self.settings["state_processor_piece_in_statevec"] else (0,None)
+            if distribution == "argmax": #for eval-runs
+                (r, t), entropy = q.action_argmax(action_eval[i,:,:,piece])
+            elif distribution == "pi": #for training
+                (r, t), entropy = q.action_distribution(action_eval[i,:,:,piece])
+            elif distribution == "pareto_distribution":
+                theta = self.theta = self.settings["action_temperature"](self.clock)
+                (r, t), entropy = q.action_pareto(action_eval[i,:,:,piece], theta)
+            elif distribution == "boltzman_distribution":
+                assert False, "boltzman_distribution is deprecated"
+                theta = self.theta = self.settings["action_temperature"](self.clock)
+                (r, t), entropy = q.action_boltzman(action_eval[i,:,:,piece], theta)
+            elif distribution == "adaptive_epsilon":
+                epsilon = self.settings["epsilon"](self.clock) * self.avg_trajectory_length**(-1)
+                (r, t), entropy = q.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
+            elif distribution == "epsilon":
+                epsilon = self.settings["epsilon"](self.clock)
+                (r, t), entropy = q.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
+            probability = action_eval[i,r,t,piece]
+            action_idxs[i] = (r,t,piece,probability,q.value_piece(state_eval[i], piece), q.value_mean(state_eval[i]))
 
-        if distribution is not "argmax":
-            for state_idx in range(len(state_vec)):
-                a_idx = action_idxs[state_idx]
-                if "distribution" in distribution:
-                    theta = self.theta = self.settings["action_temperature"](self.clock)
-                    if "boltzman" in distribution:
-                        p = softmax(theta*values_all[state_idx]).ravel()
-                    elif "pareto" in distribution:
-                        p = utils.pareto(values_all[state_idx], temperature=theta)
-                    self.action_entropy = utils.entropy(p)
-                    a_idx = np.random.choice(np.arange(values_all[state_idx].size), p=p)
-                if "epsilon" in distribution or distribution is "uniform":
-                    epsilon = 1.0 if distribution is "uniform" else self.settings["epsilon"](self.clock)
-                    if "adaptive" in distribution:
-                        epsilon *= self.avg_trajectory_length**(-1)
-                    # print("epsilon:",epsilon)
-                    dice = random.random()
-                    if dice < epsilon:
-                        # print("DICE")
-                        a_idx = np.random.choice(np.arange(values_all[state_idx].size))
-                action_idxs[state_idx] = a_idx
-        actions = [all_actions[state_idx][action_idxs[state_idx]] for state_idx in range(len(state_vec)) ]
+        #Nearly done! Just need to create the actions...
+        actions = [q.make_q_action(r,t) for r,t,_,_,_,_ in action_idxs]
+
         #Keep the clock going...
         if training:
             self.clock += self.n_envs * self.n_workers
@@ -165,13 +141,14 @@ class vector_agent(vector_agent_base):
             if training and len(self.current_trajectory[e]) > 0:
                 t = self.current_trajectory[e]
                 if self.settings["workers_do_processing"]:
-                    model = self.model_dict["value_net"] if self.settings["single_policy"] else self.model_dict["policy_{}".format(int(e>=self.n_envs))]
+                    model = self.model_dict["main_net"] if self.settings["single_policy"] else self.model_dict["policy_{}".format(int(e>=self.n_envs))]
                     data = t.process_trajectory(
                                                 self.model_runner(model),
                                                 self.unpack,
-                                                reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
-                                                gamma_discount=self.settings["gamma"],
-                                                )
+                                                # reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
+                                                reward_shaper=None,
+                                                gamma_discount=self.gamma,
+                                               )
                 else:
                     data = t
                 metadata = {

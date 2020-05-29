@@ -97,7 +97,7 @@ class vector_ppo_agent(vector_ppo_agent_base):
         PI, pieces = self.run_model(model, state_vec, only_policy=True, player=p_list)
 
         #Choose an action . . .
-        distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
+        distribution = self.settings["eval_distribution"] if not training else self.settings["train_distriburion"]
         action_idxs = [None for _ in state_vec]
         for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
             piece, _ = _piece if not self.settings["state_processor_piece_in_statevec"] else (0,0)
