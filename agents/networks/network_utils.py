@@ -9,6 +9,8 @@ from tensorflow.python.client import device_lib
 def normalize_advantages(A, apply_activation=False, inplace=False, mode="mean", axis=[1,2], piece_axis=3, separate_piece_values=True, piece_mask=1.0, n_used_pieces=7):
     # En garde! - This is a duelling network.
     if inplace:
+        if A.shape.as_list()[-1] == 1: #Corner-case handling
+            return (A if not apply_activation else advantage_activation_sqrt(A))
         V = tf.expand_dims(A[:,:,:,0],3)
         A = A[:,:,:,1:]
     if apply_activation:
@@ -40,6 +42,12 @@ def conv_shape_vector(vec, shape_to_match):
     x = tf.reshape(vec, [-1, 1, 1, dims[-1]])
     return tf.tile(x, [1, shape_to_match[1], shape_to_match[2], 1])
 
+def normalization_layer(x, mode="layer"):
+    assert mode in ["layer",]
+    if mode == "layer":
+        x = tf.keras.layers.LayerNormalization()(x)
+    return x
+
 def peephole_join(*inputs, mode="concat"):
     if mode in ["add", "truncate_add"]:
         assert len(inputs) == 2, "len>2 not implemented"
@@ -55,8 +63,6 @@ def peephole_join(*inputs, mode="concat"):
     return tf.concat(out_list, axis=-1)
 
 def advantage_activation_sqrt(x):
-    print("function temporary disabled due to a bug")
-    return x
     alpha = 0.01
     ret = tf.sign(x) * (tf.sqrt( tf.abs(x) + alpha**2) - alpha)
     return ret
@@ -85,15 +91,15 @@ def visual_stack(x, items=None): #x assumed to be of shape [N,H,W,1]
     x_stack = [x] + [item_dict[key] for key in items]
     return tf.concat(x_stack, axis=3)
 
-def q_to_v(q, mask=1.0, n_pieces=7):
+def q_to_v(q, mask=1.0, n_used_pieces=7):
     q_p = tf.reduce_max(q, axis=[1,2], keepdims=True)
-    v = tf.reduce_sum(q_p * mask, axis=3, keepdims=True) / n_pieces
+    v = tf.reduce_sum(q_p * mask, axis=3, keepdims=True) / n_used_pieces
     return tf.reshape(v, [-1, 1])
 
-def qva_from_raw_streams(_V,_A, mask=1.0, n_pieces=7, separate_piece_values=True, mode="mean"):
-    A = normalize_advantages(_A, apply_activation=True, separate_piece_values=separate_piece_values, mode=mode, piece_mask=mask, n_used_pieces=n_pieces)
+def qva_from_raw_streams(_V,_A, mask=1.0, n_used_pieces=7, separate_piece_values=True, mode="mean"):
+    A = normalize_advantages(_A, apply_activation=True, separate_piece_values=separate_piece_values, mode=mode, piece_mask=mask, n_used_pieces=n_used_pieces)
     Q = _V + A
-    V = q_to_v(Q, mask=mask, n_pieces=n_pieces)
+    V = q_to_v(Q, mask=mask, n_used_pieces=n_used_pieces)
     return Q, V, A
 
 def pool_spatial_dims_until_singleton(x, warning=False):
