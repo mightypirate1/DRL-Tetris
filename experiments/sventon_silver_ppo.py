@@ -10,9 +10,12 @@ settings = {
             #Project
             # "run-id" : "SVENton-silver_alpha_0",
             "visual_stack" : None,
-            "run-id" : "ppoparam3-0-separate",
+            "run-id" : "ELK-rtp-0",
             "description" : "A res-block based architecture, trained by ppo.",
+            #
             "state_processor_separate_piece" : True,
+            "state_processor_piece_in_statevec" : False,
+            #
             "q_target_locked_for_other_actions" : False,
             "advantage_type" : "mean",#,"none",#"mean", #"max",
             "q_net_type" : "silver", #it says q, but it's usable for ppo too
@@ -20,19 +23,21 @@ settings = {
                                             "default" : {
                                                             "n_layers" : 3,
                                                             "n_filters" : 64,
+                                                            "normalization" : "layer",
                                                         },
                                             "val_stream" : {
-                                                            "n_layers" : 5,
+                                                            "n_layers" : 4,
                                                             "n_filters" : 64,
                                                             }
                                         },
 
             "eval_distribution" : "pi",
             "ppo_parameters" : {
-                                'clipping_parameter' : 0.1,
+                                'clipping_parameter' : 0.05,
                                 'value_loss' : 1.0,
-                                'policy_loss' : 0.3,
-                                'entropy_loss' : 0.02,
+                                'policy_loss' : 1.0,
+                                'entropy_loss' : 0.01,
+                                'negative_dampener' : 1.0,
                                 },
 
             "separate_piece_values" : True,
@@ -43,16 +48,15 @@ settings = {
             # "render_simulation" : True
 
             #Train parameters
-            "gae_lambda"                : 0.92, #0.95 default
-            "n_step_value_estimates"    : 13,
-            # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
+            "gae_lambda"                : 0.96, #0.95 default
+            "n_step_value_estimates"    : 37,
+            "sparse_value_estimate_filter" : [2,3], #Empty list is no filter
             # "n_samples_each_update"     : 16384,
             "n_samples_each_update"     : 4096,
             "minibatch_size"            : 256, #256, #128
-            "n_train_epochs_per_update" : 2,
+            "n_train_epochs_per_update" : 3,
             "time_to_reference_update"  : 1, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=1/total_steps),
-
+            "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
             "single_policy"             : True,
 
             #Rewards
@@ -64,11 +68,11 @@ settings = {
 
             #Game settings
             # "pieces" : [0,],
-            "pieces" : [5,],
-            "game_size" : [10,6],
+            # "pieces" : [5,],
+            # "game_size" : [10,6],
             # "game_size" : [10,10],
-            # "pieces" : [0,6],
-            # "game_size" : [22,10],
+            "pieces" : [2,3,4,5],
+            "game_size" : [22,10],
             "time_elapsed_each_action" : 400,
             "old_state_dict" : False, #SVENton uses the new one
 
@@ -96,7 +100,7 @@ settings = {
             #Misc.
             "render"            : True,
             "bar_null_moves"    : True,
-            "resblock_dropout" : 0.15,
+            "resblock_dropout" : 0.0,#0.15,
             "nn_regularizer" : 0.0001,
             "nn_output_activation" : tf.nn.tanh,
             # "optimizer" : tf.train.GradientDescentOptimizer,
@@ -109,55 +113,58 @@ settings = {
 patches = \
 [
     {
-    "run-id" : "ppoparam3-0",
-    "separate_piece_values" : False,
+    "run-id" : "ELK-rtp-1",
+    "ppo_parameters" : {
+                        'clipping_parameter' : 0.1,
+                        'value_loss' : 1.0,
+                        'policy_loss' : 1.0,
+                        'entropy_loss' : 0.01,
+                        'negative_dampener' : 1.0,
+                        },
     },
-#     {
-#     "run-id" : "ppoparam2-1",
-#     "separate_piece_values" : False,
-#     # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
-#     "value_lr"                  : exp_parameter(1e-5, base=10.0, decay=1/total_steps),
-#     },
-#     {
-#     "run-id" : "ppoparam2-2",
-#     "separate_piece_values" : False,
-#     # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
-#     "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=2/total_steps),
-#     },
-#     {
-#     "run-id" : "ppoparam2-3",
-#     "separate_piece_values" : False,
-#     # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
-#     "value_lr"                  : exp_parameter(1e-3, base=10.0, decay=2/total_steps),
-#     },
-#     {
-#     "run-id" : "ppoparam2-4",
-#     "separate_piece_values" : False,
-#     # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
-#     "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=1/total_steps),
-#     },
-#     {
-#     "run-id" : "ppoparam2-5",
-#     "separate_piece_values" : False,
-#     # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
-#     "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=2/total_steps),
-#     },
-#     {
-#     "run-id" : "ppoparam2-6-4rerunSep",
-#     "separate_piece_values" : True,
-#     # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
-#     "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=1/total_steps),
-#     },
-#     {
-#     "run-id" : "ppoparam2-6-4rerunNonSep",
-#     "separate_piece_values" : False,
-#     # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
-#     "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=1/total_steps),
-#     },
-#     {
-#     "run-id" : "ppoparam2-7-4rerunNonSep",
-#     "separate_piece_values" : False,
-#     # "sparse_value_estimate_filter" : [2,3,5], #Empty list is no filter
-#     "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=1/total_steps),
-#     },
+    {
+    "run-id" : "ELK-rtp-2",
+    "ppo_parameters" : {
+                        'clipping_parameter' : 0.05,
+                        'value_loss' : 1.0,
+                        'policy_loss' : 1.0,
+                        'entropy_loss' : 0.01,
+                        'negative_dampener' : 0.5,
+                        },
+    },
+    {
+    "run-id" : "ELK-rtp-3",
+    "ppo_parameters" : {
+                        'clipping_parameter' : 0.05,
+                        'value_loss' : 1.0,
+                        'policy_loss' : 0.5,
+                        'entropy_loss' : 0.01,
+                        'negative_dampener' : 1.0,
+                        },
+    },
+    {
+    "run-id" : "ELK-rtp-4",
+    "ppo_parameters" : {
+                        'clipping_parameter' : 0.05,
+                        'value_loss' : 0.5,
+                        'policy_loss' : 1.0,
+                        'entropy_loss' : 0.01,
+                        'negative_dampener' : 1.0,
+                        },
+    },
+    {
+    "run-id" : "ELK-rtp-5",
+    "ppo_parameters" : {
+                        'clipping_parameter' : 0.1,
+                        'value_loss' : 1.0,
+                        'policy_loss' : 1.0,
+                        'entropy_loss' : 0.01,
+                        'negative_dampener' : 0.5,
+                        },
+    },
+    # {
+    # "run-id" : "ELK-rtp-0-1piece_net",
+    # "state_processor_piece_in_statevec" : True,
+    # },
+
 ]
