@@ -228,7 +228,8 @@ class ppo_nets:
             #5) Target and predicted values. Advantages, entropy and action-probability for policy update!
             target_values_tf = tf.stop_gradient(value_estimator_tf)
             training_values_tf = V_of_s_t
-            advantages_tf = tf.stop_gradient(target_values_tf - training_values_tf)
+            _advantages_tf = tf.stop_gradient(target_values_tf - training_values_tf)
+            advantages_tf = tf.nn.relu(_advantages_tf) - self.settings["ppo_parameters"]["negative_dampener"] * tf.nn.relu( -_advantages_tf )
             training_prob_tf = tf.expand_dims(PI_of_a_t,1)
             old_prob_tf = self.probabilities_old_tf[:,0,:]
             action_entropy_tf = tf.reduce_sum(N.action_entropy(PI_all) * p_mask, axis=3) #axis 1 is singleton anyway...

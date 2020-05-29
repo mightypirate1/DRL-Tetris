@@ -28,8 +28,7 @@ class q_net_base:
         self.output_activation = settings["nn_output_activation"]
         self.state_size_vec, self.state_size_vis = state_size
         self.advantage_range = self.settings["advantage_range"]
-        self.n_used_pieces = len(self.settings["pieces"])
-        self.used_pieces_mask_tf = self.create_used_pieces_mask()
+        self.n_used_pieces, self.used_pieces_mask_tf = self.create_used_pieces_mask()
         self.kbd_activation = kbd_activation
         self.raw_outputs = raw_outputs
         self.initialize_variables()
@@ -51,7 +50,7 @@ class q_net_base:
                                         _V,
                                         self.advantage_range * _A,
                                         mask=self.used_pieces_mask_tf,
-                                        n_pieces=self.n_pieces,
+                                        n_used_pieces=self.n_used_pieces,
                                         separate_piece_values=self.settings["separate_piece_values"],
                                         mode=self.settings["advantage_type"]
                                         )
@@ -169,8 +168,11 @@ class q_net_base:
         return v + v_p
 
     def create_used_pieces_mask(self):
-        used_pieces = [0, 0, 0, 0, 0, 0, 0]
-        for i in range(7):
+        assert self.n_pieces in [1,7]
+        if self.n_pieces == 1:
+            return 1, 1.0
+        used_pieces = [0 for _ in range(self.n_pieces)]
+        for i in range(self.n_pieces):
             if i in self.settings["pieces"]:
                 used_pieces[i] = 1
-        return tf.constant(np.array(used_pieces).reshape((1,1,1,7)).astype(np.float32))
+        return len(self.settings["pieces"]), tf.constant(np.array(used_pieces).reshape((1,1,1,7)).astype(np.float32))
