@@ -62,7 +62,7 @@ class vector_ppo_agent(vector_ppo_agent_base):
                               self.id,
                               model,
                               self.state_size,
-                              [self.n_rotations, self.n_translations, self.n_pieces], #Output_shape
+                              self.model_output_shape, #Output_shape
                               session,
                               worker_only=True,
                               settings=self.settings,
@@ -100,7 +100,7 @@ class vector_ppo_agent(vector_ppo_agent_base):
         distribution = self.settings["eval_distribution"] if not training else self.settings["dithering_scheme"]
         action_idxs = [None for _ in state_vec]
         for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
-            piece, _ = _piece
+            piece, _ = _piece if not self.settings["state_processor_piece_in_statevec"] else (0,0)
             if distribution == "argmax": #for eval-runs
                 (r, t), entropy = q.action_argmax(PI[i,:,:,piece])
                 probability = 1.0
@@ -109,7 +109,7 @@ class vector_ppo_agent(vector_ppo_agent_base):
                 probability = PI[i,r,t,piece]
             self.action_entropy = entropy
             action_idxs[i] = (r,t,piece,probability)
-            
+
         #Nearly done! Just need to create the actions...
         actions = [q.make_q_action(r,t) for r,t,_,_ in action_idxs]
 

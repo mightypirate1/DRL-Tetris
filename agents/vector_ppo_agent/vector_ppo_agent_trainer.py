@@ -39,7 +39,7 @@ class vector_ppo_agent_trainer(vector_ppo_agent_base):
                           "TRAINER",
                           model,
                           self.state_size, #Input-shape
-                          [self.n_rotations, self.n_translations, self.n_pieces], #Output_shape
+                          self.model_output_shape, #Output_shape
                           session,
                           worker_only=False,
                           k_step=self.settings["n_step_value_estimates"],

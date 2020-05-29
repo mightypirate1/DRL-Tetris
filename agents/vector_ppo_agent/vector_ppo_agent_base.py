@@ -44,13 +44,16 @@ class vector_ppo_agent_base:
                                             player_mode='separate' if self.settings["players_separate"] else 'vector',
                                             state_from_perspective=self.settings["relative_state"],
                                             separate_piece=True,
+                                            piece_in_statevec=self.settings["state_processor_piece_in_statevec"],
                                             )
         self.state_size = self.unpack.get_shapes()
         self.gamma = self.settings["gamma"] if not self.settings["single_policy"] else -self.settings["gamma"]
         self.n_vec, self.n_vis = len(self.state_size[0]), len(self.state_size[1])
         self.n_rotations = 4
         self.n_translations = self.settings["game_size"][1]
-        self.n_pieces = 7#len(self.settings["pieces"])
+        self.piece_in_statevec = self.settings["state_processor_piece_in_statevec"]
+        self.n_pieces = 7 if not self.piece_in_statevec else 1
+        self.model_output_shape = [self.n_rotations, self.n_translations, self.n_pieces]
         self.model_dict = {}
 
     def update_clock(self, clock):
