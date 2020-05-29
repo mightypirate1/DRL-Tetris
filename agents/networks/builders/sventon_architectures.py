@@ -2,8 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 from agents.networks import network_utils as N
-from agents.networks.builders.q_net_base import q_net_base
+from agents.networks.builders.base_architecture import base_architecture
 from agents.networks.builders import build_blocks as blocks
+from agents.networks.builders import legacy_build_blocks as legacy_blocks
 
 ### Easiest way to do this:
 ### 1) Create a class that inherits the base-class.
@@ -16,8 +17,10 @@ from agents.networks.builders import build_blocks as blocks
 ### Note2: Some supporting variables are served for you via base-class constructor (look there),
 ###  together with a bunch of functions for building nets.
 ### (Base class is currently a mess, but I'm working on it!)
+###
+### Note3: Names are misleading; this is not just for Q-learning!
 
-class q_net_silver(q_net_base):
+class resblock_net(base_architecture):
     def output_streams(self, vec, vis):
         #1) Pad visuals
         # TODO: Get more data into the stacks! (Height? )
@@ -48,8 +51,8 @@ class q_net_silver(q_net_base):
         return _V, _A
     def initialize_variables(self):
         n = self.n_pieces+1 if (self.settings["separate_piece_values"] and self.n_pieces>1) else 1
-        resb_default      = {'n_layers' : 3, 'n_filters' : 128,                                                                 'dropout' : self.settings['resblock_dropout'], 'training' : self.training_tf,                                   'normalization' : None,}
-        val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'dropout' : self.settings['resblock_dropout'], 'training' : self.training_tf, 'output_activation' : tf.nn.tanh, 'normalization' : None,}
+        resb_default      = {'n_layers' : 3, 'n_filters' : 128,                                                                 'dropout' : 0.0, 'training' : self.training_tf,                                   'normalization' : None,}
+        val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'dropout' : 0.0, 'training' : self.training_tf, 'output_activation' : tf.nn.tanh, 'normalization' : None,}
         if "residual_block_settings" not in self.settings:
                 self.resblock_settings = {"visual": resb_default, "visvec": resb_default, "adv_stream" : resb_default, "val_stream": val_resb_settings,}
                 return
@@ -60,37 +63,37 @@ class q_net_silver(q_net_base):
                 if key in self.settings["residual_block_settings"]:
                     self.resblock_settings[key].update(self.settings["residual_block_settings"][key])
 
-class q_net_keyboard(q_net_base):
+class convkeyboard(base_architecture):
     def output_streams(self, vectors, visuals):
         #1) create visual- and vector-encoders for the inputs!
-        hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
-        _visuals = [self.create_visualencoder(vis) for vis in visuals]
-        hidden_vis = [self.create_kbd_visual(vis) for vis in _visuals]
+        hidden_vec = [legacy_blocks.create_vectorencoder(vec, self.settings) for vec in vectors]
+        _visuals = [legacy_blocks.create_visualencoder(vis, self.settings) for vis in visuals]
+        hidden_vis = [legacy_blocks.create_kbd_visual(vis, self.settings) for vis in _visuals]
         flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
         flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
         #Prepare A. It's up here for backwards-compatibility reasons...
-        _A = self.create_kbd(_visuals[0], activation=self.kbd_activation) #"my screen -> my kbd"
+        _A = legacy_blocks.create_kbd(_visuals[0], self.settings) #"my screen -> my kbd"
         #2) Take some of the data-stream and compute a value-estimate
         x = tf.concat(flat_vec+flat_vis, axis=-1)
         #By hypothesis, workers don't need the value!
         if self.worker_only:
             V = tf.constant([[0.0]], dtype=tf.float32)
         else:
-            V = self.create_value_head(x)
+            V = legacy_blocks.create_value_head(x, self.settings)
         _V = tf.reshape(V,[-1,1,1,V.shape.as_list()[-1]]) #Shape for Q-calc!
         return _V, _A
 
-class q_net_vanilla(q_net_base):
+class convthendense(base_architecture):
     def output_streams(self,vectors, visuals):
         #1) create visual- and vector-encoders for the inputs!
-        hidden_vec = [self.create_vectorencoder(vec) for vec in vectors]
-        hidden_vis = [self.create_visualencoder(vis) for vis in visuals]
+        hidden_vec = [legacy_blocks.create_vectorencoder(vec, self.settings) for vec in vectors]
+        hidden_vis = [legacy_blocks.create_visualencoder(vis, self.settings) for vis in visuals]
         flat_vec = [tf.layers.flatten(hv) for hv in hidden_vec]
         flat_vis = [tf.layers.flatten(hv) for hv in hidden_vis]
 
         #2) Take some of the data-stream and compute a value-estimate
         x = tf.concat(flat_vec+flat_vis, axis=-1)
-        V = self.create_value_head(x)
+        V = legacy_blocks.create_value_head(x, self.settings)
         _V = tf.reshape(V,[-1,1,1,V.shape.as_list()[-1]]) #Shape for Q-calc!
 
         #3) Compute advantages

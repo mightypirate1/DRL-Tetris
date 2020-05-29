@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 
 import aux.utils as utils
-from agents.networks.builders import q_nets as Q
+from agents.networks.builders import sventon_architectures as arch
 from agents.networks import network_utils as N
 
 class ppo_nets:
@@ -31,12 +31,12 @@ class ppo_nets:
         self.worker_only = worker_only
 
         #Choose what type of architecture is used for Q-heads!
-        if self.settings["q_net_type"] == "silver":
-            self.network_type = Q.q_net_silver
-        elif self.settings["q_net_type"] == "vanilla":
-            self.network_type = Q.q_net_vanilla
-        elif self.settings["q_net_type"] == "keyboard":
-            self.network_type = Q.q_net_keyboard
+        if self.settings["architecture"] == "silver":
+            self.network_type = arch.resblock_net
+        elif self.settings["architecture"] == "vanilla":
+            self.network_type = arch.convthendense
+        elif self.settings["architecture"] == "keyboard":
+            self.network_type = arch.convkeyboard
 
         #Shapes and params
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
@@ -99,9 +99,11 @@ class ppo_nets:
     def evaluate(self,
                 inputs,
                 only_policy=False,
+                compute_value=True,
                 ):
         vector, visual = inputs
-        run_list = [self.pi_tf, self.v_tf] if not only_policy else [self.pi_tf]
+        val_tensor = self.v_tf if compute_value else tf.zeros(self.v_tf.shape)
+        run_list = [self.pi_tf, val_tensor] if not only_policy else [self.pi_tf]
         feed_dict = {self.training_tf : False}
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
@@ -120,7 +122,6 @@ class ppo_nets:
                 rewards,
                 dones,
                 lr=None,
-                fetch_visualizations=False,
               ):
         vis_tensors = [] #This feature is deactivated for now. Somehow it broke the nn; tf didnt think it had any inputs when I used them :(
         run_list = [
@@ -150,7 +151,8 @@ class ppo_nets:
     # (IV)
     def create_network_with_trainer(self, vector_states, visual_states, vector_states_training, visual_states_training, actions_training, pieces_training, rewards, dones):
         with tf.variable_scope("ppo-nets") as vs:
-            v_tf, pi_tf, main_scope = self.main_nets(vector_states, visual_states)
+            _v_tf, pi_tf, main_scope = self.main_nets(vector_states, visual_states)
+            v_tf = _v_tf[:,0,0,:]
 
             #Workers are easy!
             if self.worker_only:
