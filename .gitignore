@@ -121,8 +121,8 @@ experiments/*
 !experiments/base_experiment.py
 !experiments/sixten_base.py
 !experiments/sventon_base.py
-!experiments/sventon_silver.py
-!experiments/sventon_silver_ppo.py
+!experiments/sventon_dqn.py
+!experiments/sventon_ppo.py
 !experiments/presets.py
 
 #
