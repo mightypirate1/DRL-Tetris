@@ -44,40 +44,38 @@ class prio_qnet:
         self.k_step = k_step
 
         #DBG
-        self.stats_tensors, self.debug_tensors, self.visualization_tensors = [], [], []
+        self.stats_tensors_targets, self.stats_tensors_training, self.debug_tensors, self.visualization_tensors = [], [], [], []
 
         #Define tensors/placeholders
         with tf.variable_scope(self.scope_name):
+            self.actions_tf             =  tf.placeholder(tf.uint8, (None, 2))
+            self.pieces_tf              =  tf.placeholder(tf.uint8, (None, 1))
+            self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
+            self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
             if self.worker_only:
                 self.rewards_tf             =  None
                 self.dones_tf               =  None
-                self.actions_tf             =  tf.placeholder(tf.uint8, (None, 1))
-                self.pieces_tf              =  tf.placeholder(tf.uint8, (None, 1))
-                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
                 self.vector_inputs_training =  None
                 self.visual_inputs_training =  None
                 self.actions_training_tf    =  None
                 self.pieces_training_tf     =  None
             else:
-                self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
-                self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
                 self.vector_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
                 self.visual_inputs_training = [tf.placeholder(tf.float32, (None, k_step+1)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
                 self.rewards_tf             =  tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
                 self.dones_tf               =  tf.placeholder(tf.int32, (None, k_step+1, 1), name='done')
-                self.actions_tf             =  tf.placeholder(tf.uint8, (None, 1))
-                self.pieces_tf              =  tf.placeholder(tf.uint8, (None, 1))
+                self.q_training_targets_tf  =  tf.placeholder(tf.float32, (None, 1))
                 self.actions_training_tf    =  tf.placeholder(tf.uint8, (None, k_step+1, 2), name='action')
                 self.pieces_training_tf     =  tf.placeholder(tf.uint8, (None, k_step+1, 1), name='piece')
+                self.time_stamps_tf         =  tf.placeholder(tf.float32, shape=(None,1))
                 self.learning_rate_tf       =  tf.placeholder(tf.float32, shape=())
                 self.loss_weights_tf        =  tf.placeholder(tf.float32, (None,1), name='loss_weights')
             self.training_tf = tf.placeholder(tf.bool, shape=())
             self.main_q_net  = self.network_type("q-net-main",      output_shape, state_size, self.settings, worker_only=worker_only, training=self.training_tf)
             self.ref_q_net   = self.network_type("q-net-reference", output_shape, state_size, self.settings, worker_only=worker_only, training=self.training_tf)
             #Create trainer and a network to train!
-            self.q_tf, self.v_tf, self.a_tf, self.training_values_tf, self.target_values_tf, self.new_prios_tf, self.main_scope, self.ref_scope\
-                                    = self.create_network_with_trainer(
+            self.q_tf, self.v_tf, self.a_tf, self.gae_q_target_tf, self.main_scope, self.ref_scope\
+                                    = self.create_network(
                                                                         self.vector_inputs,
                                                                         self.visual_inputs,
                                                                         self.vector_inputs_training,
@@ -103,19 +101,44 @@ class prio_qnet:
     # (II) eval
     def evaluate(self,
                 inputs,
-                only_policy=False,
                 compute_value=True,
                 ):
         vector, visual = inputs
-        val_tensor = self.v_tf if compute_value else tf.zeros(self.v_tf.shape)
-        run_list = [self.q_tf, val_tensor] if not only_policy else [self.a_tf]
+        run_list = [self.q_tf, self.v_tf] if compute_value else [self.a_tf]
         feed_dict = {self.training_tf : False}
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
         for idx, vis in enumerate(visual):
             feed_dict[self.visual_inputs[idx]] = vis
         return_values = self.session.run(run_list, feed_dict=feed_dict)
+        if not compute_value:
+            return_values.append(np.zeros((len(vec),1)))
         return return_values
+
+    def compute_targets( self,
+                vector_states,
+                visual_states,
+                rewards,
+                dones,
+                time_stamps=None,
+              ):
+        run_list = [
+                        self.stats_tensors_targets,
+                        self.gae_q_target_tf,
+                    ]
+        feed_dict = {
+                        self.time_stamps_tf : time_stamps if time_stamps is not None else [[0.0]],
+                        self.rewards_tf : rewards,
+                        self.dones_tf : dones,
+                        self.training_tf : False,
+                    }
+        #Add also the state information to the appropriate placeholders..
+        for idx, vec in enumerate(vector_states):
+            feed_dict[self.vector_inputs_training[idx]] = vec
+        for idx, vis in enumerate(visual_states):
+            feed_dict[self.visual_inputs_training[idx]] = vis
+        stats, targets = self.session.run(run_list, feed_dict=feed_dict)
+        return targets, zip(self.stats_tensors_targets, stats)
 
     # (III) train
     def train(  self,
@@ -123,46 +146,40 @@ class prio_qnet:
                 visual_states,
                 actions,
                 pieces,
-                rewards,
-                dones,
+                targets,
                 weights=None,
                 lr=None,
-                fetch_visualizations=False,
+                time_stamps=None,
               ):
-        vis_tensors = [] #This feature is deactivated for now. Somehow it broke the nn; tf didnt think it had any inputs when I used them :(
         run_list = [
                     self.training_ops,
                     self.new_prios_tf,
-                    self.stats_tensors,
-                    self.debug_tensors,
-                    vis_tensors,
+                    self.stats_tensors_training,
                     ]
         feed_dict = {
-                        self.pieces_training_tf : pieces,
-                        self.actions_training_tf : actions,
-                        self.rewards_tf : rewards,
-                        self.dones_tf : dones,
+                        self.pieces_tf : pieces,
+                        self.actions_tf : actions,
+                        self.q_training_targets_tf : targets,
                         self.learning_rate_tf : lr,
                         self.loss_weights_tf : weights,
                         self.training_tf : True,
                     }
         #Add also the state information to the appropriate placeholders..
         for idx, vec in enumerate(vector_states):
-            feed_dict[self.vector_inputs_training[idx]] = vec
+            feed_dict[self.vector_inputs[idx]] = vec
         for idx, vis in enumerate(visual_states):
-            feed_dict[self.visual_inputs_training[idx]] = vis
-        _, new_prios, stats, dbg, vis = self.session.run(run_list, feed_dict=feed_dict)
-        N.debug_prints(dbg,self.debug_tensors)
-        return new_prios, zip(self.stats_tensors, stats), zip(self.visualization_tensors, vis)
+            feed_dict[self.visual_inputs[idx]] = vis
+        _, new_prios, stats = self.session.run(run_list, feed_dict=feed_dict)
+        return new_prios, zip(self.stats_tensors_training, stats)
 
     # (IV)
-    def create_network_with_trainer(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
+    def create_network(self, vector_states, visual_states, vector_states_training, visual_states_training, actions, pieces, actions_training, pieces_training, rewards, dones):
         with tf.variable_scope("prio_q-net") as vs:
             q_tf, v_tf, a_tf, main_scope = self.main_q_net(vector_states, visual_states)
 
             #Workers are easy!
             if self.worker_only:
-                return q_tf, v_tf, a_tf, None, None, None, main_scope, None
+                return q_tf, v_tf, a_tf, None, main_scope, None
 
             # # #
             # Trainers do Q-updates:
@@ -181,16 +198,16 @@ class prio_qnet:
             dones_tf = tf.minimum(1, tf.cumsum(dones, axis=1)) #Minimum ensures there is no stray done from an adjacent trajectory influencing us...
             done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
             q_t_tf, v_t_tf = [None for _ in range(self.k_step+1)], [None for _ in range(self.k_step+1)]
-            for t in [0] + estimator_steps:
+            for t in estimator_steps:
                 # Appy our Q-nets to each time step to yield all V- & Q-estimates!
-                q_net = self.main_q_net if t==0 else self.ref_q_net
                 s_t_vec = [vec_state[:,t,:] for vec_state in vector_states_training]
                 s_t_vis = [vis_state[:,t,:] for vis_state in visual_states_training]
-                q,v,_,ref_scope = q_net(s_t_vec, s_t_vis)
+                q,v,_,ref_scope = self.ref_q_net(s_t_vec, s_t_vis)
                 q_t_tf[t] = q
                 v_t_tf[t] = v
 
             #2) Do all the V-estimators, k-step style
+            extra_decay = 1.0 ** self.time_stamps_tf
             gamma = -self.settings["gamma"] if self.settings["single_policy"] else self.settings["gamma"]
             def k_step_estimate(k):
                 k = int(k)
@@ -210,56 +227,47 @@ class prio_qnet:
                 weight += gae_lambda**k
             value_estimator_tf = estimator_sum_tf / weight
 
-            #4) Prepare a training value!
-            Q_s_all = q_t_tf[0]
-            r_mask = tf.reshape(tf.one_hot(actions_training[:,0,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
-            t_mask = tf.reshape(tf.one_hot(actions_training[:,0,1], self.n_translations), (-1,  1, self.n_translations, 1), name='t_mask')
-            p_mask = tf.reshape(tf.one_hot(pieces_training[:,0,:],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ), name='p_mask')
-            rtp_mask = r_mask*t_mask*p_mask
-            _Q_s = Q_s_all * rtp_mask
-            Q_s = tf.reduce_sum(_Q_s, axis=[1,2,3])
-
             #5) Target and predicted values. Also prios for the exp-rep.
-            target_values_tf = tf.stop_gradient(value_estimator_tf)
-            training_values_tf = tf.expand_dims(Q_s,1)
-            prios_tf = tf.abs(training_values_tf - target_values_tf)
-            if self.settings["optimistic_prios"] != 0.0:
-                prios_tf += self.settings["optimistic_prios"] * tf.nn.relu(prios_tf)
+            gae_q_target_tf = value_estimator_tf
 
             #If enabled, lock the Q-value for the actions that were not played
             if self.settings["q_target_locked_for_other_actions"]:
-                # self.LOSS_FCN_DBG(Q_s_all, rtp_mask, value_estimator_tf)
+                assert False, "this code is not updated for unified sventon"
                 target_values_tf = self.create_fixed_targets(Q_s_all, rtp_mask, target_values_tf)
-                training_values_tf = Q_s_all
 
             #As always - we like some stats!
-            self.output_as_stats(value_estimator_tf, name="target-val")
+            self.output_as_stats(gae_q_target_tf, name="target-q")
             self.output_as_stats(done_time_tf, name="done_time")
-        return q_tf, v_tf, a_tf, training_values_tf, target_values_tf, prios_tf, main_scope, ref_scope
+        return q_tf, v_tf, a_tf, gae_q_target_tf, main_scope, ref_scope
 
     # (V)
     def create_training_ops(self):
         if self.worker_only:
             return None
         if self.settings["q_target_locked_for_other_actions"]:
-            sq_error = tf.math.squared_difference(self.target_values_tf, self.training_values_tf)
-            ssq_error = tf.expand_dims(tf.reduce_sum(sq_error,axis=[1,2,3]),1)
-            self.value_loss_tf = tf.losses.mean_squared_error(ssq_error, [[0.0]], weights=self.loss_weights_tf)
-            # self.argmax_entropy_tf = N.argmax_entropy_reg(
-            #                                               self.training_values_tf,
-            #                                               mask=self.used_pieces_mask_tf,
-            #                                               n_pieces=self.n_used_pieces,
-            #                                              )
-            # self.output_as_stats(self.argmax_entropy_tf, name="argmax_entropy")
-        else:
-            self.value_loss_tf = tf.losses.mean_squared_error(self.target_values_tf, self.training_values_tf, weights=self.loss_weights_tf)
+            assert False
+
+        #Extract single Q-value
+        _q = self.q_tf
+        r_mask = tf.reshape(tf.one_hot(self.actions_tf[:,0], self.n_rotations),    (-1, self.n_rotations,    1,  1))
+        t_mask = tf.reshape(tf.one_hot(self.actions_tf[:,1], self.n_translations), (-1,  1, self.n_translations, 1))
+        p_mask = tf.reshape(tf.one_hot(self.pieces_tf[:,0],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ))
+        rtp_mask = r_mask * t_mask * p_mask
+        q = tf.expand_dims( tf.reduce_sum(_q * rtp_mask, axis=[1,2,3]), 1)
+
+        #Prios is easy
+        self.new_prios_tf = tf.abs(q - self.q_training_targets_tf)
+        if self.settings["optimistic_prios"] != 0.0:
+            self.new_prios_tf += self.settings["optimistic_prios"] * tf.nn.relu(self.new_prios_tf)
+
+        self.value_loss_tf = tf.losses.mean_squared_error(q, self.q_training_targets_tf, weights=self.loss_weights_tf)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net_vars])
         self.loss_tf = self.value_loss_tf + self.regularizer_tf
         training_ops = self.settings["optimizer"](learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
         #Stats: we like stats.
-        self.output_as_stats(self.loss_tf, name='tot_loss', only_mean=True)
-        self.output_as_stats(self.value_loss_tf, name='value_loss', only_mean=True)
-        self.output_as_stats(self.regularizer_tf, name='reg_loss', only_mean=True)
+        self.output_as_stats(self.loss_tf, name='tot_loss', only_mean=True, train_stats=True)
+        self.output_as_stats(self.value_loss_tf, name='value_loss', only_mean=True, train_stats=True)
+        self.output_as_stats(self.regularizer_tf, name='reg_loss', only_mean=True, train_stats=True)
         return training_ops
 
     ###
@@ -303,18 +311,19 @@ class prio_qnet:
             feed_dict[assign['assign_val_placeholder']] = w
         self.session.run(run_list, feed_dict=feed_dict)
 
-    def output_as_stats(self, tensor, name=None, only_mean=False):
+    def output_as_stats(self, tensor, name=None, only_mean=False, train_stats=False):
+        stats_tensors = self.stats_tensors_training if train_stats else self.stats_tensors_targets
         if name is None:
             name = tensor.name
         #Corner case :)
         if len(tensor.shape) == 0:
-            self.stats_tensors.append(tf.identity(tensor, name=name))
+            stats_tensors.append(tf.identity(tensor, name=name))
             return
-        self.stats_tensors.append(tf.reduce_mean(tensor, axis=0, name=name+'_mean'))
+        stats_tensors.append(tf.reduce_mean(tensor, axis=0, name=name+'_mean'))
         if only_mean:
             return
-        self.stats_tensors.append(tf.reduce_max(tensor, axis=0, name=name+'_max'))
-        self.stats_tensors.append(tf.reduce_min(tensor, axis=0, name=name+'_min'))
+        stats_tensors.append(tf.reduce_max(tensor, axis=0, name=name+'_max'))
+        stats_tensors.append(tf.reduce_min(tensor, axis=0, name=name+'_min'))
 
     def create_fixed_targets(self, Q, mask, target):
         _target = tf.reshape(target, [-1,1,1,1]) * mask

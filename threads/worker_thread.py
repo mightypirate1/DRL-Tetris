@@ -68,7 +68,8 @@ class worker_thread(mp.Process):
             #
             ## Initialize training variables, and a quick_summary for TensorBoard stats.
             #####
-            self.quick_summary = quick_summary(settings=self.settings, session=session, suffix="-worker") if self.id == 0 else None
+            if self.settings["worker_summaries"]:
+                self.quick_summary = quick_summary(settings=self.settings, session=session, suffix="-worker") if self.id == 0 else None
             self.t_thread_start = time.time()
             s_prime = self.env.get_state()
             current_player = np.random.choice([i for i in range(self.settings["n_players"])], size=(self.settings["n_envs_per_thread"])  )

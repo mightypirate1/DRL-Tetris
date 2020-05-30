@@ -114,13 +114,18 @@ models/*
 !models/demo_weights/*
 summaries/*
 !summaries/.gitkeep
+#
 experiments/*
+#but some files here are included!
 !experiments/.gitkeep
 !experiments/base_experiment.py
 !experiments/sixten_base.py
 !experiments/sventon_base.py
 !experiments/sventon_silver.py
 !experiments/sventon_silver_ppo.py
+!experiments/presets.py
+
+#
 *.pkl
 
 #CMake stuff doenst need to be shared
@@ -137,3 +142,4 @@ experiments/OLD_SCRIPTS/
 #Graveyard
 agents/vector_ppo_agent
 agents/vector_q_agent
+agents/agent_utils/q_helper_fcns.py

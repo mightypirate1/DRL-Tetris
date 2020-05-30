@@ -98,18 +98,18 @@ class ppo_nets:
     # (II) eval
     def evaluate(self,
                 inputs,
-                only_policy=False,
                 compute_value=True,
                 ):
         vector, visual = inputs
-        val_tensor = self.v_tf if compute_value else tf.zeros(self.v_tf.shape)
-        run_list = [self.pi_tf, val_tensor] if not only_policy else [self.pi_tf]
+        run_list = [self.pi_tf, self.v_tf] if compute_value else [self.pi_tf]
         feed_dict = {self.training_tf : False}
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
         for idx, vis in enumerate(visual):
             feed_dict[self.visual_inputs[idx]] = vis
         return_values = self.session.run(run_list, feed_dict=feed_dict)
+        if not compute_value:
+            return_values.append(np.zeros((len(vec),1)))
         return return_values
 
     # (III) train

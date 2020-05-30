@@ -20,7 +20,8 @@ import threads
 ##  TODO: remake to use the code from the worker_thread!
 #####
 
-def adjust_settings(S):
+def adjust_settings(s):
+    S = s.copy()
     if run_settings["--null"]:
         S["bar_null_moves"] = False
     if run_settings["--no-null"]:

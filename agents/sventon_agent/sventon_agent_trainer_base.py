@@ -120,17 +120,18 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
         stats, counts = {}, {}
         for train_stat_batch in self.train_stats_raw:
             for tensor, data in train_stat_batch:
-                if tensor.name not in stats:
-                    stats[tensor.name] = data
-                    counts[tensor.name] = 1
+                key = tensor if type(tensor) is str else tensor.name #sometimes I just want to wedge in a number :)
+                if key not in stats:
+                    stats[key] = data
+                    counts[key] = 1
                 else:
-                    if 'max' in tensor.name:
-                        stats[tensor.name] = np.maximum(stats[tensor.name], data)
-                    elif 'min' in tensor.name:
-                        stats[tensor.name] = np.minimum(stats[tensor.name], data)
+                    if 'max' in key:
+                        stats[key] = np.maximum(stats[key], data)
+                    elif 'min' in key:
+                        stats[key] = np.minimum(stats[key], data)
                     else:
-                        stats[tensor.name] += data
-                        counts[tensor.name] += 1
+                        stats[key] += data
+                        counts[key] += 1
         for tensor_name in stats:
             stats[tensor_name] = stats[tensor_name] / counts[tensor_name]
         self.train_stats_raw.clear()

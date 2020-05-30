@@ -89,6 +89,7 @@ default_settings = {
                     "worker_data_send_fequency" : 100,
                     "weight_transfer_frequency" : 100,
                     "workers_do_processing"     : True,
+                    "worker_summaries"          : False,
                     #Threading
                     "run_standalone"    : False,
                     "n_workers"         : 4,
@@ -122,6 +123,7 @@ default_settings = {
                     "players_separate" : True, #This keeps each players part of the state separate when passed to the neural net
                     ##GAME CONTROLLER:
                     "max_round_time" : None,
+
                     #Backwards-compatibility...
                     "architecture" : "silver",
                     }

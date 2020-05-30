@@ -5,7 +5,7 @@ import aux
 import aux.utils as utils
 from agents.sventon_agent.sventon_agent_base import sventon_agent_base
 import agents.agent_utils as agent_utils
-from agents.agent_utils import q_helper_fcns as q
+import agents.sventon_agent.sventon_utils as S
 from aux.parameter import *
 
 class sventon_agent(sventon_agent_base):
@@ -89,7 +89,7 @@ class sventon_agent(sventon_agent_base):
             model = self.model_dict["policy_{}".format(p_list[0])]
 
         #Run model!
-        action_eval, state_eval, pieces = self.run_model(model, state_vec, compute_value=self.workers_do_processing, player=p_list)
+        action_eval, state_eval, pieces = self.run_model(model, state_vec, compute_value=False, player=p_list)
 
         #Choose an action . . .
         distribution = self.eval_dist if not training else self.settings["train_distriburion"]
@@ -97,27 +97,27 @@ class sventon_agent(sventon_agent_base):
         for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
             piece, _ = _piece if not self.settings["state_processor_piece_in_statevec"] else (0,None)
             if distribution == "argmax": #for eval-runs
-                (r, t), entropy = q.action_argmax(action_eval[i,:,:,piece])
+                (r, t), entropy = S.action_argmax(action_eval[i,:,:,piece])
             elif distribution == "pi": #for training
-                (r, t), entropy = q.action_distribution(action_eval[i,:,:,piece])
+                (r, t), entropy = S.action_distribution(action_eval[i,:,:,piece])
             elif distribution == "pareto_distribution":
                 theta = self.theta = self.settings["action_temperature"](self.clock)
-                (r, t), entropy = q.action_pareto(action_eval[i,:,:,piece], theta)
+                (r, t), entropy = S.action_pareto(action_eval[i,:,:,piece], theta)
             elif distribution == "boltzman_distribution":
                 assert False, "boltzman_distribution is deprecated"
                 theta = self.theta = self.settings["action_temperature"](self.clock)
-                (r, t), entropy = q.action_boltzman(action_eval[i,:,:,piece], theta)
+                (r, t), entropy = S.action_boltzman(action_eval[i,:,:,piece], theta)
             elif distribution == "adaptive_epsilon":
                 epsilon = self.settings["epsilon"](self.clock) * self.avg_trajectory_length**(-1)
-                (r, t), entropy = q.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
+                (r, t), entropy = S.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
             elif distribution == "epsilon":
                 epsilon = self.settings["epsilon"](self.clock)
-                (r, t), entropy = q.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
+                (r, t), entropy = S.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
             probability = action_eval[i,r,t,piece]
-            action_idxs[i] = (r,t,piece,probability,q.value_piece(state_eval[i], piece), q.value_mean(state_eval[i]))
+            action_idxs[i] = (r,t,piece,probability,S.value_piece(state_eval[i], piece), S.value_mean(state_eval[i]))
 
         #Nearly done! Just need to create the actions...
-        actions = [q.make_q_action(r,t) for r,t,_,_,_,_ in action_idxs]
+        actions = [S.make_action(r,t) for r,t,_,_,_,_ in action_idxs]
 
         #Keep the clock going...
         if training:
