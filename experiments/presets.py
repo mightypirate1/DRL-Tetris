@@ -101,5 +101,8 @@ presets = {
                          "worker_niceness"   : 5,
                          "n_players" : 2,
                          "worker_summaries" : False,
+                         #Misc.
+                         "render"            : True,
+                         "bar_null_moves"    : True,
                         },
             }
