@@ -102,7 +102,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                                     n_envs,
                                     id=i,
                                     mode=threads.WORKER,
-                                    sandbox=setting["env_type"](settings=setting),
+                                    sandbox=s["env_type"](settings=s),
                                     session=session,
                                     settings=setting,
                                 )
