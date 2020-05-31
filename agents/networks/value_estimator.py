@@ -10,6 +10,7 @@ class value_estimator:
                 gamma,
                 _lambda,
                 filter=None,
+                truncate_aggregation=False,
                 time_stamps=None,
                 time_stamp_gamma=1.0,
                 ):
@@ -22,16 +23,17 @@ class value_estimator:
         self._steps = self.create_steps(k, filter)
         self._n_steps = len(self._steps)
         self._value_estimator_tf = self.create_estimator()
+        self._truncate_aggregation = truncate_aggregation
         # self._time_stamps = None
         # self._time_stamp_gamma = 1.0
 
-    def _np_to_smaller_np(self, np):
+    def _filter_inputs(self, inputs):
         # [None, k+1, *] to [None, len(filtered_k), *]
-        return np[:,self._steps,:]
+        return inputs[:,self._steps,:]
 
     def feed_dict(self, vec, vis):
-         vec_dict = dict(zip(self._vec_inputs, self._np_to_smaller_np(vec)))
-         vis_dict = dict(zip(self._vis_inputs, self._np_to_smaller_np(vis)))
+         vec_dict = dict(zip(self._vec_inputs, self._filter_inputs(vec)))
+         vis_dict = dict(zip(self._vis_inputs, self._filter_inputs(vis)))
          return { **vec_dict, **vis_dict}
 
     def _create_estimator(self):
@@ -57,14 +59,16 @@ class value_estimator:
             e += v_t_tf[idx_dict[k]] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
             return e
         estimators = [(k,k_step_estimate(k)) for k in estimator_steps]
-        return self._aggregate(estimators)
+        return self._aggregate(estimators, done_time_tf)
 
-    def _aggregate(self,estimators):
+    def _aggregate(self,estimators, done_times):
         weight = 0
         estimator_sum_tf = 0
         for k,e in estimators:
-            estimator_sum_tf += e * self._lambda**k
-            weight += self._lambda**k
+            lambda_filter = tf.cast((done_time_tf >= k),tf.float32) if self._truncate_aggregation else 1.0
+            _lambda = self._lambda * lambda_filter
+            estimator_sum_tf += e * _lambda**k
+            weight += _lambda**k
         value_estimator_tf = estimator_sum_tf / weight
         return value_estimator_tf
 
