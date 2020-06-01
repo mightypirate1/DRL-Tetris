@@ -8,12 +8,12 @@ from aux.parameter import *
 
 settings = {
             #Project
-            "run-id" : "ELK-Q01",
+            "run-id" : "ELK-Z03",
             "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
 
             #RL-algo-settings
             "ppo_parameters" : {
-                                'clipping_parameter' : 0.1,
+                                'clipping_parameter' : 0.2,
                                 'value_loss' : 1.0,
                                 'policy_loss' : 1.0,
                                 'entropy_loss' : 0.01,
@@ -44,13 +44,15 @@ settings = {
 
             #Game settings
             # "game_size" : [10,6],
-            "pieces" : [2,3,4,5],
+            "pieces" : [0,1,2,3,4,5,6],
             "game_size" : [22,10],
 
             #Threading
             "n_workers"            : 3,
             "n_envs_per_thread"    : 80,
             "worker_steps"         : total_steps // 240,
+            #Misc
+            "render_screen_dims" : (3840,2160),
            }
 ###
 ###
@@ -59,56 +61,66 @@ settings = {
 patches = \
 [
     {
-    "run-id" : "ELK-Q02",
-    "ppo_parameters" : {
-                        'clipping_parameter' : 0.15,
-                        'value_loss' : 1.0,
-                        'policy_loss' : 1.0,
-                        'entropy_loss' : 0.01,
-                        'negative_dampener' : 1.0,
-                        },
-    },
-    {
-    "run-id" : "ELK-Q03",
+    "run-id" : "ELK-Z04",
     "ppo_parameters" : {
                         'clipping_parameter' : 0.2,
                         'value_loss' : 1.0,
-                        'policy_loss' : 1.0,
+                        'policy_loss' : 0.5,
                         'entropy_loss' : 0.01,
                         'negative_dampener' : 1.0,
                         },
     },
     {
-    "run-id" : "ELK-Q03-lrConst",
+    "run-id" : "ELK-Z05",
     "ppo_parameters" : {
                         'clipping_parameter' : 0.2,
-                        'value_loss' : 1.0,
+                        'value_loss' : 0.5,
                         'policy_loss' : 1.0,
                         'entropy_loss' : 0.01,
                         'negative_dampener' : 1.0,
                         },
-    "value_lr"                  : constant_parameter(1e-4),
     },
     {
-    "run-id" : "ELK-Q03-lrHigh",
+    "run-id" : "ELK-Z06",
     "ppo_parameters" : {
                         'clipping_parameter' : 0.2,
-                        'value_loss' : 1.0,
+                        'value_loss' : 0.5,
                         'policy_loss' : 1.0,
-                        'entropy_loss' : 0.01,
+                        'entropy_loss' : 0.02,
                         'negative_dampener' : 1.0,
                         },
-    "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=1/total_steps),
     },
     {
-    "run-id" : "ELK-Q01-lrHigh",
+    "run-id" : "ELK-Z07",
     "ppo_parameters" : {
-                        'clipping_parameter' : 0.1,
-                        'value_loss' : 1.0,
+                        'clipping_parameter' : 0.2,
+                        'value_loss' : 0.5,
+                        'policy_loss' : 1.0,
+                        'entropy_loss' : 0.01,
+                        'negative_dampener' : 0.5,
+                        },
+    },
+    {
+    "run-id" : "ELK-Z08",
+    "ppo_parameters" : {
+                        'clipping_parameter' : 0.2,
+                        'value_loss' : 0.5,
                         'policy_loss' : 1.0,
                         'entropy_loss' : 0.01,
                         'negative_dampener' : 1.0,
                         },
-    "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=1/total_steps),
+    "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=2/total_steps),
     },
+    # {
+    # "run-id" : "ELK-X03-fullset0",
+    # "pieces" : [0,1,2,3,4,5,6],
+    # "ppo_parameters" : {
+    #                     'clipping_parameter' : 0.2,
+    #                     'value_loss' : 1.0,
+    #                     'policy_loss' : 1.0,
+    #                     'entropy_loss' : 0.01,
+    #                     'negative_dampener' : 1.0,
+    #                    },
+    # "value_lr"                  : exp_parameter(5e-4, base=10.0, decay=2/total_steps),
+    # },
 ]
