@@ -5,15 +5,20 @@ import time
 
 global_renderer = None
 
-def get_global_renderer(resolution=None):
+def get_global_renderer(resolution=None, color_theme=None):
     global global_renderer
     if global_renderer is None:
-        global_renderer = _renderer(resolution)
+        global_renderer = _renderer(resolution, color_theme=color_theme)
     return global_renderer
 
+def hex2intlist(x):
+    counter = 0
+    while counter < len(x):
+        counter += 2
+        yield int(x[counter-2:counter], 16)
 
 class _renderer:
-    def __init__(self, resolution):
+    def __init__(self, resolution, color_theme=None):
         pg.init()
         self.border_width = 2   #Border of dark pixels around blocks
         self.border_fade = 0.2  #Border color. 1=piececolor, 0=black
@@ -24,18 +29,21 @@ class _renderer:
         self.screen = self.createScreen(self.res_x,self.res_y)
         self.field_row_size = 4
         self.piece_size = self.pieceSize(20)
-        self.fg_colormap = [[25,25,25],
-                            [255,0,0],
-                            [0,255,0],
-                            [115,145,255],
-                            [255,0,255],
-                            [0,255,255],
-                            [255,255,0],
-                            [255,255,255],
-                            [170,170,170]]
+        if color_theme is None:
+            self.fg_colormap = [[25,25,25],
+                                [255,0,0],
+                                [0,255,0],
+                                [115,145,255],
+                                [255,0,255],
+                                [0,255,255],
+                                [255,255,0],
+                                [255,255,255],
+                                [170,170,170]]
+        else:
+            self.fg_colormap = [ list(hex2intlist(hex_str)) for hex_str in color_theme ]
         self.bg_colormap = []
         for r in self.fg_colormap:
-            x = [self.border_fade * c for c in r]
+            x = [int(self.border_fade * c) for c in r]
             self.bg_colormap.append(x)
 
     def createScreen(self, newwidth, newheight):

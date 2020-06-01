@@ -104,5 +104,18 @@ presets = {
                          #Misc.
                          "render"            : True,
                          "bar_null_moves"    : True,
-                        },
-            }
+                         "render_color_theme" : [
+                                                "171717",
+                                                "d900ff",
+                                                "ff9400",
+                                                "9b00ff",
+                                                "ff00a4",
+                                                "ff00ed",
+                                                "ff5c00",
+                                                "7900ff",
+                                                # "ffaf00",
+                                                "400080"
+                                                ],
+                         "render_screen_dims" : (1970,1080),
+                        }
+}

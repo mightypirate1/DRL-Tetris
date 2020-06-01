@@ -198,7 +198,8 @@ class tetris_environment:
         else:
             self.state_processor = state_processors.state_processor(self.settings["state_processor"])
         if self.settings["render"]:
-            self.renderer = draw_tetris.get_global_renderer(resolution=self.settings["render_screen_dims"])
+            color_theme = None if "render_color_theme" not in self.settings else self.settings["render_color_theme"]
+            self.renderer = draw_tetris.get_global_renderer(resolution=self.settings["render_screen_dims"], color_theme=color_theme)
 
         assert self.settings["action_type"] in ["place_block", "press_key"]
         return True

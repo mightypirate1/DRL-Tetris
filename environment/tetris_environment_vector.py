@@ -16,7 +16,8 @@ class tetris_environment_vector:
         self.env_type = env_type
         self.envs = [env_type(id=i, settings=settings, init_env=e) for i,e in enumerate(init_envs)]
         if self.settings["render"]:
-            self.renderer = draw_tetris.get_global_renderer(self.settings["render_screen_dims"])
+            color_theme = None if "render_color_theme" not in self.settings else self.settings["render_color_theme"]
+            self.renderer = draw_tetris.get_global_renderer(resolution=self.settings["render_screen_dims"], color_theme=color_theme)
             self.renderer_adjusted = False
 
     # def __getattr__(self, attr):
