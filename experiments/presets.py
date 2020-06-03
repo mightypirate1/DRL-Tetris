@@ -24,6 +24,10 @@ presets = {
                         "n_train_epochs_per_update" : 3,
                         "time_to_reference_update"  : 1,
                         "n_samples_to_start_training" : 0,
+                        #value estimator
+                        "value_estimator_params" : {
+                                                    "truncate_aggregation" : False,
+                                                    },
                         #nn stuff
                         "value_lr" : constant_parameter(1e-4),
                         "nn_regularizer" : 0.0001,
@@ -37,8 +41,8 @@ presets = {
                         ### Maybe remove from project...
                         ###
                         "time_to_training" : 1024,
-                        "advantage_range" : 0.5,
-                        "piece_advantage_range" : 0.5,
+                        "advantage_range" : 1.0,
+                        "piece_advantage_range" : 1.0,
                         "tau_learning_rate" : 0.01,
                         "winrate_learningrate" : 0.01,
                         },
@@ -94,6 +98,8 @@ presets = {
                          "time_elapsed_each_action" : 400,
                          "state_processor" : "state_dict",
                          "action_type" : "place_block",
+                         "game_size" : [22, 10],
+                         "pieces" : [0,1,2,3,4,5,6],
 
                          "trainer_thread_backup_freq"  : 1,
                          "worker_data_send_fequency" : 1,
