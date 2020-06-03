@@ -46,7 +46,9 @@ class worker_thread(mp.Process):
 
         # I don't have the luxury of having multiple GPUs, so this code might not work as intended. It works as it should for single-GPU settings, where the GPU is reserved for the trainer.
         # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=self.settings["trainer_gpu_fraction"])
-        with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})) as session:
+        config = tf.ConfigProto(log_device_placement=False,device_count={'GPU': self.gpu_count})
+        config.gpu_options.allow_growth=True
+        with tf.Session(config=config) as session:
             #Initialize env and agents!
             self.env = self.settings["env_vector_type"](
                                                         self.settings["n_envs_per_thread"],
