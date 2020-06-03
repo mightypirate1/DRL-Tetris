@@ -162,7 +162,7 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
 
     def export_weights(self):
         models = sorted([x for x in self.model_dict])
-        weights = [self.model_dict[x].get_weights(self.model_dict[x].main_net_vars) for x in models]
+        weights = [self.model_dict[x].get_weights(self.model_dict[x].main_net.variables) for x in models]
         return self.n_train_steps["total"], weights
 
     #Moves the reference model to be equal to the model, or changes their role (depending on setting)

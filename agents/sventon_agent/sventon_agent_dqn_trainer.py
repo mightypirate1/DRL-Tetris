@@ -15,13 +15,13 @@ class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
             policy = "policy_{}".format(policy)
             if self.scoreboard[policy] > 0.5 + self.settings["winrate_tolerance"]:
                 print("Policy \"{}\" did NOT TRAIN, due to too much winning! ({})".format(policy, self.scoreboard[policy]))
-                return False
+                return 0
         exp_rep = self.experience_replay_dict[policy]
         model = self.model_dict[policy]
         #If we dont have enough samples yet we quit early...
         if sample is None and len(exp_rep) < self.n_samples_to_start_training:
             if not self.settings["run_standalone"]: time.sleep(1) #If we are a separate thread, we can be a little patient here
-            return False
+            return 0
 
         # # #
         #Start!
@@ -101,4 +101,4 @@ class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
         #Update prios if we sampled the sample ourselves...
         if update_prio_flag:
             exp_rep.update_prios(new_prio, filter)
-        return True
+        return n
