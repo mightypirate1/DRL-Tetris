@@ -104,7 +104,7 @@ class sventon_agent_base:
         output = {}
         for net in self.model_dict:
             if net is "default": continue
-            weights = self.model_dict[net].get_weights(self.model_dict[net].main_net_vars), self.model_dict[net].get_weights(self.model_dict[net].reference_net_vars)
+            weights = self.model_dict[net].get_weights(self.model_dict[net].main_net.variables), self.model_dict[net].get_weights(self.model_dict[net].ref_net.variables)
             output[net] = weights
         if not os.path.exists(folder):
             os.makedirs(folder)
