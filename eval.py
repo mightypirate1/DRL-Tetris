@@ -33,6 +33,7 @@ def adjust_settings(s):
     if run_settings["--argmax"]:
         S["eval_distribution"] = "argmax"
     S["render"] = not run_settings["--no-rendering"]
+    S["worker_net_on_cpu"] = not run_settings["--gpu"]
     return S
 
 def random_match(agents, names, weights):
@@ -72,6 +73,7 @@ Options:
     --frac              Print scoreboard with fractions instead of floats. [default: False]
     --width W           With of the score crosstable [default: 120]
     --argmax            Force evals to use argmax, regardless of project setting. [default: False]
+    --gpu               Run on GPU. [default: False]
 '''
 run_settings = docopt.docopt(docoptstring)
 total_steps = int(run_settings["--steps"])
