@@ -20,7 +20,7 @@ from agents.networks.builders import legacy_build_blocks as legacy_blocks
 ###
 ### Note3: Names are misleading; this is not just for Q-learning!
 
-class resblock_net(base_architecture):
+class resblock_kbd(base_architecture):
     def output_streams(self, vec, vis):
         #1) Pad visuals
         # TODO: Get more data into the stacks! (Height? )
@@ -47,12 +47,12 @@ class resblock_net(base_architecture):
             _V = blocks.residual_block(vstream_in, output_layer=True,**self.resblock_settings["val_stream"])
             _V = N.pool_spatial_dims_until_singleton(_V, warning=True)
             if self.settings["separate_piece_values"]: #Treat pieces like actions
-                _V = self.settings["piece_advantage_range"] * N.normalize_advantages(_V, apply_activation=True, axis=1, inplace=True, piece_mask=self.used_pieces_mask_tf, n_used_pieces=self.n_used_pieces)
+                _V = N.normalize_advantages(_V, activation=tf.nn.tanh, axis=3, inplace=True, piece_mask=self.used_pieces_mask_tf, n_used_pieces=self.n_used_pieces)
         return _V, _A
     def initialize_variables(self):
         n = self.n_pieces+1 if (self.settings["separate_piece_values"] and self.n_pieces>1) else 1
-        resb_default      = {'n_layers' : 3, 'n_filters' : 128,                                                                 'dropout' : 0.0, 'training' : self.training_tf,                                   'normalization' : None,}
-        val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'dropout' : 0.0, 'training' : self.training_tf, 'output_activation' : tf.nn.tanh, 'normalization' : None,}
+        resb_default      = {'n_layers' : 3, 'n_filters' : 128,                                                                 'dropout' : 0.0, 'training' : self.training_tf,                             'normalization' : None,}
+        val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'dropout' : 0.0, 'training' : self.training_tf, 'output_activation' : None, 'normalization' : None,}
         if "residual_block_settings" not in self.settings:
                 self.resblock_settings = {"visual": resb_default, "visvec": resb_default, "adv_stream" : resb_default, "val_stream": val_resb_settings,}
                 return

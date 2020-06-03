@@ -15,7 +15,6 @@ class base_architecture:
                 self,
                 name,
                 output_shape,
-                state_size,
                 settings,
                 worker_only=False,
                 training=tf.constant(False, dtype=tf.bool),
@@ -29,27 +28,24 @@ class base_architecture:
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
         self.output_size = self.n_rotations * self.n_translations * self.n_pieces
         self.output_activation = settings["nn_output_activation"]
-        self.state_size_vec, self.state_size_vis = state_size
         self.advantage_range = self.settings["advantage_range"]
         self.n_used_pieces, self.used_pieces_mask_tf = self.create_used_pieces_mask()
         self.kbd_activation = kbd_activation
         self.raw_outputs = raw_outputs
+        self.scope = tf.variable_scope(self.name, reuse=tf.AUTO_REUSE)
         self.initialize_variables()
     def initialize_variables(self):
         pass
     def output_streams(self, *args, **kwargs):
         raise Exception("base_architecture is an ABC. please instantiate a derived class!")
     def __call__(self,vectors, visuals, *args, **kwargs):
-        with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE) as vs:
-            scope = vs
-            #F_s is state-dependent output F1(s), F_sa depends on state and action F2(s,a)
-            F_s, F_sa = self.output_streams(vectors, visuals, *args, **kwargs)
+        with self.scope as scope:
+            outputs = self.output_streams(vectors, visuals, *args, **kwargs) #outputs = f(s,a), g(s)
+            self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
             if self.raw_outputs:
-                streams = (F_s, F_sa)
+                return outputs
             else:
-                streams = self.Q_V_A(F_s, F_sa)
-            return (*streams, scope)
-
+                return self.Q_V_A(*outputs)
     def Q_V_A(self, _V, _A):
         Q, V, A = N.qva_from_raw_streams(
                                         _V,
@@ -60,7 +56,6 @@ class base_architecture:
                                         mode=self.settings["advantage_type"]
                                         )
         return Q, V, A
-
     def create_used_pieces_mask(self):
         assert self.n_pieces in [1,7]
         if self.n_pieces == 1:

@@ -6,15 +6,13 @@ from tensorflow.python.client import device_lib
 ### Builder utilities!
 ###
 
-def normalize_advantages(A, apply_activation=False, inplace=False, mode="mean", axis=[1,2], piece_axis=3, separate_piece_values=True, piece_mask=1.0, n_used_pieces=7):
+def normalize_advantages(A, activation=None, inplace=False, mode="mean", axis=[1,2], piece_axis=3, separate_piece_values=True, piece_mask=1.0, n_used_pieces=7):
     # En garde! - This is a duelling network.
     if inplace:
         if A.shape.as_list()[-1] == 1: #Corner-case handling
-            return (A if not apply_activation else advantage_activation_sqrt(A))
+            return (A if not activation else advantage(A))
         V = tf.expand_dims(A[:,:,:,0],3)
         A = A[:,:,:,1:]
-    if apply_activation:
-        A = advantage_activation_sqrt(A)
     #piece_mask is expected to be shape [1,1,1,7] or constant. 1 for used pieces, 0 for unused.
     if piece_mask == 1.0:
         n_used_pieces = 1
@@ -31,6 +29,10 @@ def normalize_advantages(A, apply_activation=False, inplace=False, mode="mean", 
         _mean_a = tf.reduce_mean(A,      axis=axis, keepdims=True )
         mean_a  = tf.reduce_sum(_mean_a * piece_mask, axis=piece_axis,     keepdims=True ) / n_used_pieces
         A = (A - mean_a)
+    if inplace:
+        A = V + A
+    if activation is not None:
+        A = activation(A)
     return A if not inplace else V + A
 
 def conv_shape_vector(vec, shape_to_match):
@@ -97,7 +99,7 @@ def q_to_v(q, mask=1.0, n_used_pieces=7):
     return tf.reshape(v, [-1, 1])
 
 def qva_from_raw_streams(_V,_A, mask=1.0, n_used_pieces=7, separate_piece_values=True, mode="mean"):
-    A = normalize_advantages(_A, apply_activation=True, separate_piece_values=separate_piece_values, mode=mode, piece_mask=mask, n_used_pieces=n_used_pieces)
+    A = normalize_advantages(_A, activation=True, separate_piece_values=separate_piece_values, mode=mode, piece_mask=mask, n_used_pieces=n_used_pieces)
     Q = _V + A
     V = q_to_v(Q, mask=mask, n_used_pieces=n_used_pieces)
     return Q, V, A

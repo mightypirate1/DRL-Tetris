@@ -1,8 +1,11 @@
 import tensorflow as tf
+import numpy as np
 
 class value_estimator:
     def __init__(
                 self,
+                vec_sizes,
+                vis_sizes,
                 network,
                 rewards,
                 dones,
@@ -13,59 +16,71 @@ class value_estimator:
                 truncate_aggregation=False,
                 time_stamps=None,
                 time_stamp_gamma=1.0,
+                separate_piece_values=True,
                 ):
-        self._vec_sizes, self._vis_sizes = network.state_size_vec, network.state_size_vis
+        self._vec_sizes, self._vis_sizes = vec_sizes, vis_sizes
         self._network = network
         self._gamma = gamma
         self._lambda = _lambda
         self._r = rewards
         self._d = dones
-        self._steps = self.create_steps(k, filter)
+        self._steps = self._create_steps(k, filter)
         self._n_steps = len(self._steps)
-        self._value_estimator_tf = self.create_estimator()
         self._truncate_aggregation = truncate_aggregation
-        # self._time_stamps = None
-        # self._time_stamp_gamma = 1.0
+        self._time_stamps = time_stamps
+        self._time_stamp_gamma = time_stamp_gamma
+        self._separate_piece_values = separate_piece_values
+        self._vec_inputs = [tf.placeholder(tf.float32, (None, self._n_steps)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self._vec_sizes)]
+        self._vis_inputs = [tf.placeholder(tf.float32, (None, self._n_steps)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self._vis_sizes)]
+        self._value_estimator_tf = self._create_estimator(
+                                                            self._vec_inputs,
+                                                            self._vis_inputs,
+                                                            rewards,
+                                                            dones,
+                                                        )
+
+    def feed_dict(self, vec, vis):
+        vec_dict = dict(zip(self._vec_inputs, map(self._filter_inputs,vec)))
+        vis_dict = dict(zip(self._vis_inputs, map(self._filter_inputs,vis)))
+        return { **vec_dict, **vis_dict}
 
     def _filter_inputs(self, inputs):
         # [None, k+1, *] to [None, len(filtered_k), *]
         return inputs[:,self._steps,:]
 
-    def feed_dict(self, vec, vis):
-         vec_dict = dict(zip(self._vec_inputs, self._filter_inputs(vec)))
-         vis_dict = dict(zip(self._vis_inputs, self._filter_inputs(vis)))
-         return { **vec_dict, **vis_dict}
-
-    def _create_estimator(self):
-        dones_tf = tf.minimum(1, tf.cumsum(self._d, axis=1)) #Minimum ensures there is no stray done from an adjacent trajectory influencing us...
-        done_time_tf = tf.reduce_sum( 1-dones_tf, axis=1)
-        self._vec_inputs = [tf.placeholder(tf.float32, (None, self._n_steps)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self._vec_sizes)]
-        self._vis_inputs = [tf.placeholder(tf.float32, (None, self._n_steps)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self._vis_sizes)]
-        v_t_tf = [None for _ in range(len(self._n_steps))]
+    def _create_estimator(self, vec, vis, rewards, dones):
+        _d = tf.minimum(1, tf.cumsum(dones, axis=1)) #Minimum ensures there is no stray done from an adjacent trajectory influencing us...
+        done_time_tf = tf.reduce_sum( 1-_d, axis=1)
+        v_step = [None for _ in range(self._n_steps)]
         idx_dict = dict()
         for idx, t in enumerate(self._steps):
-            idx_dict[t] = idx
-            s_t_vec = [self._vec_inputs[:,t,:] for vec_state in vector_states_training]
-            s_t_vis = [self._vis_inputs[:,t,:] for vis_state in visual_states_training]
-            _,v,_,self.ref_scope = self._network(s_t_vec, s_t_vis)
-            v_t_tf[idx] = v
-        #
+            print("k-step:",idx,t)
+            idx_dict[t] = idx # indexes time-steps to location in placeholder
+            s_t_vec = [vec_state[:,idx,:] for vec_state in self._vec_inputs]
+            s_t_vis = [vis_state[:,idx,:] for vis_state in self._vis_inputs]
+            net_output = self._network(s_t_vec, s_t_vis)
+            _v_t = net_output[0] if  len(net_output) == 2 else net_output[1] # f(s), g(s,a) or Q,V,A is assumed.
+            if self._separate_piece_values:
+                _v_t = tf.reduce_sum(_v_t * self._network.used_pieces_mask_tf, axis=3, keepdims=True) / self._network.n_used_pieces
+            v_step[idx] = tf.reshape(_v_t, [-1, 1])
+        assert self._time_stamps is None, "not yet implemented!"
         # extra_decay = 1.0 ** self.time_stamps_tf
         gamma = self._gamma # * extra_decay
         def k_step_estimate(k):
-            e,k = 0, int(k)
+            e = 0
             for t in range(k):
-                e += rewards[:,t,:]  * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
-            e += v_t_tf[idx_dict[k]] * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
+                e += rewards[:,t,:] * tf.cast((done_time_tf >= t),tf.float32) * (gamma**t)
+            v_k = v_step[idx_dict[k]]
+            e += v_k * tf.cast((done_time_tf >= k),tf.float32) * (gamma**k)
+            # print("K",k,":",e)
             return e
-        estimators = [(k,k_step_estimate(k)) for k in estimator_steps]
+        estimators = [(k,k_step_estimate(k)) for k in self._steps]
         return self._aggregate(estimators, done_time_tf)
 
     def _aggregate(self,estimators, done_times):
-        weight = 0
-        estimator_sum_tf = 0
+        estimator_sum_tf, weight = 0, 0
         for k,e in estimators:
-            lambda_filter = tf.cast((done_time_tf >= k),tf.float32) if self._truncate_aggregation else 1.0
+            lambda_filter = tf.cast((done_times >= k-1),tf.float32) if self._truncate_aggregation else 1.0
             _lambda = self._lambda * lambda_filter
             estimator_sum_tf += e * _lambda**k
             weight += _lambda**k
@@ -81,4 +96,8 @@ class value_estimator:
                 steps = np.array(estimator_steps).reshape((-1,1))
                 filter = np.prod((steps % filter),axis=1)!=0
                 estimator_steps = steps[np.where(filter)].ravel().tolist()
-        return steps
+        return [int(s) for s in estimator_steps]
+
+    @property
+    def output_tf(self):
+        return tf.stop_gradient(self._value_estimator_tf)

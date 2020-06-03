@@ -112,5 +112,5 @@ def create_value_head(x, settings):
                           activation=None,
                           bias_initializer=tf.zeros_initializer(),
                          )
-    v_p = settings["piece_advantage_range"] * N.advantage_activation_sqrt(v_p - tf.reduce_mean(v_p, axis=1, keepdims=True))
+    v_p = 0.5 * N.advantage_activation_sqrt(v_p - tf.reduce_mean(v_p, axis=1, keepdims=True))
     return v + v_p
