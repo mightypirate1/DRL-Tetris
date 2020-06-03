@@ -27,14 +27,15 @@ class trainer_thread(mp.Process):
         self.init_weights = init_weights
         self.init_clock = init_clock
         self.stats = {
-                        "t_start"          : None,
-                        "t_stop"           : None,
-                        "t_total"          : None,
-                        "t_training"       : None,
-                        "t_loading"        : None,
-                        "t_training_total" : 0,
-                        "t_loading_total"  : 0,
-                        "n_samples_total"  : 0,
+                        "t_start"           : None,
+                        "t_stop"            : None,
+                        "t_total"           : None,
+                        "t_training"        : None,
+                        "t_loading"         : None,
+                        "t_training_total"  : 0,
+                        "t_loading_total"   : 0,
+                        "n_samples_total"   : 0,
+                        "n_samples_trained" : 0,
                        }
 
     def run(self, *args):
@@ -107,14 +108,15 @@ class trainer_thread(mp.Process):
     def do_training(self):
         t = time.time()
         if self.settings["single_policy"]:
-            trained = self.trainer.do_training()
+            n = self.trainer.do_training()
         else:
-            trained0 = self.trainer.do_training(policy=0)
-            trained1 = self.trainer.do_training(policy=1)
-            trained = trained0 or trained1
+            n1 = self.trainer.do_training(policy=0)
+            n2 = self.trainer.do_training(policy=1)
+            n = (n1, n2)
         t = time.time() - t
         self.stats["t_training"] = t
         self.stats["t_training_total"] += t
+        self.stats["n_samples_trained"] = n
 
     def load_worker_data(self):
         # print("load",flush=True)
@@ -155,7 +157,7 @@ class trainer_thread(mp.Process):
         print("-------trainer info-------")
         print("clock: {}".format(self.current_step()))
         print("samples from workers: {}".format(self.trainer.n_samples_from))
-        print("trained for {}s".format(self.stats["t_training"]))
+        print("trained for {}s [{} samples]" .format( self.stats["t_training"], self.stats["n_samples_trained"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
         print("run-id: {}".format(self.settings["run-id"]))
