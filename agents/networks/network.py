@@ -3,13 +3,14 @@ import aux.utils as utils
 from agents.networks.builders import sventon_architectures as arch
 
 class network:
-    def __init__(self, agent_id, name, state_size, output_shape, session, k_step=1, settings=None, worker_only=False):
+    def __init__(self, agent_id, name, state_size, output_shape, session, k_step=1, settings=None, worker_only=False, full_network=True):
         #Basics
         self.settings = utils.parse_settings(settings)
         self.name = name
         self.scope = tf.variable_scope("agent{}_{}".format(agent_id,name))
         self.session = session
         self.worker_only = worker_only
+        self.full_network = full_network
         self.stats_tensors, self.debug_tensors, self.visualization_tensors = [], [], []
         assert len(output_shape) == 3, "expected 3D-actions"
         assert k_step > 0, "k_step AKA n_step_value_estimates has to be greater than 0!"
