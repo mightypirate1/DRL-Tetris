@@ -8,7 +8,12 @@ class experience_replay:
         self.log = log
         self.stats = {}
         self.vector_state_size, self.visual_state_size = state_size
+        self.actions_not_list = False
+        if type(action_size) not in [list, tuple]:
+            self.actions_not_list = True
+            action_size = [[action_size]]
         self.action_size = action_size
+        self.n_actions = len(self.action_size)
         self._max_size = max_size
         self.max_size = max_size - k_step
         self.k_step = k_step
@@ -19,13 +24,13 @@ class experience_replay:
         #Underlying data
         self._vector_states   = [np.zeros((self._max_size,*s[1:]), dtype=np.uint8) for s in self.vector_state_size]
         self._visual_states   = [np.zeros((self._max_size,*s[1:]), dtype=np.uint8) for s in self.visual_state_size]
-        self._actions  = np.zeros((self._max_size,self.action_size), dtype=np.float32)
-        self._dones    = np.zeros((self._max_size,1), dtype=np.uint8)
-        self._rewards  = np.zeros((self._max_size,1), dtype=np.float32)
+        self._actions  = [np.zeros((self._max_size,*a_size), dtype=np.float32) for a_size in self.action_size]
+        self._dones    =  np.zeros((self._max_size,1), dtype=np.uint8)
+        self._rewards  =  np.zeros((self._max_size,1), dtype=np.float32)
         #Presented data
         self.vector_states = [agent_utils.k_step_view(_v, self.k_step+1) for _v in self._vector_states]
         self.visual_states = [agent_utils.k_step_view(_v, self.k_step+1) for _v in self._visual_states]
-        self.actions       =  agent_utils.k_step_view(self._actions, self.k_step+1)
+        self.actions       = [agent_utils.k_step_view(_a, self.k_step+1) for _a in self._actions      ]
         self.dones         =  agent_utils.k_step_view(self._dones,   self.k_step+1)
         self.rewards       =  agent_utils.k_step_view(self._rewards, self.k_step+1)
         self.prios    = -np.ones((self.max_size,1), dtype=np.float32)
@@ -106,7 +111,11 @@ class experience_replay:
             vs[idxs,:]   = vis_s[i]
         self._rewards[idxs,:]  = r
         self._dones[idxs,:]    = d
-        self._actions[idxs,:]  = a
+        if self.actions_not_list:
+            self._actions[idxs,:]  = a
+        else:
+            for i,A in enumerate(self._actions):
+                A[idxs,:]   = a[i]
         self.prios[idxs,:]    = prio
         if retrieve_samples:
             return self.retrieve_samples_by_idx(idxs)
@@ -129,7 +138,7 @@ class experience_replay:
     def retrieve_samples_by_idx(self, indices):
         data = (
                 ([vs[indices,:] for vs in self.vector_states],   [vs[indices,:] for vs in self.visual_states]),
-                self.actions[indices,:],
+                self.actions[indices,:] if self.actions_not_list else [a[indices,:] for a in self.actions],
                 self.rewards[indices,:],
                 self.dones[indices,:],
                 )
