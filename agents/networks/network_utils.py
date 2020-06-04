@@ -10,7 +10,7 @@ def normalize_advantages(A, activation=None, inplace=False, mode="mean", axis=[1
     # En garde! - This is a duelling network.
     if inplace:
         if A.shape.as_list()[-1] == 1: #Corner-case handling
-            return (A if not activation else advantage(A))
+            return (A if activation is None else activation(A))
         V = tf.expand_dims(A[:,:,:,0],3)
         A = A[:,:,:,1:]
     #piece_mask is expected to be shape [1,1,1,7] or constant. 1 for used pieces, 0 for unused.
@@ -33,7 +33,7 @@ def normalize_advantages(A, activation=None, inplace=False, mode="mean", axis=[1
         A = V + A
     if activation is not None:
         A = activation(A)
-    return A if not inplace else V + A
+    return A
 
 def conv_shape_vector(vec, shape_to_match):
     dims = vec.shape.as_list()
@@ -99,7 +99,7 @@ def q_to_v(q, mask=1.0, n_used_pieces=7):
     return tf.reshape(v, [-1, 1])
 
 def qva_from_raw_streams(_V,_A, mask=1.0, n_used_pieces=7, separate_piece_values=True, mode="mean"):
-    A = normalize_advantages(_A, activation=True, separate_piece_values=separate_piece_values, mode=mode, piece_mask=mask, n_used_pieces=n_used_pieces)
+    A = normalize_advantages(_A, activation=tf.nn.tanh, separate_piece_values=separate_piece_values, mode=mode, piece_mask=mask, n_used_pieces=n_used_pieces)
     Q = _V + A
     V = q_to_v(Q, mask=mask, n_used_pieces=n_used_pieces)
     return Q, V, A
