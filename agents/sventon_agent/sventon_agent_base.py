@@ -36,13 +36,12 @@ class sventon_agent_base:
 
         #Provide some data-types for flavours!
         flavour = self.flavour = self.settings["sventon_flavour"]
+        self.trajectory_type = dt.sventon_trajectory
         if flavour == "ppo":
-            self.trajectory_type = dt.ppo_trajectory
             self.trainer_type = self.settings["trainer_type"]
             self.network_type = ppo_nets
             self.exp_rep_sample = "empty"
         elif flavour == "dqn":
-            self.trajectory_type = dt.q_trajectory
             self.trainer_type = self.settings["trainer_type"]
             self.network_type = prio_qnet
             self.exp_rep_sample = self.settings["experience_replay_sample_mode"]
@@ -72,7 +71,7 @@ class sventon_agent_base:
         self.player_idxs = [p for p in range(self.settings["n_players"])]
         self.workers_do_processing = self.settings["workers_do_processing"]
         #variables
-        self.gamma = self.settings["gamma"]
+        self.gamma = self.settings["gamma"] if not self.settings["single_policy"] else -self.settings["gamma"]
         #we gunna need some models
         self.model_dict = {}
         #stats etc

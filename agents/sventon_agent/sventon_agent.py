@@ -89,7 +89,7 @@ class sventon_agent(sventon_agent_base):
             model = self.model_dict["policy_{}".format(p_list[0])]
 
         #Run model!
-        action_eval, state_eval, pieces = self.run_model(model, state_vec, compute_value=False, player=p_list)
+        action_eval, state_eval, pieces = self.run_model(model, state_vec, player=p_list)
 
         #Choose an action . . .
         distribution = self.eval_dist if not training else self.settings["train_distriburion"]
@@ -113,11 +113,14 @@ class sventon_agent(sventon_agent_base):
             elif distribution == "epsilon":
                 epsilon = self.settings["epsilon"](self.clock)
                 (r, t), entropy = S.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
-            probability = action_eval[i,r,t,piece]
-            action_idxs[i] = (r,t,piece,probability,S.value_piece(state_eval[i], piece), S.value_mean(state_eval[i]))
+            a_environment = (r,t,piece)
+            a_internal = (action_eval[i,r,t,piece] ,S.value_piece(state_eval[i], piece), S.value_mean(state_eval[i]))
+            action_idxs[i] = a_environment, a_internal
+            # if i == 0 and self.id == 0:
+            #     print(a_environment, a_internal)
 
         #Nearly done! Just need to create the actions...
-        actions = [S.make_action(r,t) for r,t,_,_,_,_ in action_idxs]
+        actions = [S.make_action(r,t) for (r,t,_), _ in action_idxs]
 
         #Keep the clock going...
         if training:
@@ -145,7 +148,8 @@ class sventon_agent(sventon_agent_base):
                     data = t.process_trajectory(
                                                 self.model_runner(model),
                                                 self.unpack,
-                                                # reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
+                                                compute_advantages=self.settings["workers_computes_advantages"],
+                                                gae_lambda=self.settings["gae_lambda"],
                                                 reward_shaper=None,
                                                 gamma_discount=self.gamma,
                                                )

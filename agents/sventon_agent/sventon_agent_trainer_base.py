@@ -49,7 +49,7 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
             self.model_dict[model] = m
             self.experience_replay_dict[model] = experience_replay(
                                                                     state_size=self.state_size,
-                                                                    action_size=6, #rotation, translation, piece, probability, value of piece and value_avg
+                                                                    action_size=[[3,],[3,]], #(rotation, translation, piece), (probability_or_q, value of piece, value_avg)
                                                                     max_size=int(self.settings["experience_replay_size"]/len(models)),
                                                                     k_step=self.settings["n_step_value_estimates"],
                                                                     sample_mode=self.settings["experience_replay_sample_mode"],
@@ -57,7 +57,7 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
             self.scoreboard[model] = 0.5
             self.n_train_steps[model] = 0
             self.time_to_reference_update[model] = 0
-
+        self.n_train_epochs, self.n_train_epochs_lock = self.settings["n_train_epochs_per_update"], False
         self.n_samples_to_start_training = max(self.settings["n_samples_each_update"], self.settings["n_samples_to_start_training"])
         if init_weights is not None:
             print("Trainer{} initialized from weights: {} and clock: {}".format(self.id, init_weights, init_clock))
@@ -95,9 +95,8 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
                     d, p = data.process_trajectory(
                                                     self.model_runner(metadata["policy"]),
                                                     self.unpack,
-                                                    reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
                                                     gamma_discount=self.gamma
-                                                    ) #This is a (s,None,r,s',d) tuple where each entry is a np-array with shape (n,k) where n is the lentgh of the trajectory, and k is the size of that attribute
+                                                    )
 
                 else:
                     d, p = data
@@ -115,6 +114,15 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
 
     def do_training(self, sample=None, policy=None):
         raise Exception("sventon_trainer_base is abstract!")
+
+    def adjust_n_epochs(self, sample_size):
+        if not self.settings["dynamic_n_epochs"]:
+            return
+        frac_samples = sample_size / self.settings["n_samples_each_update"]
+        frac_epochs = self.n_train_epochs / max(self.n_train_epochs - 1,1)
+        if frac_samples / frac_epochs > 1:
+            self.n_train_epochs = max(1, self.n_train_epochs - 1)
+        self.n_train_epochs_lock = False
 
     def generate_training_stats(self):
         stats, counts = {}, {}

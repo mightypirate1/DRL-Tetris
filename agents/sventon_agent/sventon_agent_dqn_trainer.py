@@ -40,7 +40,8 @@ class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
                                                       )
         #Unpack a little...
         states_k, _actions_k, rewards_k, dones_k = sample
-        actions_k, pieces_k = _actions_k[:,:,:2], _actions_k[:,:,2,np.newaxis]
+        _actions_env_k, _actions_int_k = _actions_k
+        actions_k, pieces_k = _actions_env_k[:,:,:2], _actions_env_k[:,:,2,np.newaxis]
         vector_states_k, visual_states_k = states_k
 
         #Create targets for Q-updates:
@@ -50,15 +51,14 @@ class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
         targets = np.zeros((n,1))
         for i in range(0,n,minibatch_size):
             start, stop = i, min(n,i+minibatch_size)
-            _targets, target_stats = model.compute_targets(
-                                                        [vec[start:stop] for vec in vector_states_k],
-                                                        [vis[start:stop] for vis in visual_states_k],
-                                                        rewards_k[start:stop],
-                                                        dones_k[start:stop],
-                                                        time_stamps=None
-                                                        )
+            _targets = model.compute_targets(
+                                             [vec[start:stop] for vec in vector_states_k],
+                                             [vis[start:stop] for vis in visual_states_k],
+                                             rewards_k[start:stop],
+                                             dones_k[start:stop],
+                                             time_stamps=None
+                                            )
             targets[start:stop] = _targets
-            self.train_stats_raw.append(target_stats)
 
         #TRAIN!
         print("¤",flush=True)
