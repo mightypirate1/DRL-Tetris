@@ -17,9 +17,6 @@ settings = {
             "prioritized_replay_alpha"      : constant_parameter(0.7),
             "prioritized_replay_beta"       : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
 
-            #Architecture
-
-
             #Train parameters
             "gae_lambda"                : 0.96, #0.95 default
             "n_step_value_estimates"    : 37,

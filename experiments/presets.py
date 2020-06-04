@@ -6,6 +6,7 @@ from aux.parameter import *
 
 presets = {
             "sventon" : {
+                        "worker_net_on_cpu" : False,
                         #forced
                         "old_state_dict" : False, #SVENton uses the new one
                         "state_processor_separate_piece" : True,
@@ -25,8 +26,9 @@ presets = {
                         "time_to_reference_update"  : 1,
                         "n_samples_to_start_training" : 0,
                         #value estimator
+                        "workers_do_processing" : True,
                         "value_estimator_params" : {
-                                                    "truncate_aggregation" : False,
+                                                    "truncate_aggregation" : True,
                                                     },
                         #nn stuff
                         "value_lr" : constant_parameter(1e-4),
@@ -36,7 +38,7 @@ presets = {
                         "optimizer" : tf.train.AdamOptimizer,
                         #
                         "trainer_thread_save_freq"  : 100,
-                        "workers_do_processing"     : True,
+                        "workers_do_processing"     : False,
                         ###
                         ### Maybe remove from project...
                         ###
@@ -51,6 +53,7 @@ presets = {
                                 "trainer_type" : sventon_agent_ppo_trainer.sventon_agent_ppo_trainer,
                                 "eval_distribution" : "pi",
                                 "train_distriburion" : "pi",
+                                "workers_computes_advantages" : True,
                                 "ppo_parameters" : {
                                                     'clipping_parameter' : 0.05,
                                                     'value_loss' : 1.0,
@@ -69,6 +72,7 @@ presets = {
                                 "prioritized_replay_alpha"      : constant_parameter(0.7),
                                 "prioritized_replay_beta"       : constant_parameter(0.7),
                                 "optimistic_prios" : 0.0,
+                                "workers_computes_advantages" : False,
                             },
             "resblock" : {
                             "resblock_dropout" : 0.0,#0.15,
