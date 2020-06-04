@@ -41,18 +41,18 @@ class resblock_kbd(base_architecture):
         _A = blocks.keyboard_conv(adv_stream, self.n_rotations, self.n_pieces, activation=self.kbd_activation)
         #7) If we are not a worker, we want to compute values!
         _V = tf.constant([[[[0.0]]]], dtype=tf.float32)
-        if not self.worker_only: #Worker's need only to compute an arg-max, so we don't need the value for them :)
+        if self.full_network: #Worker's need only to compute an arg-max, so we don't need the value for them :)
             #merge main-stream with visual-inputs
             vstream_in = N.peephole_join(*joined, *vis, mode="concat")
-            _V = blocks.residual_block(vstream_in, output_layer=True,**self.resblock_settings["val_stream"])
+            _V = blocks.residual_block(vstream_in, **self.resblock_settings["val_stream"])
             _V = N.pool_spatial_dims_until_singleton(_V, warning=True)
-            if self.settings["separate_piece_values"]: #Treat pieces like actions
-                _V = N.normalize_advantages(_V, activation=tf.nn.tanh, axis=3, inplace=True, piece_mask=self.used_pieces_mask_tf, n_used_pieces=self.n_used_pieces)
+            # if self.settings["separate_piece_values"]: #Treat pieces like actions
+            _V = N.normalize_advantages(_V, activation=tf.nn.tanh, axis=3, inplace=True, piece_mask=self.used_pieces_mask_tf, n_used_pieces=self.n_used_pieces)
         return _V, _A
     def initialize_variables(self):
         n = self.n_pieces+1 if (self.settings["separate_piece_values"] and self.n_pieces>1) else 1
-        resb_default      = {'n_layers' : 3, 'n_filters' : 128,                                                                 'dropout' : 0.0, 'training' : self.training_tf,                             'normalization' : None,}
-        val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'dropout' : 0.0, 'training' : self.training_tf, 'output_activation' : None, 'normalization' : None,}
+        resb_default      = {'n_layers' : 3, 'n_filters' : 128,  'dropout' : 0.0, 'training' : self.training_tf, 'normalization' : None,}
+        val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'dropout' : 0.0, 'training' : self.training_tf, 'normalization' : None, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'output_activation' : None, 'output_initializer' : tf.zeros_initializer, 'output_layer' : True,}
         if "residual_block_settings" not in self.settings:
                 self.resblock_settings = {"visual": resb_default, "visvec": resb_default, "adv_stream" : resb_default, "val_stream": val_resb_settings,}
                 return
@@ -76,10 +76,10 @@ class convkeyboard(base_architecture):
         #2) Take some of the data-stream and compute a value-estimate
         x = tf.concat(flat_vec+flat_vis, axis=-1)
         #By hypothesis, workers don't need the value!
-        if self.worker_only:
-            V = tf.constant([[0.0]], dtype=tf.float32)
-        else:
+        if self.full_network:
             V = legacy_blocks.create_value_head(x, self.settings)
+        else:
+            V = tf.constant([[0.0]], dtype=tf.float32)
         _V = tf.reshape(V,[-1,1,1,V.shape.as_list()[-1]]) #Shape for Q-calc!
         return _V, _A
 

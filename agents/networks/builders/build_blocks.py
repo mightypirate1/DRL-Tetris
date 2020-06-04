@@ -16,8 +16,9 @@ def residual_block(x,
                     pool_strides=(3,2),
                     output_n_filters=None,
                     output_activation=tf.nn.elu,
+                    output_initializer=tf.random_normal_initializer(0,0.001),
                     normalization=None,
-                    training=tf.constant(False),
+                    training=False,
                     output_layer=False,
                     ):
     for i in range(n_layers):
@@ -31,7 +32,8 @@ def residual_block(x,
                 join_mode = "truncate_add"
                 normalize = True if normalization is not None else False
                 if output_layer:
-                    initializer = tf.random_normal_initializer(0,0.001)
+                    normalize = False
+                    initializer = output_initializer
         #Build block!
         x = tf.layers.conv2d(
                               x,

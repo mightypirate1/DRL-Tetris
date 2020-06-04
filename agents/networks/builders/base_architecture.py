@@ -16,14 +16,14 @@ class base_architecture:
                 name,
                 output_shape,
                 settings,
-                worker_only=False,
+                full_network=False,
                 training=tf.constant(False, dtype=tf.bool),
                 kbd_activation=None,
                 raw_outputs=False,
                 ):
         self.name = name
         self.settings = settings
-        self.worker_only = worker_only
+        self.full_network = full_network
         self.training_tf = training
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
         self.output_size = self.n_rotations * self.n_translations * self.n_pieces
