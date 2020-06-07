@@ -38,7 +38,6 @@ presets = {
                         "optimizer" : tf.train.AdamOptimizer,
                         #
                         "trainer_thread_save_freq"  : 100,
-                        "workers_do_processing"     : False,
                         ###
                         ### Maybe remove from project...
                         ###

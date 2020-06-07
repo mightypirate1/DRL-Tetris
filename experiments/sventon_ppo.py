@@ -8,20 +8,20 @@ from aux.parameter import *
 
 settings = {
             #Project
-            "run-id" : "DBG09",
+            "augment_data" : False,
+            "run-id" : "FAB-X04-128",
             "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
             "n_step_value_estimates"    : 1,
 
             #RL-algo-settings
             "ppo_parameters" : {
                     'clipping_parameter' : 0.15,
-                    'value_loss' : 0.2,
+                    'value_loss' : 0.33,
                     'policy_loss' : 1.0,
-                    'entropy_loss' : 0.0002,
-                    'negative_dampener' : 1.0,
-                    'entropy_floor_loss' : 2.0,
+                    'entropy_loss' : 0.00007,
+                    'entropy_floor_loss' : 10.0,
                     },
-            "ppo_epsilon" : constant_parameter(0.05),
+            "ppo_epsilon" : constant_parameter(0.1),
             #Architecture
             "residual_block_settings" : {
                                             "default" : {
@@ -36,16 +36,16 @@ settings = {
                                         },
 
             #Train parameters
-            "gae_lambda"                : 0.97, #0.95 default
+            "gae_lambda"                : 0.93, #0.95 default
             "n_samples_each_update"     : 4096,
-            # "n_samples_each_update"     : 128,
             # "time_to_training" : 0,
             # "n_samples_each_update"     : 256,
-            "minibatch_size"            : 64, #256, #128
-            "n_train_epochs_per_update" : 3,
+            "minibatch_size"            : 128, #256, #128
+            "n_train_epochs_per_update" : 4,
             "dynamic_n_epochs"          : True,
             "time_to_reference_update"  : 1, #How after how many do_training calls do we update the reference-model?
-            "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
+            # "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
+            "value_lr"                  : constant_parameter(5e-5),
             #Game settings
             # "game_size" : [10,6],
             # "pieces" : [2,3,4,5],
@@ -64,101 +64,31 @@ settings = {
 patches = \
 [
 # {
-# "run-id" : "DBG05",
-# "ppo_parameters" : {
-#         'clipping_parameter' : 0.1,
-#         'value_loss' : 0.3,
-#         'policy_loss' : 1.0,
-#         'entropy_loss' : 0.0005,
-#         'negative_dampener' : 1.0,
-#         'entropy_floor_loss' : 0.0,
-#         },
-# "minibatch_size"            : 256, #256, #128
-# "n_train_epochs_per_update" : 3,
-# "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
+# "run-id" : "FAB-X02-128",
+# "augment_data" : False,
+# "minibatch_size"            : 128,
+# },
+#
+# {
+# "run-id" : "FAB-X02-256",
+# "minibatch_size"            : 256,
+# },
+#
+# {
+# "run-id" : "FAB-X02-64",
+# "minibatch_size"            : 64,
+# "augment_data" : False,
 # },
 # {
-# "run-id" : "DBG06",
-# "ppo_parameters" : {
-#         'clipping_parameter' : 0.2,
-#         'value_loss' : 0.3,
-#         'policy_loss' : 1.0,
-#         'entropy_loss' : 0.0003,
-#         'negative_dampener' : 1.0,
-#         'entropy_floor_loss' : 0.0,
-#         },
-# "minibatch_size"            : 64, #256, #128
-# "n_train_epochs_per_update" : 2,
-# "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
+# "run-id" : "FAB-X02-128-aug",
+# "minibatch_size"            : 128,
+# "augment_data" : True,
 # },
 # {
-# "run-id" : "DBG07",###KOTH
-# "ppo_parameters" : {
-#         'clipping_parameter' : 0.15,
-#         'value_loss' : 0.2,
-#         'policy_loss' : 1.0,
-#         'entropy_loss' : 0.0001,
-#         'negative_dampener' : 1.0,
-#         'entropy_floor_loss' : 2.0,
-#         },
-# "minibatch_size"            : 64, #256, #128
-# "n_train_epochs_per_update" : 3,
-# "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
+# "run-id" : "FAB-X02-128-aug-lowerLr",
+# "value_lr"                  : constant_parameter(3e-5),
+# "minibatch_size"            : 128,
+# "augment_data" : True,
 # },
-# {
-# "run-id" : "DBG08",
-# "ppo_parameters" : {
-#         'clipping_parameter' : 0.15,
-#         'value_loss' : 0.2,
-#         'policy_loss' : 1.0,
-#         'entropy_loss' : 0.0004,
-#         'negative_dampener' : 1.0,
-#         'entropy_floor_loss' : 2.0,
-#         },
-# "minibatch_size"            : 64, #256, #128
-# "n_train_epochs_per_update" : 3,
-# "value_lr"                  : exp_parameter(3e-5, base=10.0, decay=1/total_steps),
-# },
-{
-"run-id" : "DBG11",
-"ppo_parameters" : {
-'clipping_parameter' : 0.15,
-'value_loss' : 1.0,
-'policy_loss' : 1.0,
-'entropy_loss' : 0.0002,
-'negative_dampener' : 1.0,
-'entropy_floor_loss' : 2.0,
-},
-"minibatch_size"            : 64, #256, #128
-"n_train_epochs_per_update" : 3,
-"value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
-},
-{
-"run-id" : "DBG12",
-"ppo_parameters" : {
-        'clipping_parameter' : 0.15,
-        'value_loss' : 0.4,
-        'policy_loss' : 1.0,
-        'entropy_loss' : 0.0002,
-        'negative_dampener' : 1.0,
-        'entropy_floor_loss' : 2.0,
-        },
-"minibatch_size"            : 64, #256, #128
-"n_train_epochs_per_update" : 1,
-"value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
-},
-{
-"run-id" : "DBG13",
-"ppo_parameters" : {
-        'clipping_parameter' : 0.15,
-        'value_loss' : 0.2,
-        'policy_loss' : 1.0,
-        'entropy_loss' : 0.002,
-        'negative_dampener' : 1.0,
-        'entropy_floor_loss' : 2.0,
-        },
-"minibatch_size"            : 256, #256, #128
-"n_train_epochs_per_update" : 2,
-"value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
-},
+
 ]

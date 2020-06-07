@@ -21,7 +21,8 @@ settings = {
             "gae_lambda"                : 0.96, #0.95 default
             "n_step_value_estimates"    : 37,
             "sparse_value_estimate_filter" : [3,4,5,13], #Empty list is no filter
-            "n_samples_each_update"     : 4096,
+            "n_samples_each_update"     : 256,
+            # "n_samples_each_update"     : 4096,
             "minibatch_size"            : 256, #256, #128
             "n_train_epochs_per_update" : 10,
             "time_to_reference_update"  : 1, #How after how many do_training calls do we update the reference-model?
