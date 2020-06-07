@@ -57,7 +57,8 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
             self.scoreboard[model] = 0.5
             self.n_train_steps[model] = 0
             self.time_to_reference_update[model] = 0
-        self.n_train_epochs, self.n_train_epochs_lock = self.settings["n_train_epochs_per_update"], False
+        self.n_train_epochs = self.settings["n_train_epochs_per_update"] if not self.settings["dynamic_n_epochs"] else 1
+        self.n_train_epochs_lock = False
         self.n_samples_to_start_training = max(self.settings["n_samples_each_update"], self.settings["n_samples_to_start_training"])
         if init_weights is not None:
             print("Trainer{} initialized from weights: {} and clock: {}".format(self.id, init_weights, init_clock))
@@ -92,10 +93,14 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
                 n_trajectories += 1
                 # print("trainer recieved:", metadata["worker"], metadata["packet_id"], "len", metadata["length"])
                 if not self.settings["workers_do_processing"]:
+                    assert False, "this line is not tested"
                     d, p = data.process_trajectory(
                                                     self.model_runner(metadata["policy"]),
                                                     self.unpack,
-                                                    gamma_discount=self.gamma
+                                                    gamma_discount=self.gamma,
+                                                    compute_advantages=False,
+                                                    gae_lambda=self.settings["gae_lambda"],
+                                                    augment=self.settings["augment_data"],
                                                     )
 
                 else:

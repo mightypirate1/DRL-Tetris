@@ -152,6 +152,7 @@ class sventon_agent(sventon_agent_base):
                                                 gae_lambda=self.settings["gae_lambda"],
                                                 reward_shaper=None,
                                                 gamma_discount=self.gamma,
+                                                augment=self.settings["augment_data"]
                                                )
                 else:
                     data = t
