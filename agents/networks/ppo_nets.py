@@ -125,8 +125,9 @@ class ppo_nets(network):
         r_mask = tf.reshape(tf.one_hot(actions_training[:,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
         t_mask = tf.reshape(tf.one_hot(actions_training[:,1], self.n_translations), (-1,  1, self.n_translations, 1), name='t_mask')
         p_mask = tf.reshape(tf.one_hot(pieces_training[:,:],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ), name='p_mask')
-        rtp_mask = r_mask*t_mask*p_mask
+        rtp_mask = r_mask * t_mask * p_mask
         probability = tf.expand_dims(tf.reduce_sum(policy * rtp_mask, axis=[1,2,3]),1)
+
         values = tf.reduce_sum(values * p_mask, axis=[2,3])
         #probability ratio
         r = tf.maximum(probability, e) / tf.maximum(old_probs, e)
@@ -134,12 +135,12 @@ class ppo_nets(network):
         policy_loss = tf.minimum( r * advantages, clipped_r * advantages )
         #entropy
         entropy_bonus = action_entropy = tf.reduce_sum(N.action_entropy(policy + e) * p_mask, axis=3)
-        # if "entropy_floor_loss" in params:
-        #     eps = ppo_epsilon
-        #     n_actions = self.n_rotations * self.n_translations
-        #     entropy_floor = -eps*tf.math.log( eps/(n_actions-1) ) -(1-eps) * tf.log(1-eps)
-        #     extra_entropy = -tf.nn.relu(entropy_floor - action_entropy)
-        #     entropy_bonus += params["entropy_floor_loss"] * extra_entropy
+        if "entropy_floor_loss" in params:
+            eps = ppo_epsilon
+            n_actions = self.n_rotations * self.n_translations
+            entropy_floor = -eps*tf.math.log( eps/(n_actions-1) ) -(1-eps) * tf.log(1-eps)
+            extra_entropy = -tf.nn.relu(entropy_floor - action_entropy)
+            entropy_bonus += params["entropy_floor_loss"] * extra_entropy
         #tally up
         self.value_loss_tf   =  c1 * tf.losses.mean_squared_error(values, target_values) #reduce loss
         self.policy_loss_tf  = -c2 * tf.reduce_mean(policy_loss) #increase expected advantages
@@ -161,7 +162,7 @@ class ppo_nets(network):
         return training_ops
 
     def create_targets(self, values):
-        if self.settings["workers_do_processing"]:
+        if self.settings["workers_computes_advantages"]:
             target_values_tf = tf.placeholder(tf.float32, (None,1), name='target_val_ph')
             advantages_tf    = tf.placeholder(tf.float32, (None,1), name='advantages_ph')
             self.reference_net_assign_list = self.create_weight_setting_ops([])
