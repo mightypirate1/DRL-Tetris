@@ -36,6 +36,8 @@ class trainer_thread(mp.Process):
                         "t_loading_total"   : 0,
                         "n_samples_total"   : 0,
                         "n_samples_trained" : 0,
+                        "Current speed"     : 0,
+                        "last_tb_update"    : 0,
                        }
 
     def run(self, *args):
@@ -126,6 +128,7 @@ class trainer_thread(mp.Process):
             d = self.shared_vars["data_queue"].get()
             data_from_workers.append(d)
             if time.time() - t > 10:
+                # print(".", end='',flush=True)
                 raise Exception("trainer_thread loaded for >10 sec. If you are running at a MASSIVE scale, this is probably not an error. Remove the line and restart training from your latest weights. Appologies... If you are on normal scales, this should be a concern..")
         if len(data_from_workers) == 0:
             return
@@ -145,7 +148,10 @@ class trainer_thread(mp.Process):
                 }
             # s.update(self.trainer.stats)
             self.trainer.report_stats()
-            self.quick_summary.update(s, time=self.current_step())
+            self.stats.update(s)
+            if self.current_step() > self.stats["last_tb_update"] + self.settings["n_workers"] * self.settings["n_envs_per_thread"] * self.settings["worker_steps"] / 1000:
+                self.quick_summary.update(s, time=self.current_step())
+                self.stats["last_tb_update"] = self.current_step()
         # print("load!",flush=True)
 
     def print_stats(self):
@@ -160,6 +166,7 @@ class trainer_thread(mp.Process):
         print("trained for {}s [{} samples]" .format( self.stats["t_training"], self.stats["n_samples_trained"]))
         print("loaded  for {}s".format(self.stats["t_loading"]))
         print("fraction in training/loading: {} / {}".format(frac_train,frac_load))
+        print("current speed: {}".format(self.stats["Current speed"]))
         print("run-id: {}".format(self.settings["run-id"]))
 
     def transfer_weights(self):
