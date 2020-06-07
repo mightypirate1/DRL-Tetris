@@ -42,8 +42,6 @@ settings = {
             # "n_samples_each_update"     : 256,
             "minibatch_size"            : 128, #256, #128
             "n_train_epochs_per_update" : 4,
-            "dynamic_n_epochs"          : True,
-            "time_to_reference_update"  : 1, #How after how many do_training calls do we update the reference-model?
             # "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
             "value_lr"                  : constant_parameter(5e-5),
             #Game settings

@@ -6,6 +6,8 @@ from aux.parameter import *
 
 presets = {
             "sventon" : {
+                        "augment_data" : False, #make this option good, or remove from release
+                        "dynamic_n_epochs" : False,
                         "worker_net_on_cpu" : False,
                         #forced
                         "old_state_dict" : False, #SVENton uses the new one
@@ -60,6 +62,7 @@ presets = {
                                                     'entropy_loss' : 0.01,
                                                     'negative_dampener' : 1.0,
                                                     },
+                                "dynamic_n_epochs" : True,
                             },
             "sventon_dqn" : {
                                 "sventon_flavour" : "dqn",
