@@ -32,29 +32,29 @@ class unpacker:
             vec, vis, piece = self([state], [0])
         return [v.shape for v in vec], [v.shape for v in vis]
 
-    def states_from_perspective(self, states, player):
+    def states_from_perspective(self, states, player, mirrored=False):
         p_list = utils.parse_arg(player, [0, 1])
-        return self.states_to_vectors(states, player_lists=[[p, 1-p] for p in p_list])
-    def state_from_perspective(self, state, player):
+        return self.states_to_vectors(states, player_lists=[[p, 1-p] for p in p_list], mirrored=mirrored)
+    def state_from_perspective(self, state, player, mirrored=False):
         return self.state_to_vector(state, [player, 1-player])
 
-    def state_to_vector(self, state, player_list=None):
+    def state_to_vector(self, state, player_list=None, mirrored=False):
         if isinstance(state,np.ndarray):
             assert False, "This should not happen"
             return state
         if player_list is None: #If None is specified, we assume we want the state of all players!
             player_list = [0, 1] #only 2player mode as of yet!
-        data = [self.collect_data(state[player]) for player in player_list]
+        data = [self.collect_data(state[player], mirrored=mirrored) for player in player_list]
         ret = self.joiner(data, player_list)
         return ret
 
-    def states_to_vectors(self, states, player_lists=None):
+    def states_to_vectors(self, states, player_lists=None, mirrored=False):
         assert len(player_lists) == len(states), "player_list:{}, states:{}".format(player_lists, states)
         if type(states) is list:
-            ret = self.pack([self.state_to_vector(s, player_list=player_lists[i]) for i,s in enumerate(states)], player_lists)
+            ret = self.pack([self.state_to_vector(s, player_list=player_lists[i], mirrored=mirrored) for i,s in enumerate(states)], player_lists)
         else:
             #Assume it is a single state if it is not a list
-            ret = self.pack([self.state_to_vector(states, player_list=player_lists)], player_lists)
+            ret = self.pack([self.state_to_vector(states, player_list=player_lists, mirrored=mirrored)], player_lists)
         return ret
 
     ##Backend
@@ -67,8 +67,10 @@ class unpacker:
     def join_separate(self, data, player_list):
         return zip(*data)
 
-    def collect_all_data(self,state_dict):
+    def collect_all_data(self,state_dict, mirrored=False):
         tmp = []
+        if mirrored:
+            state_dict = self.dict_mirror(state_dict)
         for x in state_dict:
             if x in ['piece', 'piece_idx'] and self.separate_piece:
                 piece = state_dict['piece_idx']
@@ -80,8 +82,10 @@ class unpacker:
         ret = vector, visual if not self.separate_piece else vector, visual, piece
         return ret
 
-    def collect_separate_data(self, state_dict):
+    def collect_separate_data(self, state_dict, mirrored=False):
         tmp = []
+        if mirrored:
+            state_dict = self.dict_mirror(state_dict)
         for x in state_dict:
             if x in ['piece', 'piece_idx'] and self.separate_piece:
                 piece = state_dict['piece_idx']
@@ -92,6 +96,25 @@ class unpacker:
         visual = state_dict['field'][None,:,:,None]
         ret = (vector, visual) if not self.separate_piece else (vector, visual, piece)
         return ret
+
+    def dict_mirror(self, state_dict):
+        # prep i!
+        piece_swap = (1,0,3,2,4,5,6)
+        def swap(one_hot):
+            ret = np.zeros_like(one_hot)
+            for i,x in enumerate(one_hot):
+                if x == 1:
+                    ret[piece_swap[i]] = 1
+                    break
+            return ret
+        # do it!
+        state_dict = state_dict.copy()
+        state_dict['field'] = state_dict['field'][:,::-1]
+        if 'piece_idx' in state_dict:
+            state_dict['piece_idx'] = piece_swap[state_dict['piece_idx']]
+        state_dict['piece'] = swap(state_dict['piece'])
+        state_dict['nextpiece'] = swap(state_dict['nextpiece'])
+        return state_dict
 
     def pack(self, data_list, player_lists):
         if not self.separate_piece:
@@ -124,5 +147,5 @@ class unpacker:
             ret = vector, visual
         return ret
 
-    def __call__(self, states, player=None):
-        return self.state_fcn(states,player)
+    def __call__(self, states, player=None, mirrored=False):
+        return self.state_fcn(states,player, mirrored=mirrored)
