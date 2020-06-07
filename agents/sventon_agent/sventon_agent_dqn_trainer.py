@@ -51,15 +51,13 @@ class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
         targets = np.zeros((n,1))
         for i in range(0,n,minibatch_size):
             start, stop = i, min(n,i+minibatch_size)
-            _targets = model.compute_targets(
-                                             [vec[start:stop] for vec in vector_states_k],
-                                             [vis[start:stop] for vis in visual_states_k],
-                                             rewards_k[start:stop],
-                                             dones_k[start:stop],
-                                             time_stamps=None
-                                            )
-            targets[start:stop] = _targets
-
+            targets[start:stop] = model.compute_targets(
+                                                        [vec[start:stop] for vec in vector_states_k],
+                                                        [vis[start:stop] for vis in visual_states_k],
+                                                        rewards_k[start:stop],
+                                                        dones_k[start:stop],
+                                                        time_stamps=None
+                                                       )
         #TRAIN!
         print("¤",flush=True)
         t_updates = time.time()
