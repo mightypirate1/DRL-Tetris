@@ -18,6 +18,7 @@ class experience_replay:
         self.max_size = max_size - k_step
         self.k_step = k_step
         self.sample_mode = sample_mode
+        self.total_samples = 0
         self.initialize()
 
     def initialize(self):
@@ -37,7 +38,6 @@ class experience_replay:
         #Inner workings...
         self.current_size  = 0
         self.current_idx   = 0
-        self.total_samples = 0
 
     def get_random_sample(self, n_samples, alpha=1.0, beta=1.0, remove=False, compute_stats=False):
         #Create the sampling distribution (see Schaul et al. for details)
@@ -97,6 +97,7 @@ class experience_replay:
         if compute_stats:
             self.stats = {
                           "ExpRep-sample_size"     : self.current_size,
+                          "ExpRep-total_samples"   : self.total_samples,
                           }
         return data
 
@@ -117,6 +118,8 @@ class experience_replay:
             for i,A in enumerate(self._actions):
                 A[idxs,:]   = a[i]
         self.prios[idxs,:]    = prio
+        #Counter for stats
+        self.total_samples += n
         if retrieve_samples:
             return self.retrieve_samples_by_idx(idxs)
 
@@ -128,8 +131,6 @@ class experience_replay:
         self.current_idx += n
         #This is the border to the unused part of the exprep
         self.current_size = max(self.current_size, self.current_idx)
-        #Counter for stats
-        self.total_samples += n
         return slice(self.current_idx-n, self.current_idx,1)
 
     def update_prios(self, new_prios, filter):
