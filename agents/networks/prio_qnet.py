@@ -147,6 +147,7 @@ class prio_qnet(network):
                                           )
         self.reference_net_assign_list = self.create_weight_setting_ops(self.ref_net.variables)
         estimator_target_tf = self.estimator.output_tf
+        # print(estimator_target_tf, target_values_tf);exit("is this broken?")
         return estimator_target_tf, target_values_tf
 
     @property
