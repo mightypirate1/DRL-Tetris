@@ -117,10 +117,9 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
             name_count[n] = 0
         else:
             name_count[n] += 1
-            n += "_"+str(all_names.count(name_count[n]))
+            n += "_"+str(name_count[n])
         all_names.append(n)
         all_weights.append(w)
-
     #Initialize run!
     trajectory_start, current_player = 0, np.array([1])
     s_prime = env.get_state()
