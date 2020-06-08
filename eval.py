@@ -51,7 +51,7 @@ def random_match(agents, names, weights):
     w = [weights[i] for i in agent_idxs]
     n = [names[i]   for i in agent_idxs]
     if len(all_agents) > 2:
-        print(n[0], "vs", n[1])
+        print(n[0], "({})".format(w[0][1]), "vs", n[1], "({})".format(w[1][1]))
     return a, n, w
 
 docoptstring = \
@@ -120,6 +120,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
             n += "_"+str(name_count[n])
         all_names.append(n)
         all_weights.append(w)
+        print("registering:", w, "-> ", n)
     #Initialize run!
     trajectory_start, current_player = 0, np.array([1])
     s_prime = env.get_state()
