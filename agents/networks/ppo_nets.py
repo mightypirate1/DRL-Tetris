@@ -154,7 +154,7 @@ class ppo_nets(network):
         #entropy
         entropy_bonus = action_entropy = tf.reduce_sum(N.action_entropy(policy + e) * p_mask, axis=3)
         if "entropy_floor_loss" in params:
-            eps = ppo_epsilon
+            eps = params["ppo_epsilon"]
             n_actions = self.n_rotations * self.n_translations
             entropy_floor = -eps*tf.math.log( eps/(n_actions-1) ) -(1-eps) * tf.log(1-eps)
             extra_entropy = -tf.nn.relu(entropy_floor - action_entropy)
