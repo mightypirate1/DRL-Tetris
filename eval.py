@@ -3,6 +3,7 @@ import docopt
 import numpy as np
 import time
 import sys
+import itertools
 
 import experiments.presets
 from environment.tetris_environment_vector import tetris_environment_vector
@@ -96,7 +97,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                                s["env_type"],
                                settings=s,
                                )
-    all_agents, all_names, all_weights = list(), list(), list()
+    all_agents, all_names, all_weights, name_count = list(), list(), list(), dict()
     #Initialize agents!
     for i, setting, weight in zip(range(len(settings)), settings, weights_str):
         setting = adjust_settings(setting)
@@ -112,7 +113,11 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         a.load_weights(*w)
         all_agents.append(a)
         n = setting["run-id"]
-        if n in all_names: n += str(all_names.count(n))
+        if n not in name_count:
+            name_count[n] = 0
+        else:
+            name_count[n] += 1
+            n += "_"+str(all_names.count(name_count[n]))
         all_names.append(n)
         all_weights.append(w)
 
