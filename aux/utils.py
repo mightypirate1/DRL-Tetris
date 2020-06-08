@@ -6,6 +6,7 @@ import tensorflow as tf
 from scipy.stats import rankdata
 import experiments.presets
 from aux.settings import default_settings
+from collections import Collection, Mapping
 
 def parse_arg(_entry_idx, data, fill_up=None, indices=False):
     #This tries to encapsulate the general pattern of passing data vectorized...
@@ -106,3 +107,21 @@ def progress_bar(current, total, length=30, start="[", stop="]", done="|", remai
     done_ticks = round(progress * length)
     remaining_ticks = length - done_ticks
     return start + done * done_ticks + remaining * remaining_ticks + stop
+
+def recursive_map(data, func):
+    apply = lambda x: recursive_map(x, func)
+    if isinstance(data, Mapping):
+        return type(data)({k: apply(v) for k, v in data.items()})
+    elif isinstance(data, Collection):
+        return type(data)(apply(v) for v in data)
+    else:
+        return func(data)
+#The following 2 are to provide a quick way of evaluating parameter-types! evaluate_params(param_dict, t) = params_evaluated_at_t_dict
+def param_evaluater(t):
+    def evaluater(p):
+        if type(p) in [int, float]: #this is intended to be all non param-type objects
+            return p
+        return p(t)
+    return evaluater
+def evaluate_params(params, t):
+    return recursive_map(params, param_evaluater(t))
