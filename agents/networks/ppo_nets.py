@@ -32,9 +32,17 @@ class ppo_nets(network):
                 self.actions_training_tf    =  tf.placeholder(tf.uint8, (None, 2), name='action')
                 self.pieces_training_tf     =  tf.placeholder(tf.uint8, (None, 1), name='piece')
                 self.probabilities_old_tf   =  tf.placeholder(tf.float32, (None, 1), name='probabilities')
-                self.ppo_epsilon_tf         =  tf.placeholder(tf.float32, shape=(), name='ppo_epsilon')
-                self.learning_rate_tf       =  tf.placeholder(tf.float32, shape=(), name='lr')
                 self.target_value_tf, self.advantages_tf = self.create_targets(self.v_tf)
+                #params
+                self.params = {
+                                'ppo_epsilon'        : tf.placeholder(tf.float32, shape=(), name='ppo_epsilon'),
+                                'clipping_parameter' : tf.placeholder(tf.float32, shape=(), name='clipping_parameter'),
+                                'value_loss'         : tf.placeholder(tf.float32, shape=(), name='c_value_loss'),
+                                'policy_loss'        : tf.placeholder(tf.float32, shape=(), name='c_policy_loss'),
+                                'entropy_loss'       : tf.placeholder(tf.float32, shape=(), name='c_entropy_loss'),
+                                'entropy_floor_loss' : tf.placeholder(tf.float32, shape=(), name='c_entropy_floor_loss'),
+                                'lr'                 : tf.placeholder(tf.float32, shape=(), name='lr'),
+                                }
                 self.training_ops  = self.create_training_ops(
                                                               self.pi_tf,
                                                               self.v_tf,
@@ -43,8 +51,7 @@ class ppo_nets(network):
                                                               self.actions_training_tf,
                                                               self.pieces_training_tf,
                                                               self.probabilities_old_tf,
-                                                              self.learning_rate_tf,
-                                                              ppo_epsilon=self.ppo_epsilon_tf,
+                                                              self.params,
                                                              )
 
             self.main_net_assign_list = self.create_weight_setting_ops(self.main_net.variables)
@@ -74,9 +81,16 @@ class ppo_nets(network):
                 target_vals,
                 rewards,
                 dones,
-                lr=None,
-                ppo_epsilon=0.0,
                 unfiltered_inputs=True,
+                #params
+                ppo_epsilon=0.0,
+                clipping_parameter=0.15,
+                value_loss=0.3,
+                policy_loss=1.0,
+                entropy_loss=0.0001,
+                entropy_floor_loss=1.0,
+                #
+                lr=None,
               ):
         run_list = [
                     self.training_ops,
@@ -94,9 +108,15 @@ class ppo_nets(network):
                         self.actions_training_tf : actions[:,0,:],
                         self.rewards_tf : rewards,
                         self.dones_tf : dones,
-                        self.learning_rate_tf : lr,
-                        self.ppo_epsilon_tf : ppo_epsilon,
                         self.training_tf : True,
+                        #params
+                        self.params['ppo_epsilon']         : ppo_epsilon,
+                        self.params['clipping_parameter']  : clipping_parameter,
+                        self.params['value_loss']          : value_loss,
+                        self.params['policy_loss']         : policy_loss,
+                        self.params['entropy_loss']        : entropy_loss,
+                        self.params['entropy_floor_loss']  : entropy_floor_loss,
+                        self.params['lr']                  : lr,
                     }
         _filter = lambda x : x[:,0,:] if unfiltered_inputs else lambda x : x
         feed_dict.update(dict(zip(self.vector_inputs, map(_filter,vector_states))))
@@ -116,10 +136,8 @@ class ppo_nets(network):
                             actions_training,
                             pieces_training,
                             old_probs,
-                            learning_rate,
-                            ppo_epsilon=None,
+                            params,
                             ):
-        params = self.settings["ppo_parameters"]
         clip_param, c1, c2, c3, e = params["clipping_parameter"], params["value_loss"], params["policy_loss"], params["entropy_loss"], 10**-6
         #current pi(a|s)
         r_mask = tf.reshape(tf.one_hot(actions_training[:,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
@@ -147,11 +165,11 @@ class ppo_nets(network):
         self.entropy_loss_tf = -c3 * tf.reduce_mean(entropy_bonus) #increase entropy
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net.variables])
         self.loss_tf = self.value_loss_tf + self.policy_loss_tf + self.entropy_loss_tf + self.regularizer_tf
-        training_ops = self.settings["optimizer"](learning_rate=self.learning_rate_tf).minimize(self.loss_tf)
+        training_ops = self.settings["optimizer"](learning_rate=params['lr']).minimize(self.loss_tf)
         #Stats: we like stats.
         self.output_as_stats( action_entropy, name='entropy')
-        # self.output_as_stats( extra_entropy, name='extra_entropy')
-        # self.output_as_stats( entropy_bonus, name='entropy_bonus', only_mean=True)
+        self.output_as_stats( extra_entropy, name='extra_entropy')
+        self.output_as_stats( entropy_bonus, name='entropy_bonus', only_mean=True)
         self.output_as_stats( values, name='values')
         self.output_as_stats( target_values, name='target_values')
         self.output_as_stats( self.loss_tf, name='tot_loss', only_mean=True)
@@ -159,6 +177,7 @@ class ppo_nets(network):
         self.output_as_stats(-self.policy_loss_tf, name='policy_loss', only_mean=True)
         self.output_as_stats(-self.entropy_loss_tf, name='entropy_loss', only_mean=True)
         self.output_as_stats( self.regularizer_tf, name='reg_loss', only_mean=True)
+        self.output_as_stats( params["entropy_loss"], name='params/entropy_loss_weight', only_mean=True)
         return training_ops
 
     def create_targets(self, values):

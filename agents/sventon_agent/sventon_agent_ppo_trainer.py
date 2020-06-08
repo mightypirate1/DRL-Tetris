@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import aux.utils as utils
 from agents.sventon_agent.sventon_agent_trainer_base import sventon_agent_trainer_base
 
 class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
@@ -30,7 +31,7 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
         # # #
 
         print("DBG: current n_epochs:",self.n_train_epochs)
-        
+
         #1) Get a sample!
         if sample is None: #If no one gave us one, we get one ourselves!
             sample = \
@@ -45,6 +46,7 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
         self.train_lossstats_raw = list()
 
         #TRAIN!
+        train_params = utils.evaluate_params(self.settings["ppo_parameters"], self.clock)
         for t in range(n_epochs):
             if self.verbose_training: print("[",end='',flush=False); last_print = 0
             last_epoch = t+1 == n_epochs
@@ -60,8 +62,8 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
                                          target_values[perm[i:i+minibatch_size]],
                                          rewards[perm[i:i+minibatch_size]],
                                          dones[perm[i:i+minibatch_size]],
-                                         ppo_epsilon=self.settings["ppo_epsilon"].get_value(self.clock),
                                          lr=self.settings["value_lr"].get_value(self.clock),
+                                         **train_params,
                                         )
                 self.train_stats_raw.append(stats)
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
