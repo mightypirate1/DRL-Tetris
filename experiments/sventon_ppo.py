@@ -9,7 +9,7 @@ from aux.parameter import *
 settings = {
             #Project
             "augment_data" : False,
-            "run-id" : "FAB-X04-128",
+            "run-id" : "FAB-X05-128",
             "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
             "n_step_value_estimates"    : 1,
 
@@ -18,7 +18,8 @@ settings = {
                     'clipping_parameter' : 0.15,
                     'value_loss' : 0.33,
                     'policy_loss' : 1.0,
-                    'entropy_loss' : 0.00007,
+
+                    'entropy_loss' : linear_parameter(0.00015, final_val=0.0, time_horizon=total_steps),
                     'entropy_floor_loss' : 10.0,
                     },
             "ppo_epsilon" : constant_parameter(0.1),
@@ -42,8 +43,7 @@ settings = {
             # "n_samples_each_update"     : 256,
             "minibatch_size"            : 128, #256, #128
             "n_train_epochs_per_update" : 4,
-            # "value_lr"                  : exp_parameter(1e-4, base=10.0, decay=1/total_steps),
-            "value_lr"                  : constant_parameter(5e-5),
+
             #Game settings
             # "game_size" : [10,6],
             # "pieces" : [2,3,4,5],
