@@ -1,5 +1,6 @@
-# DRL-Tetris
 ![DRL-Logo](/logo.png)
+
+# DRL-Tetris
 This repository is three things:
 
 1. It is the open-source multiplayer tetris game [SpeedBlocks] turned into a reinforcement learning (RL) environment with a complete python front-end. The Environment is highly customizable: game-field size, block types used, action type etc. are all easily changed. It is written to function well with RL at large scale by running arbitrary numbers of tetris-games in parallel, in a simple-to-use manner.
