@@ -10,9 +10,9 @@ from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer
 import threads.threaded_runner
-from aux.settings import default_settings
-from aux.scoreboard import scoreboard
-import aux.utils as utils
+from tools.settings import default_settings
+from tools.scoreboard import scoreboard
+import tools.utils as utils
 import threads
 
 #####

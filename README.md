@@ -110,9 +110,9 @@ shows the two agent types duking it out!
 
 ## Customization:
 
-The entire repository uses a settings-dictionary (the default values of which are found in aux/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation. For examples of how to create such a dictionary, see the existing experiment-files in "experiments/".
+The entire repository uses a settings-dictionary (the default values of which are found in tools/settings.py). To customize the environment, the agent, or the training procedure, create dictionary with settings that you pass to the relevant objects on creation. For examples of how to create such a dictionary, see the existing experiment-files in "experiments/".
 
-For minor customization, you can just edit the settings-dictionary in the corresponding experiment-file (e.g "experiments/sixten_base.py"). To change the size of the field used, just find the game_field entry and put a new value there. Any option that is in aux/settings.py can be overridden this way. For major customization you might need to code.
+For minor customization, you can just edit the settings-dictionary in the corresponding experiment-file (e.g "experiments/sixten_base.py"). To change the size of the field used, just find the game_field entry and put a new value there. Any option that is in tools/settings.py can be overridden this way. For major customization you might need to code.
 
 > This is a design-choice I am - with the benefit of experience and hindsight - not too impressed with. My attention is finite and directed elsewhere in the project for now, as this works ok for RL-dev. If you hate it, feel free to contribute! ;)
 

@@ -4,7 +4,7 @@ import pickle
 import os
 
 import threads
-import aux.utils as utils
+import tools.utils as utils
 from agents.agent_utils import state_unpack
 
 class vector_agent_base:
@@ -66,7 +66,7 @@ class vector_agent_base:
     # Memory management fcns
     # # #
     def save_weights(self, folder, file, verbose=False): #folder is a sub-string of file!  e.g. folder="path/to/folder", file="path/to/folder/file"
-        #recommended use for standardized naming is .save_weights(*aux.utils.weight_location(...)) and similarily for the load_weights fcn
+        #recommended use for standardized naming is .save_weights(*tools.utils.weight_location(...)) and similarily for the load_weights fcn
         output = {}
         for net in self.model_dict:
             if net is "default": continue

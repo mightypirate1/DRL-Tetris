@@ -1,5 +1,5 @@
 import tensorflow as tf
-import aux.utils as utils
+import tools.utils as utils
 from agents.networks.builders import sventon_architectures as arch
 
 class network:

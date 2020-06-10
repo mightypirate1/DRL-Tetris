@@ -14,7 +14,7 @@
 ##  a new run-id so you don't overwrite your data!
 ##
 ##  Note: Settings not specified reverts to their default values found
-##  in aux/settings.py.
+##  in tools/settings.py.
 ##
 ##  Note: when this code is expecuted, a variable named "total_steps" will
 ##  be available. It is an integer value specifying the total number of

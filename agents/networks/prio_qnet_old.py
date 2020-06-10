@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 
-import aux.utils as utils
+import tools.utils as utils
 from agents.networks.builders import sventon_architectures as arch
 from agents.networks import network_utils as N
 

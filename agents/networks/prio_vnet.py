@@ -2,8 +2,8 @@
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 import numpy as np
-import aux
-import aux.utils as utils
+import tools
+import tools.utils as utils
 
 class prio_vnet:
     def __init__(self, agent_id, name, state_size, sess, k_step=1, settings=None, worker_only=False):

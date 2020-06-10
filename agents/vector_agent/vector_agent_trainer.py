@@ -1,13 +1,13 @@
 import time
 import numpy as np
 import threads
-import aux
-import aux.utils as utils
+import tools
+import tools.utils as utils
 from agents.vector_agent.vector_agent_base import vector_agent_base
 import agents.agent_utils as agent_utils
 from agents.networks import prio_vnet
 from agents.agent_utils.experience_replay import experience_replay
-from aux.parameter import *
+from tools.parameter import *
 
 class vector_agent_trainer(vector_agent_base):
     def __init__(

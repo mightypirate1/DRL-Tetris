@@ -1,9 +1,9 @@
 import logging
 import time
 import numpy as np
-# import aux
-import aux.utils as utils
-from aux.settings import default_settings
+# import tools
+import tools.utils as utils
+from tools.settings import default_settings
 from environment.game_backend.modules import tetris_env
 import environment.env_utils.state_processors as state_processors
 import environment.env_utils.draw_tetris as draw_tetris
@@ -141,7 +141,7 @@ class tetris_environment:
                 base = -1
         if not self.settings["extra_rewards"]:
             return data_types.maingoal_reward([base])
-        #Auxiliary goals... [ upcoming research :-) ]
+        #toolsiliary goals... [ upcoming research :-) ]
         w_base, w_combo = self.settings["reward_ammount"]
         combo = int(self.backend.states[player].combo_count[0])
         r = self.reward[player] = data_types.maingoal_reward([w_base*base, w_combo*combo])

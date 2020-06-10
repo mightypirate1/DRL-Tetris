@@ -5,14 +5,14 @@ import tensorflow as tf
 from scipy.special import softmax
 
 import threads
-import aux
-import aux.utils as utils
+import tools
+import tools.utils as utils
 from agents.vector_agent.vector_agent_base import vector_agent_base
 from agents.vector_agent.vector_agent_trainer import vector_agent_trainer
 import agents.agent_utils as agent_utils
 import agents.datatypes as dt
 from agents.networks import prio_vnet
-from aux.parameter import *
+from tools.parameter import *
 
 class vector_agent(vector_agent_base):
     def __init__(

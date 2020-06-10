@@ -1,12 +1,12 @@
 import numpy as np
 
 import threads
-import aux
-import aux.utils as utils
+import tools
+import tools.utils as utils
 from agents.sventon_agent.sventon_agent_base import sventon_agent_base
 import agents.agent_utils as agent_utils
 import agents.sventon_agent.sventon_utils as S
-from aux.parameter import *
+from tools.parameter import *
 
 class sventon_agent(sventon_agent_base):
     def __init__(

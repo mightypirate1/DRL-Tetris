@@ -2,7 +2,7 @@ import logging
 import math
 import time
 import numpy as np
-import aux.utils as utils
+import tools.utils as utils
 from environment.tetris_environment import tetris_environment
 import environment.env_utils.draw_tetris as draw_tetris
 

@@ -3,7 +3,7 @@ import multiprocessing as mp
 import time
 import pickle
 import numpy as np
-import aux.utils as utils
+import tools.utils as utils
 import threads
 from threads.worker_thread import worker_thread
 from threads.trainer_thread import trainer_thread

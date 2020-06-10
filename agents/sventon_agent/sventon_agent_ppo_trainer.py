@@ -1,6 +1,6 @@
 import time
 import numpy as np
-import aux.utils as utils
+import tools.utils as utils
 from agents.sventon_agent.sventon_agent_trainer_base import sventon_agent_trainer_base
 
 class sventon_agent_ppo_trainer(sventon_agent_trainer_base):

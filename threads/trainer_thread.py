@@ -5,9 +5,9 @@ import struct
 import time
 import os
 
-from aux.tf_hooks import quick_summary
-from aux.settings import default_settings
-import aux.utils as utils
+from tools.tf_hooks import quick_summary
+from tools.settings import default_settings
+import tools.utils as utils
 import threads
 
 class trainer_thread(mp.Process):

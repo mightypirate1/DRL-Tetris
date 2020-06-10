@@ -1,12 +1,12 @@
 import time
 import numpy as np
 import threads
-import aux
-import aux.utils as utils
+import tools
+import tools.utils as utils
 from agents.networks import ppo_nets
 import agents.agent_utils as agent_utils
 from agents.agent_utils.experience_replay import experience_replay
-from aux.parameter import *
+from tools.parameter import *
 from agents.sventon_agent.sventon_agent_base import sventon_agent_base as sventon_agent_base
 
 import agents

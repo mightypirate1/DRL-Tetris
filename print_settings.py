@@ -1,5 +1,5 @@
 import experiments.presets
-from aux.settings_printer import settings_printer
+from tools.settings_printer import settings_printer
 import docopt
 
 docoptstring = \
