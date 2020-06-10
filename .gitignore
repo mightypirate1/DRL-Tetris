@@ -120,7 +120,6 @@ experiments/*
 !experiments/.gitkeep
 !experiments/base_experiment.py
 !experiments/sixten_base.py
-!experiments/sventon_base.py
 !experiments/sventon_dqn.py
 !experiments/sventon_ppo.py
 !experiments/presets.py
