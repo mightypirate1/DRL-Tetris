@@ -128,6 +128,14 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
         if frac_samples / frac_epochs > 1:
             self.n_train_epochs = max(1, self.n_train_epochs - 1)
         self.n_train_epochs_lock = False
+        print("DBG: current n_epochs:", self.n_train_epochs)
+    def adjust_epochs_up(self):
+        if not self.settings["dynamic_n_epochs"]:
+            return
+        if self.clock > self.settings["n_samples_each_update"] and not self.n_train_epochs_lock:
+            self.n_train_epochs = min(self.settings["n_train_epochs_per_update"], self.n_train_epochs + 1 )
+            self.n_train_epochs_lock = True
+            print("DBG: bump up!")
 
     def generate_training_stats(self):
         stats, counts = {}, {}
