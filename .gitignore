@@ -137,6 +137,7 @@ environment/game_backend/source/Makefile
 
 #Secret test-scripts that doesnt need to be official
 yeah.py
+settings_update.py
 _summaries
 
 #Graveyard
