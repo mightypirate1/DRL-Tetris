@@ -13,13 +13,11 @@ This repository is three things:
 
     **SVENton-PPO** is similar to SVENton but trains by way of PPO. Trajectories are gathered by the workers, who also compute GAE-advantages [https://arxiv.org/abs/1506.02438]. This is the recommeded default for all new-comers.
 
-> Both versions of SVENton can easily change between a few NN architectures. The preferred ones empirically are "keyboard" and "silver", and you set them in the experiment files.
-
 The RL-framework and RL-algorithms may be separated into different repositories at some time in the future, but for now they are one.
 
 > NOTE: The master-branch contains some features that are experimental. If there are issues, revert to the stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/stable) or the kinda_stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/kinda_stable). The latter "should" be stable, but testing all features is pretty time-consuming, and I try to make headway.
 
-> NOTE: The quality of code has changed as I learned. Please be lenient when looking at the remnants of old code. There will come a day when it's fixed, let's hope!
+The quality of code has changed as I learned. Please be lenient when looking at the remnants of old code. There will come a day when it's fixed, let's hope!
 
 ## Installation:
 * Pull the repository.
@@ -83,8 +81,8 @@ Settings are saved along with the weights so that it is normally possible to mak
 #### Experiment-files:
 A few different experiment files are provided:
 
-* experiments/sventon_ppo.py - Trains SVENton using PPO and a res-block type architecture dubbed "silver".
-* experiments/sventon_dqn.py - Trains SVENton using a flavour of DQN and the "silver" arch.
+* experiments/sventon_ppo.py - Trains SVENton using PPO and a res-block type architecture".
+* experiments/sventon_dqn.py - Trains SVENton as above, but using a flavour of DQN.
 * experiments/sixten_base.py  - Trains SIXten.
 
 > Hyper-parameters need to be adjusted to your hardware. For good performance, you need to balance learning-rate ("value-lr") with numbers of training epochs per batch ("n_train_epochs_per_update"). The defaults provided are tuned for the test system: i5-4690K CPU @ 3.50GHz × 4 + GeForce GTX 1080 Ti + 16GB Ram, and if your system is significantly different, you might get different results. Contact me if you need advice on this.
