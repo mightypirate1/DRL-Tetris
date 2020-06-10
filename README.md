@@ -11,11 +11,11 @@ This repository is three things:
 
     **SVENton** is a double[1] dueling[2] k-step DQN-agent with a novel Convolutional Neuro-Keyboard interfacing it with the environment (1: https://arxiv.org/abs/1509.06461 2: https://arxiv.org/abs/1511.06581). It too utilizes the distributed prioritized experience replay, and the multi-processing framework. It is highly experimental, but it's included so SIXten doesn't get lonely.
 
-    **SVENton-PPO** is similar to SVENton but trains by way of PPO. Trajectories are gathered by the workers, but the trainer computes the advantages in the NN to speed up the sampling. When scaling up this will change, but for running at home this makes sense.
+    **SVENton-PPO** is similar to SVENton but trains by way of PPO. Trajectories are gathered by the workers, who also compute GAE-advantages [https://arxiv.org/abs/1506.02438]. This is the recommeded default for all new-comers.
 
 > Both versions of SVENton can easily change between a few NN architectures. The preferred ones empirically are "keyboard" and "silver", and you set them in the experiment files.
 
-These components may be separated into different repositories at some time in the future, but for now they are one.
+The RL-framework and RL-algorithms may be separated into different repositories at some time in the future, but for now they are one.
 
 > NOTE: The master-branch contains some features that are experimental. If there are issues, revert to the stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/stable) or the kinda_stable branch (https://github.com/mightypirate1/DRL-Tetris/tree/kinda_stable). The latter "should" be stable, but testing all features is pretty time-consuming, and I try to make headway.
 
@@ -66,7 +66,7 @@ To start training, we recommend starting off from the example in experiments/six
 
 To run the example project using 32 environments per worker thread, and 3 worker threads (+1 trainer thread), for 10M steps, run
 ```
-python3 thread_train.py experiments/sixten_base.py --n 32 --m 3 --steps 10000000
+python3 thread_train.py experiments/sventon_ppo.py --steps 10000000
 ```
 periodically during training, weights are saved to models/project_name/weightsNNN.w. Additionally, backups are made to models/project_name/weightsLATEST.w, and the final version is saved to models/project_name/weightsFINAL.w.
 
@@ -76,19 +76,18 @@ python3 eval.py path/to/weightfile.w
 ```
 or against other weights
 ```
-python3 eval.py path/to/weightfile1.w path/to/weightfile2.w (...)
+python3 eval.py path/to/weightfile1.w path/to/weightfile2.w (...) --argmax
 ```
 Settings are saved along with the weights so that it is normally possible to make bots made with different settings, neural-nets etc. play each other. As long as the game_size setting is the same across projects, they should be compatible! See "Customization" for more details.
 
 #### Experiment-files:
 A few different experiment files are provided:
 
+* experiments/sventon_ppo.py - Trains SVENton using PPO and a res-block type architecture dubbed "silver".
+* experiments/sventon_dqn.py - Trains SVENton using a flavour of DQN and the "silver" arch.
 * experiments/sixten_base.py  - Trains SIXten.
-* experiments/sventon_base.py - Trains SVENton using the "keyboard"-type NN. (experimental)
-* experiments/sventon_silver.py - Trains SVENton using the "silver" NN. It's similar to "keyboard" but replaces convs and vector-encoder with resnet-like blocks.
-* experiments/sventon_silver_ppo.py - Trains SVENton-PPO with the "silver" NN.
 
-The first of these is considered stable, but if your hardware differs from the test systems' (i5-4690K CPU @ 3.50GHz × 4 + GeForce GTX 1080 Ti + 16GB Ram), you might get different results. The the SVENton versions are very much under development, and good default settings are still to be decided on.
+> Hyper-parameters need to be adjusted to your hardware. For good performance, you need to balance learning-rate ("value-lr") with numbers of training epochs per batch ("n_train_epochs_per_update"). The defaults provided are tuned for the test system: i5-4690K CPU @ 3.50GHz × 4 + GeForce GTX 1080 Ti + 16GB Ram, and if your system is significantly different, you might get different results. Contact me if you need advice on this.
 
 #### Demo weights:
 The project ships with some pre-trained weights as a demo. When in the DRL-Tetris folder, try for instance
@@ -96,6 +95,18 @@ The project ships with some pre-trained weights as a demo. When in the DRL-Tetri
 python3 eval.py models/demo_weights/SIXten/weightsDEMO1.w
 ```
 to watch SIXten play.
+
+Similarly,
+```
+python3 eval.py models/demo_weights/SVENton/weightsDEMO1.w
+```
+shows SVENton in action.
+
+SIXten was trained using a limited piece set, so it's na unfair comparison - but
+```
+python3 eval.py models/demo_weights/SVENton/weightsDEMO1.w models/demo_weights/SIXten/weightsDEMO1.w --all-pieces
+```
+shows the two agent types duking it out!
 
 ## Customization:
 
@@ -119,6 +130,12 @@ The pre-defined settings on the master branch plays with only the O- and the L-p
 #### Advanced customization:
 
 If you wish to customizations that are not obvious how to do, just contact me and I will produce the documentation needed asap. To write your own agent and/or customize the training procedure, you will have to write code. Probably the best way to get into the code is to look at the function "thread_code" in threads/worker_thread.py where the main training loop is located.
+
+## Known issues:
+There are a lot of settings and combinations thereof that are not tested, since it would be prohibitively slow to do so. This means that if you test out the project and fiddle around, you probably will run into issues. Contact me if you need help, and if you solve any, please give me a pull-request.
+
+* If using different environments on different settings, the last one to be instantiated will impose it's settings on the others. This is generally only a problem when evaluating models trained on different settings.
+* SVENton-PPO could in theory become unbalanced in that the workers could drown the trainer in samples. This is nowhere near to occur on the test system, so there has been no need to guard against it. You would notice this by looking in the print-out flow for the line telling how long the last policy update took: "trained for 3.8436920642852783s [4707 samples]", and if each time it's printed, the numbers keep increasing, you have this problem. You need to slow down the workers to solve this then. Either put workers on CPU by setting "worker_net_on_cpu" to True, or change the number of workers.
 
 ## On the horizon:
 
