@@ -20,17 +20,13 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
         model = self.model_dict[policy]
         #If we dont have enough samples yet we quit early...
         if sample is None and len(exp_rep) < n_enough_samples_for_training:
-            if self.clock > n_enough_samples_for_training and self.settings["dynamic_n_epochs"] and not self.n_train_epochs_lock:
-                self.n_train_epochs = min(self.settings["n_train_epochs_per_update"], self.n_train_epochs + 1 )
-                self.n_train_epochs_lock = True
-                print("DBG: bump up!")
+            self.adjust_epochs_up()
             return 0
 
         # # #
         #Start!
         # # #
 
-        print("DBG: current n_epochs:",self.n_train_epochs)
 
         #1) Get a sample!
         if sample is None: #If no one gave us one, we get one ourselves!
