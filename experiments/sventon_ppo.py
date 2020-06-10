@@ -19,10 +19,17 @@ settings = {
                     'value_loss' : 0.33,
                     'policy_loss' : 1.0,
 
-                    'entropy_loss' : linear_parameter(0.00015, final_val=0.0, time_horizon=total_steps),
+                    'entropy_loss' : linear_parameter(0.0001, final_val=0.0, time_horizon=total_steps),
                     'entropy_floor_loss' : 10.0,
                     },
             "ppo_epsilon" : constant_parameter(0.1),
+            #Train parameters
+            "value_lr"                  : constant_parameter(5e-5),
+            "gae_lambda"                : 0.93, #0.95 default
+            "n_samples_each_update"     : 4096,
+            "minibatch_size"            : 128, #256, #128
+            "n_train_epochs_per_update" : 4,
+
             #Architecture
             "residual_block_settings" : {
                                             "default" : {
@@ -36,13 +43,6 @@ settings = {
                                                             }
                                         },
 
-            #Train parameters
-            "gae_lambda"                : 0.93, #0.95 default
-            "n_samples_each_update"     : 4096,
-            # "time_to_training" : 0,
-            # "n_samples_each_update"     : 256,
-            "minibatch_size"            : 128, #256, #128
-            "n_train_epochs_per_update" : 4,
 
             #Game settings
             # "game_size" : [10,6],
