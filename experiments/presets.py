@@ -2,12 +2,14 @@ import tensorflow as tf
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.sventon_agent import sventon_agent, sventon_agent_ppo_trainer, sventon_agent_dqn_trainer
+from agents.sherlock_agent import sherlock_agent, sherlock_agent_ppo_trainer
 from agents.vector_agent import vector_agent, vector_agent_trainer
 from tools.parameter import *
 
 presets = {
             "sherlock" : {
-                            ""
+                            "agent_type" : sherlock_agent.sherlock_agent,
+                            "trainer_type" : sherlock_agent_ppo_trainer.sherlock_agent_ppo_trainer,
                         },
 
             "sventon" : {
@@ -47,7 +49,7 @@ presets = {
                                 "sventon_flavour" : "ppo",
                                 "trainer_type" : sventon_agent_ppo_trainer.sventon_agent_ppo_trainer,
                                 "eval_distribution" : "pi",
-                                "train_distriburion" : "pi",
+                                "train_distribution" : "pi",
                                 "workers_computes_advantages" : True,
                                 "ppo_parameters" : {
                                                     'clipping_parameter' : 0.05,
@@ -63,7 +65,7 @@ presets = {
             "sventon_dqn" : {
                                 "sventon_flavour" : "dqn",
                                 "eval_distribution" : "argmax",
-                                "train_distriburion" : "epsilon",
+                                "train_distribution" : "epsilon",
                                 "epsilon" : constant_parameter(0.05),
                                 "trainer_type" : sventon_agent_dqn_trainer.sventon_agent_dqn_trainer,
                                 "prioritized_replay_alpha"      : constant_parameter(0.7),
@@ -75,7 +77,7 @@ presets = {
             "sixten" : {
                         "agent_type"        : vector_agent.vector_agent,
                         "trainer_type"      : vector_agent_trainer.vector_agent_trainer,
-                        "train_distriburion"    : "distribution_pareto",
+                        "train_distribution"    : "distribution_pareto",
                         "action_temperature"    : constant_parameter(1),
                         "optimistic_prios"      : 0.0,
                         "trainer_thread_save_freq"  : 100,

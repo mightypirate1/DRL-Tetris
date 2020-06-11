@@ -12,7 +12,7 @@ settings = {
             "presets" : ["default", "sventon", "sventon_dqn", "resblock"],
 
             #RL-algo-settings
-            "train_distriburion" : "pareto_distribution",
+            "train_distribution" : "pareto_distribution",
             "action_temperature" : linear_parameter(1, final_val=3.0, time_horizon=total_steps),
             "prioritized_replay_alpha"      : constant_parameter(0.7),
             "prioritized_replay_beta"       : linear_parameter(0.5, final_val=1.0, time_horizon=total_steps),
