@@ -92,7 +92,7 @@ class sventon_agent(sventon_agent_base):
         action_eval, state_eval, pieces = self.run_model(model, state_vec, player=p_list)
 
         #Choose an action . . .
-        distribution = self.eval_dist if not training else self.settings["train_distriburion"]
+        distribution = self.eval_dist if not training else self.settings["train_distribution"]
         action_idxs = [None for _ in state_vec]
         for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
             piece, _ = _piece if not self.settings["state_processor_piece_in_statevec"] else (0,None)

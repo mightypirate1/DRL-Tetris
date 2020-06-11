@@ -66,7 +66,7 @@ class sventon_agent_base:
         self.model_output_shape = [self.n_rotations, self.n_translations, self.n_pieces]
         #distrubutions
         self.eval_dist = self.settings["eval_distribution"]
-        self.train_dist = self.settings["train_distriburion"]
+        self.train_dist = self.settings["train_distribution"]
         #some helper vars
         self.player_idxs = [p for p in range(self.settings["n_players"])]
         self.workers_do_processing = self.settings["workers_do_processing"]
@@ -155,8 +155,8 @@ class sventon_agent_base:
         self.settings.update(forced_settings)
         if self.settings["eval_distribution"] not in allowed_dists:
             return False, "eval_distribution"
-        if self.settings["train_distriburion"] not in allowed_dists:
-            return False, "train_distriburion"
+        if self.settings["train_distribution"] not in allowed_dists:
+            return False, "train_distribution"
         return True, None
 
     #Pickling needed for multiprocessing...
