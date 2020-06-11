@@ -9,7 +9,8 @@ from tools.parameter import *
 settings = {
             #Project
             "augment_data" : False,
-            "run-id" : "FAB-X05-128",
+            "run-id" : "SVENton-v1",
+            # "run-id" : "FAB-X05-128",
             "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
             "n_step_value_estimates"    : 1,
 

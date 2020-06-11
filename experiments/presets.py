@@ -129,6 +129,7 @@ presets = {
                          "env_vector_type"   : tetris_environment_vector,
                          "env_type"          : tetris_environment,
 
+                         "eval_distribution" : "argmax",
                          "game_size" : [22, 10],
                          "pieces" : [0,1,2,3,4,5,6],
                          "n_players" : 2,
@@ -160,6 +161,7 @@ presets = {
                          "trainer_net_on_cpu"   : False,
                          #Misc.
                          "render"            : True,
+                         "render_simulation" : False,
                          "render_color_theme" : [
                                                 "171717",
                                                 "d900ff",

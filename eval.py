@@ -10,7 +10,6 @@ from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.vector_agent import vector_agent, vector_agent_trainer
 import threads.threaded_runner
-from tools.settings import default_settings
 from tools.scoreboard import scoreboard
 import tools.utils as utils
 import threads
@@ -28,9 +27,9 @@ def adjust_settings(s):
     if run_settings["--no-null"]:
         S["bar_null_moves"] = True
     if run_settings["--all-pieces"]:
-        S["pieces"] = default_settings["pieces"]
+        S["pieces"] = experiments.presets.presets["default"]["pieces"]
     if not run_settings["--res"]:
-        S["render_screen_dims"] = default_settings["render_screen_dims"]
+        S["render_screen_dims"] = experiments.presets.presets["default"]["render_screen_dims"]
     if run_settings["--argmax"]:
         S["eval_distribution"] = "argmax"
     S["render"] = not run_settings["--no-rendering"]
