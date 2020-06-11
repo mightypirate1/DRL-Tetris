@@ -85,7 +85,7 @@ class tetris_environment:
         if self.settings["action_type"] == "press_key":
             return data_types.action_list([[0],[1],[2],[3],[4],[5],[6],[7],[8],[9],[10]]) #This is not error-tested (but "should work")
 
-    def simulate_actions(self,actions, player=None):
+    def simulate_actions(self,actions, player=None, finalize=True):
         if self.debug: self.log.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))
         assert type(player)  is int,                    "tetris_environment.simulate_actions(action_list actions,int player) was called with type(player)={}".format(type(player))
         assert type(actions) is data_types.action_list, "tetris_environment.simulate_actions(action_list actions,int player) was called with type(actions)={}".format(type(actions))
@@ -93,20 +93,22 @@ class tetris_environment:
         anchor = self.backend.copy()
         for i,a in enumerate(actions):
             self.backend.set(anchor)
-            self.perform_action(a, player=player, simulate=True)
+            self.perform_action(a, player=player, simulate=True, finalize=finalize)
             ret[i] = self.get_state()
         self.backend.set(anchor)
         if self.settings["render_simulation"]:
             self.renderer.drawAllFields([[r.backend_state.states[player].field for r in ret]],force_rescale=True,)
         return ret
 
-    def perform_action(self, action, player=None, simulate=False):
+    def perform_action(self, action, player=None, simulate=False, finalize=True):
         if self.debug: self.log.debug("executing action {} for player {}".format(action, player))
         assert type(player) is int,               "tetris_environment.perform_action(action a,int p) was called with type(player)={}".format(type(player))
         assert type(action) is data_types.action, "tetris_environment.perform_action(action a,int p) was called with type(action)={}".format(type(action))
         a         = [data_types.null_action for _ in self.player_idxs]
         a[player] = action
-        self.done = self.backend.action(a,self.settings["time_elapsed_each_action"])
+        self.backend.make_action(a)
+        if finalize:
+            self.done = self.backend.finish_action(self.settings["time_elapsed_each_action"])
         if not simulate:
             reward = self.last_reward[player] = self.reward_fcn(player)
             self.round_reward[player] += reward
