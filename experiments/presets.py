@@ -6,6 +6,10 @@ from agents.vector_agent import vector_agent, vector_agent_trainer
 from tools.parameter import *
 
 presets = {
+            "sherlock" : {
+                            ""
+                        },
+
             "sventon" : {
                         "augment_data" : False, #make this option good, or remove from release
                         "dynamic_n_epochs" : False,

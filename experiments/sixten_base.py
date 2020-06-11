@@ -1,9 +1,4 @@
-from environment.tetris_environment_vector import tetris_environment_vector
-from environment.tetris_environment import tetris_environment
-from agents.vector_agent import vector_agent, vector_agent_trainer
-from agents.agent_utils.reward_shapers import *
 from tools.parameter import *
-import threads.threaded_runner
 import tensorflow as tf
 settings = {
             #Project
