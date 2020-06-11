@@ -225,3 +225,4 @@ class tetris_environment:
             d['log'] = logging.getLogger(d['log'])
             d['renderer'] = draw_tetris.get_global_renderer()
         self.__dict__.update(d)
+        
