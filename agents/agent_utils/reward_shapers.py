@@ -23,6 +23,11 @@ def linear_reshaping(ammount, single_policy=True):
         return _r
     return r_tilde
 
+def no_reshaping(*args,**kwargs):
+    def f(r):
+        return r
+    return f
+
 if __name__ == "__main__":
     r1 = [0,0,0,0,1]
     r2 = [0,0,0,0,0,1]

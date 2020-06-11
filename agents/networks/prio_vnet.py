@@ -11,7 +11,7 @@ class prio_vnet:
         self.session = sess
         self.name = name
         self.output_activation = settings["nn_output_activation"]
-        self.output_size       = settings["n_value_funcions"]
+        self.output_size       = settings["n_value_functions"]
         self.worker_only = worker_only
         self.stats_tensors = []
         self.scope_name = "agent{}_{}".format(agent_id,name)

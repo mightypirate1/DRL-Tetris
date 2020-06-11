@@ -6,7 +6,6 @@ import time
 import os
 
 from tools.tf_hooks import quick_summary
-from tools.settings import default_settings
 import tools.utils as utils
 import threads
 
@@ -20,7 +19,7 @@ class trainer_thread(mp.Process):
         self.gpu_count = 0 if self.settings["trainer_net_on_cpu"] else 1
         self.last_global_clock = 0
         self.last_print_out = 0
-        self.last_saved_weights = 0
+        self.last_saved_weights = -1
         self.print_frequency = 10
         self.running = False
         self.trainer = None

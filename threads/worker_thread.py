@@ -6,7 +6,6 @@ import time
 import os
 
 from tools.tf_hooks import quick_summary
-from tools.settings import default_settings
 import tools.utils as utils
 import threads
 

@@ -3,7 +3,6 @@ import time
 import numpy as np
 # import tools
 import tools.utils as utils
-from tools.settings import default_settings
 from environment.game_backend.modules import tetris_env
 import environment.env_utils.state_processors as state_processors
 import environment.env_utils.draw_tetris as draw_tetris
@@ -224,17 +223,3 @@ class tetris_environment:
             d['log'] = logging.getLogger(d['log'])
             d['renderer'] = draw_tetris.get_global_renderer()
         self.__dict__.update(d)
-
-if __name__ == "__main__":
-    ### Backend-unit test!
-    np.random.seed(0)
-    settings = default_settings.copy().update({"render" : True})
-    env, p = tetris_env(settings=default_settings), 0
-    #Set backend seed -> reset
-    while not env.done:
-        a = env.get_random_action(player=p)
-        env.perform_action(a, player=p)
-        env.render()
-        p = 1-p
-    print("dead:",[env.backend.state[p].dead for p in range(2)])
-    input("OK?")

@@ -5,7 +5,6 @@ import itertools
 import tensorflow as tf
 from scipy.stats import rankdata
 import experiments.presets
-from tools.settings import default_settings
 from collections import Collection, Mapping
 
 def parse_arg(_entry_idx, data, fill_up=None, indices=False):
@@ -38,8 +37,6 @@ def parse_settings(settings):
         s = {"presets" : preset_keys}
         for key in preset_keys:
             s.update(experiments.presets.presets[key])
-    else: #This is the old way
-        s = default_settings.copy()
     for x in settings:
         s[x] = settings[x]
     #Here we get a chance to add some derived properties
