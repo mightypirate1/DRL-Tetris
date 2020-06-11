@@ -113,7 +113,7 @@ class vector_agent(vector_agent_base):
             distribution = "uniform"
         else:
             values_flat = k * self.run_model(model, future_states_flat, player=player_list_flat)
-            distribution = self.settings["eval_distribution"] if not training else self.settings["train_distriburion"]
+            distribution = self.settings["eval_distribution"] if not training else self.settings["train_distribution"]
 
         #Undo flatten
         values_all = [values_flat[unflattener[state_idx]] for state_idx in range(len(state_vec))]
