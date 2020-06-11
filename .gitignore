@@ -144,3 +144,4 @@ aux
 agents/vector_ppo_agent
 agents/vector_q_agent
 agents/agent_utils/q_helper_fcns.py
+*_old
