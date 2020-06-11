@@ -9,8 +9,7 @@ from tools.parameter import *
 settings = {
             #Project
             "augment_data" : False,
-            "run-id" : "SVENton-v1",
-            # "run-id" : "FAB-X05-128",
+            "run-id" : "SVENton-v1.0",
             "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
             "n_step_value_estimates"    : 1,
 
@@ -20,7 +19,7 @@ settings = {
                     'value_loss' : 0.33,
                     'policy_loss' : 1.0,
 
-                    'entropy_loss' : linear_parameter(0.0001, final_val=0.0, time_horizon=total_steps),
+                    'entropy_loss' : 0.00007,
                     'entropy_floor_loss' : 10.0,
                     },
             "ppo_epsilon" : constant_parameter(0.1),
