@@ -183,6 +183,7 @@ class trainer_thread(mp.Process):
             self.trainer.save_weights(*utils.weight_location(self.settings,idx=self.trainer.n_train_steps["total"]), verbose=True)
         if self.trainer.n_train_steps["total"] % self.settings["trainer_thread_backup_freq"] == 0 and self.trainer.n_train_steps["total"] > self.last_saved_weights:
             self.trainer.save_weights(*utils.weight_location(self.settings,idx="LATEST"), verbose=False)
+        self.last_saved_weights = self.trainer.n_train_steps["total"]
 
     def update_global_clock(self):
         self.shared_vars["global_clock"].value = self.trainer.clock
