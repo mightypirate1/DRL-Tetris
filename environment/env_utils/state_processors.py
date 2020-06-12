@@ -31,7 +31,7 @@ def state_dict(x, player, *parameters):
 
     ret =   {
                 "field" : (np.array(x.states[player].field)>0).astype(np.uint8),
-		        "piece" : np.array([int(p==col_code[x.states[player].piece[1][1]]) for p in piece_set]).astype(np.uint8),
+		        "piece" : np.array([int(p==col_code[x.states[player].piece.max()]) for p in piece_set]).astype(np.uint8),
 		        "x" : np.array(x.states[player].x.copy(), dtype=np.uint8),
 		        "y" : np.array(x.states[player].y.copy(), dtype=np.uint8),
 		        "incoming_lines" : np.array(x.states[player].inc_lines),
