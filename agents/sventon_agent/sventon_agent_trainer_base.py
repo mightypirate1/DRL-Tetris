@@ -3,7 +3,6 @@ import numpy as np
 import threads
 import tools
 import tools.utils as utils
-from agents.networks import ppo_nets
 import agents.agent_utils as agent_utils
 from agents.agent_utils.experience_replay import experience_replay
 from tools.parameter import *
