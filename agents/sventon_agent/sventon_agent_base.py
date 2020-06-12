@@ -86,7 +86,7 @@ class sventon_agent_base:
         player = kwargs.pop('player')
         assert player is not None, "Specify a player to run the model for!"
         vec, vis, piece = self.unpack(states, player)
-        return (*net.evaluate((vec, vis), **kwargs), piece)
+        return (*net.evaluate((vec, vis), **kwargs), piece[player[0]])
 
     def model_runner(self, net):
         if type(net) is str:

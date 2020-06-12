@@ -4,7 +4,7 @@ from scipy.special import softmax
 import tools.utils as utils
 import environment.data_types as edt
 
-action_dim_exception = ValueError("action_[...] argument shape needs to be (r,t); usually (4,10).")
+action_dim_exception = lambda x : ValueError("action_[...] argument shape needs to be (r,t); usually (4,10). Got:{}.".format(x))
 
 def make_action(rotation, translation):
     action = [8 for _ in range(rotation)] \
@@ -14,7 +14,7 @@ def make_action(rotation, translation):
 
 def action_argmax(A):
     if len(A.shape) is not 2:
-        raise action_dim_exception
+        raise action_dim_exception(A.shape)
     x = A.ravel()
     a_idx = np.argmax(x)
     (r, t) = np.unravel_index(a_idx, A.shape)
@@ -22,7 +22,7 @@ def action_argmax(A):
 
 def action_epsilongreedy(A, epsilon):
     if len(A.shape) is not 2:
-        raise action_dim_exception
+        raise action_dim_exception(A.shape)
     if np.random.rand() < epsilon:
         r = np.random.choice(np.arange(A.shape[0]))
         t = np.random.choice(np.arange(A.shape[1]))
@@ -36,7 +36,7 @@ def action_epsilongreedy(A, epsilon):
 
 def action_pareto(A,theta):
     if len(A.shape) is not 2:
-        raise action_dim_exception
+        raise action_dim_exception(A.shape)
     x = A.ravel()
     p = utils.pareto(x, temperature=theta)
     a_idx = np.random.choice(np.arange(A.size),p=p)
@@ -46,7 +46,7 @@ def action_pareto(A,theta):
 
 def action_boltzman(A,theta):
     if len(A.shape) is not 2:
-        raise action_dim_exception
+        raise action_dim_exception(A.shape)
     x = A.ravel()
     p = softmax(theta*x)
     np.random.choice(np.arange(A.size),p=p)
@@ -57,7 +57,7 @@ def action_boltzman(A,theta):
 def action_distribution(A):
     # print(A);input()
     if len(A.shape) is not 2:
-        raise action_dim_exception
+        raise action_dim_exception(A.shape)
     p = A.ravel()
     a_idx = np.random.choice(np.arange(A.size),p=p)
     (r,t) = np.unravel_index(a_idx, A.shape)

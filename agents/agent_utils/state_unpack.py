@@ -65,6 +65,12 @@ class unpacker:
         return vector, visual
 
     def join_separate(self, data, player_list):
+        # f = lambda x:x if type(x) is not np.ndarray else x.shape
+        # g = lambda x:type(x)
+        # F = lambda x : utils.recursive_map(x, f)
+        # G = lambda x : utils.recursive_map(x, g)
+        # print(G(data))
+        # print(F(data));exit()
         return zip(*data)
 
     def collect_all_data(self,state_dict, mirrored=False):
@@ -73,7 +79,7 @@ class unpacker:
             state_dict = self.dict_mirror(state_dict)
         for x in state_dict:
             if x in ['piece', 'piece_idx'] and self.separate_piece:
-                piece = state_dict['piece_idx']
+                piece = np.array(state_dict['piece_idx']).reshape((1))
                 if not self.piece_in_statevec or x in ['piece_idx']:
                     continue
             tmp.append(state_dict[x].reshape((1,-1)))
@@ -88,7 +94,7 @@ class unpacker:
             state_dict = self.dict_mirror(state_dict)
         for x in state_dict:
             if x in ['piece', 'piece_idx'] and self.separate_piece:
-                piece = state_dict['piece_idx']
+                piece = np.array(state_dict['piece_idx']).reshape((1))
                 if not self.piece_in_statevec or x in ['piece_idx']:
                     continue
             elif x != 'field':
@@ -143,7 +149,7 @@ class unpacker:
                 visual = [np.concatenate([v[p] for v in _visual], axis=0) for p in range(2)]
 
         if self.separate_piece:
-            piece = [np.array(x) for x in _piece[0]]
+            piece = [np.concatenate([piece[p] for piece in _piece], axis=0) for p in range(2)]
             ret = vector, visual, piece
         else:
             ret = vector, visual

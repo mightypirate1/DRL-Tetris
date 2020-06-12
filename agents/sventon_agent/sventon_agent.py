@@ -90,7 +90,8 @@ class sventon_agent(sventon_agent_base):
 
         #Run model!
         action_eval, state_eval, pieces = self.run_model(model, state_vec, player=p_list)
-
+        # print(np.array(action_eval).shape)
+        # print(np.array(pieces).shape);exit()
         #Choose an action . . .
         distribution = self.eval_dist if not training else self.settings["train_distribution"]
         action_idxs = [None for _ in state_vec]
