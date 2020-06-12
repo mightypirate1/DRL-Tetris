@@ -28,6 +28,8 @@ class network:
             self.network_type = arch.convthendense
         elif self.settings["architecture"] == "keyboard":
             self.network_type = arch.convkeyboard
+        elif self.settings["architecture"] == "dreamer":
+            self.network_type = arch.resblock
     ###
     ### Utilities etc...
     ###

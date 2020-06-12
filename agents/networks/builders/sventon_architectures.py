@@ -20,7 +20,7 @@ from agents.networks.builders import legacy_build_blocks as legacy_blocks
 ###
 ### Note3: Names are misleading; this is not just for Q-learning!
 
-class resblock_kbd(base_architecture):
+class resblock(base_architecture):
     def output_streams(self, vec, vis):
         #1) Pad visuals
         # TODO: Get more data into the stacks! (Height? )
@@ -37,8 +37,8 @@ class resblock_kbd(base_architecture):
         #5) Add your vector-data to my processed joined stream then compute advantges
         # TODO: Make a little tiny resblock that gets just some data from the other screen and joins it here
         _adv_stream = N.peephole_join(joined[0], vec[1])
-        adv_stream = blocks.residual_block(_adv_stream, output_activation=None, **self.resblock_settings["adv_stream"])
-        _A = blocks.keyboard_conv(adv_stream, self.n_rotations, self.n_pieces, activation=self.kbd_activation)
+        _A = blocks.residual_block(_adv_stream, output_activation=None, **self.resblock_settings["adv_stream"])
+        _A = self.advantage_output_fcn(_A)
         #7) If we are not a worker, we want to compute values!
         _V = tf.constant([[[[0.0]]]], dtype=tf.float32)
         if self.full_network: #Worker's need only to compute an arg-max, so we don't need the value for them :)
@@ -49,6 +49,8 @@ class resblock_kbd(base_architecture):
             # if self.settings["separate_piece_values"]: #Treat pieces like actions
             _V = N.normalize_advantages(_V, activation=tf.nn.tanh, axis=3, inplace=True, piece_mask=self.used_pieces_mask_tf, n_used_pieces=self.n_used_pieces)
         return _V, _A
+    def advantage_output_fcn(self, x):
+        return x
     def initialize_variables(self):
         n = self.n_pieces+1 if (self.settings["separate_piece_values"] and self.n_pieces>1) else 1
         resb_default      = {'n_layers' : 3, 'n_filters' : 128,  'dropout' : 0.0, 'training' : self.training_tf, 'normalization' : None,}
@@ -62,6 +64,9 @@ class resblock_kbd(base_architecture):
             for key in self.resblock_settings:
                 if key in self.settings["residual_block_settings"]:
                     self.resblock_settings[key].update(self.settings["residual_block_settings"][key])
+class resblock_kbd(resblock):
+    def advantage_output_fcn(self, x):
+        return blocks.keyboard_conv(x, self.n_rotations, self.n_pieces, activation=self.kbd_activation)
 
 class convkeyboard(base_architecture):
     def output_streams(self, vectors, visuals):

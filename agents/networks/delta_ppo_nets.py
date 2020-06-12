@@ -7,7 +7,7 @@ from agents.networks import network_utils as N
 from agents.networks.value_estimator import value_estimator
 from agents.networks.network import network
 
-class ppo_nets(network):
+class delta_ppo_nets(network):
     def __init__(self, agent_id, name, state_size, output_shape, session, k_step=1, settings=None, worker_only=False):
         network.__init__(self, agent_id, name, state_size, output_shape, session, k_step=k_step, settings=settings, worker_only=worker_only)
         #Build network!
@@ -168,6 +168,7 @@ class ppo_nets(network):
         training_ops = self.settings["optimizer"](learning_rate=params['lr']).minimize(self.loss_tf)
         #Stats: we like stats.
         self.output_as_stats( action_entropy, name='entropy')
+        self.output_as_stats( extra_entropy, name='extra_entropy')
         self.output_as_stats( entropy_bonus, name='entropy_bonus', only_mean=True)
         self.output_as_stats( values, name='values')
         self.output_as_stats( target_values, name='target_values')
