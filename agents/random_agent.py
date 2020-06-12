@@ -57,13 +57,6 @@ class random_agent(tetris_agent):
         pass
 
     # # # # #
-    # Training fcns
-    # # #
-    def get_next_states(self, state):
-        self.sandbox.set(state.backend_state)
-        self.sandbox.simulate_all_actions(self.id)
-
-    # # # # #
     # Memory management fcns
     # # #
     def save_weights(self):
