@@ -124,9 +124,9 @@ class tetris_environment:
         if self.debug: self.log.warning("get_winner: env returned done=True, no one was alive to win game. I returned winner=666 in the hopes that this will be noticed...")
         return 666 #This should never happen.
 
-    def simulate_all_actions(self, player):
-        actions = self.get_actions(player=player)
-        return self.simulate_actions(actions, player)
+    def simulate_all_actions(self, state, player=None, finalize=True):
+        actions = self.get_actions(state, player=player)
+        return self.simulate_actions(actions, player=player, finalize=finalize)
 
     def get_state(self):
         #The state_processor is responsible for extracting the data from the backend that is part of the state
@@ -225,4 +225,3 @@ class tetris_environment:
             d['log'] = logging.getLogger(d['log'])
             d['renderer'] = draw_tetris.get_global_renderer()
         self.__dict__.update(d)
-        
