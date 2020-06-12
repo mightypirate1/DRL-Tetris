@@ -90,7 +90,7 @@ def pareto(x, temperature=1.0):
     return p_unnormalized / p_unnormalized.sum()
 
 def entropy(x):
-    return -np.sum(x * np.log(x))
+    return -np.sum(x * np.log(x+1e-8))
 
 def replace_nan_with_value(tensor, value):
     return tf.where(
@@ -105,11 +105,11 @@ def progress_bar(current, total, length=30, start="[", stop="]", done="|", remai
     remaining_ticks = length - done_ticks
     return start + done * done_ticks + remaining * remaining_ticks + stop
 
-def recursive_map(data, func):
+def recursive_map(data, func, atom=np.ndarray):
     apply = lambda x: recursive_map(x, func)
-    if isinstance(data, Mapping):
+    if isinstance(data, Mapping) and not isinstance(data,atom):
         return type(data)({k: apply(v) for k, v in data.items()})
-    elif isinstance(data, Collection):
+    elif isinstance(data, Collection) and not isinstance(data,atom):
         return type(data)(apply(v) for v in data)
     else:
         return func(data)
