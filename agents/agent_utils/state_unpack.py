@@ -89,7 +89,8 @@ class unpacker:
         for x in state_dict:
             if x in ['piece', 'piece_idx'] and self.separate_piece:
                 piece = state_dict['piece_idx']
-                continue
+                if not self.piece_in_statevec or x in ['piece_idx']:
+                    continue
             elif x != 'field':
                 tmp.append(state_dict[x].reshape((1,-1)))
         vector = np.concatenate(tmp, axis=1)
@@ -142,7 +143,8 @@ class unpacker:
                 visual = [np.concatenate([v[p] for v in _visual], axis=0) for p in range(2)]
 
         if self.separate_piece:
-            ret = vector, visual, np.concatenate([_piece])
+            piece = [np.array(x) for x in _piece[0]]
+            ret = vector, visual, piece
         else:
             ret = vector, visual
         return ret

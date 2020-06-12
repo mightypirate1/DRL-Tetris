@@ -94,8 +94,7 @@ class sventon_agent(sventon_agent_base):
         #Choose an action . . .
         distribution = self.eval_dist if not training else self.settings["train_distribution"]
         action_idxs = [None for _ in state_vec]
-        for i, (state, _piece, player) in enumerate(zip(state_vec,pieces,p_list)):
-            piece, _ = _piece if not self.settings["state_processor_piece_in_statevec"] else (0,None)
+        for i, (state, piece, player) in enumerate(zip(state_vec,pieces,p_list)):
             if distribution == "argmax": #for eval-runs
                 (r, t), entropy = S.action_argmax(action_eval[i,:,:,piece])
             elif distribution == "pi": #for training
