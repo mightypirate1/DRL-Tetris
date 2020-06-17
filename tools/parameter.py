@@ -5,6 +5,8 @@ class parameter:
         self.init_val = value
         self.final_val = final_val
         self.time_horizon = time_horizon
+        self.max = max
+        self.min = min
     def __eval__(self, t):
         return self.get_value(t)
     def __call__(self, t):
