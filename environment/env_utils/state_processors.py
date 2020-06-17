@@ -40,7 +40,7 @@ def state_dict(x, player, *parameters):
 		        "nextpiece" : np.array([int(p==x.states[player].nextpiece) for p in piece_set], dtype=np.uint8),
             }
     if parameters[0][2]: #settings["state_processor_separate_piece"]
-        ret["piece_idx"] = col_code[x.states[player].piece[1][1]]
+        ret["piece_idx"] = col_code[x.states[player].piece.max()]
     return ret
 
 def raw(x, player, *parameters):

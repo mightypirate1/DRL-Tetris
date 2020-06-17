@@ -90,8 +90,9 @@ class sventon_agent(sventon_agent_base):
 
         #Run model!
         action_eval, state_eval, pieces = self.run_model(model, state_vec, player=p_list)
-        # print(np.array(action_eval).shape)
-        # print(np.array(pieces).shape);exit()
+        if verbose:
+            print(state_eval.squeeze()[pieces[0]]*(-1)**p_list[0])
+        
         #Choose an action . . .
         distribution = self.eval_dist if not training else self.settings["train_distribution"]
         action_idxs = [None for _ in state_vec]
@@ -116,8 +117,6 @@ class sventon_agent(sventon_agent_base):
             a_environment = (r,t,piece)
             a_internal = (action_eval[i,r,t,piece] ,S.value_piece(state_eval[i], piece), S.value_mean(state_eval[i]))
             action_idxs[i] = a_environment, a_internal
-            # if i == 0 and self.id == 0:
-            #     print(a_environment, a_internal)
 
         #Nearly done! Just need to create the actions...
         actions = [S.make_action(r,t) for (r,t,_), _ in action_idxs]
