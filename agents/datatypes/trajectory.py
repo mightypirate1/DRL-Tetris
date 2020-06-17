@@ -1,4 +1,5 @@
 import numpy as np
+import tools.utils as utils
 
 class trajectory:
     def __init__(self):
@@ -58,11 +59,11 @@ class sventon_trajectory(trajectory):
         a_int_np = np.zeros((len(self),3)) #p, a, target_v
         a_int_data = np.array(a_int_raw)
         probabilities = a_int_data[:,0]
-        v_piece = a_int_data[:,1]
-        v_mean  = a_int_data[:,2]
+        v_piece = a_int_data[:,1, np.newaxis]
+        v_mean  = a_int_data[:,2, np.newaxis]
         a_int_np[:,0] = probabilities
         if compute_advantages:
-            a_int_np[:,1:] = self.adv_and_targets(v_piece, v_mean, r[:,0], d[:,0], gamma=gamma_discount, gae_lambda=gae_lambda)
+            a_int_np[:,1:] = self.adv_and_targets(v_piece, v_mean, r, d, gamma=gamma_discount, gae_lambda=gae_lambda, concatenate=True)
         a = (a_env_np, a_int_np)
         prios = 2*np.ones_like(r) #Very large prio :)
         data = (s,a,r,d)
@@ -93,7 +94,7 @@ class sventon_trajectory(trajectory):
         prios =  np.concatenate([prios, prios], axis=0)
         return data, prios
 
-    def adv_and_targets(self, v_mean, v_piece, r, d, gamma=0.98, gae_lambda=0.96):
+    def adv_and_targets(self, v_mean, v_piece, r, d, gamma=0.98, gae_lambda=0.96, concatenate=False):
         advantages = np.zeros(v_mean.shape)
         v_next = np.zeros(v_mean.shape)
         v_next[:-1] = v_mean[1:]
@@ -106,7 +107,30 @@ class sventon_trajectory(trajectory):
             W += 1
             advantages[i] = (A + v_mean[i] - v_piece[i]) / W #Adjusts the advantage so that the specific piece affects the advantage at current time step, while all other time steps sees it as the average piece value
         targets = v_piece + advantages
-        return np.concatenate([advantages[:,np.newaxis], targets[:,np.newaxis]], axis=1)
+        if not concatenate:
+            return advantages, targets
+        return np.concatenate([advantages, targets], axis=1)
 
-#backwards compat
-ppo_trajectory = q_trajectory = sventon_trajectory
+class sherlock_trajectory(sventon_trajectory):
+    def process_trajectory(self, model, state_fcn, reward_shaper=None, compute_advantages=False, gamma_discount=0.99, gae_lambda=0.96, k_steps=1, augment=False):
+        assert len(self) > 0, "dont process empty trajectories!"
+        _a  = list(zip(*self.a))
+        r = self.r if reward_shaper is None else reward_shaper(self.r)
+        r = np.array( [R() for R in r]).reshape((-1,1))
+        d = np.array( self.d, dtype=np.uint8).reshape((-1,1))
+        s = state_fcn(self.s, player=self.p)
+        #join up actions
+        f = lambda x : np.concatenate(x, axis=0)
+        a = [f(x) for x in _a]
+        #process!
+        if compute_advantages:
+            v_piece, v_mean, = a[3], a[4]
+            advantages, targets = self.adv_and_targets(v_piece, v_mean, r, d, gamma=gamma_discount, gae_lambda=gae_lambda)
+            a[3], a[4] = advantages, targets
+            #a = a_idx, piece, prob, adv, target_v, delta, delta_sum
+        #bogus prios as always
+        prios = 2*np.ones_like(r) #Very large prio :)
+        data = (s,a,r,d)
+        if augment:
+            data, prios = self.augment_data(data, prios, state_fcn)
+        return data, prios
