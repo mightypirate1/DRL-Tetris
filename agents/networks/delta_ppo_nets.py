@@ -21,17 +21,20 @@ class delta_ppo_nets(network):
                                                self.settings,
                                                full_network=(not worker_only or self.settings["workers_computes_advantages"]),
                                                training=self.training_tf,
-                                               kbd_activation=N.action_softmax,
-                                               raw_outputs=True
+                                               # kbd_activation=N.action_softmax,
+                                               raw_outputs=True,
+                                               advantage_activation_fcn=N.action_softmax,
                                               )
-            self.v_tf, self.pi_tf = self.main_net(self.vector_inputs, self.visual_inputs)
+            self.v_tf, _phi_tf = self.main_net(self.vector_inputs, self.visual_inputs)
+            self.phi_tf = tf.clip_by_value(_phi_tf, 1e-6,1.0)
             #
             if not self.worker_only: #For trainers
-                self.rewards_tf             =  tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
-                self.dones_tf               =  tf.placeholder(tf.int32, (None, k_step+1, 1), name='done')
-                self.actions_training_tf    =  tf.placeholder(tf.uint8, (None, 2), name='action')
-                self.pieces_training_tf     =  tf.placeholder(tf.uint8, (None, 1), name='piece')
-                self.probabilities_old_tf   =  tf.placeholder(tf.float32, (None, 1), name='probabilities')
+                self.rewards_tf                =  tf.placeholder(tf.float32, (None, k_step+1, 1), name='reward')
+                self.dones_tf                  =  tf.placeholder(tf.int32, (None, k_step+1, 1), name='done')
+                self.deltas_training_tf        =  tf.placeholder(tf.uint8, (None, *self.state_size_vis[0][1:-1], 1), name='deltas')
+                self.delta_sums_training_tf    =  tf.placeholder(tf.uint8, (None, *self.state_size_vis[0][1:-1], 1), name='delta_sums')
+                self.pieces_training_tf        =  tf.placeholder(tf.uint8, (None, 1), name='piece')
+                self.probabilities_old_tf      =  tf.placeholder(tf.float32, (None, 1), name='probabilities')
                 self.target_value_tf, self.advantages_tf = self.create_targets(self.v_tf)
                 #params
                 self.params = {
@@ -44,11 +47,12 @@ class delta_ppo_nets(network):
                                 'lr'                 : tf.placeholder(tf.float32, shape=(), name='lr'),
                                 }
                 self.training_ops  = self.create_training_ops(
-                                                              self.pi_tf,
+                                                              self.phi_tf,
                                                               self.v_tf,
                                                               self.target_value_tf,
                                                               self.advantages_tf,
-                                                              self.actions_training_tf,
+                                                              self.deltas_training_tf,
+                                                              self.delta_sums_training_tf,
                                                               self.pieces_training_tf,
                                                               self.probabilities_old_tf,
                                                               self.params,
@@ -62,7 +66,7 @@ class delta_ppo_nets(network):
 
     def evaluate(self, inputs):
         vector, visual = inputs
-        run_list = [self.pi_tf, self.v_tf]
+        run_list = [self.phi_tf, self.v_tf]
         feed_dict = {self.training_tf : False}
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
@@ -74,7 +78,8 @@ class delta_ppo_nets(network):
     def train(  self,
                 vector_states,
                 visual_states,
-                actions,
+                deltas,
+                delta_sums,
                 pieces,
                 probabilities,
                 advantages,
@@ -105,7 +110,8 @@ class delta_ppo_nets(network):
         feed_dict = {
                         self.pieces_training_tf : pieces[:,0,:],
                         self.probabilities_old_tf : probabilities[:,0,:],
-                        self.actions_training_tf : actions[:,0,:],
+                        self.deltas_training_tf : deltas[:,0,:],
+                        self.delta_sums_training_tf : delta_sums[:,0,:],
                         self.rewards_tf : rewards,
                         self.dones_tf : dones,
                         self.training_tf : True,
@@ -129,30 +135,32 @@ class delta_ppo_nets(network):
 
     def create_training_ops(
                             self,
-                            policy,
+                            phi_all,
                             values,
                             target_values,
                             advantages,
-                            actions_training,
+                            deltas_training,
+                            delta_sums_training,
                             pieces_training,
                             old_probs,
                             params,
                             ):
         clip_param, c1, c2, c3, e = params["clipping_parameter"], params["value_loss"], params["policy_loss"], params["entropy_loss"], 10**-6
-        #current pi(a|s)
-        r_mask = tf.reshape(tf.one_hot(actions_training[:,0], self.n_rotations),    (-1, self.n_rotations,    1,  1), name='r_mask')
-        t_mask = tf.reshape(tf.one_hot(actions_training[:,1], self.n_translations), (-1,  1, self.n_translations, 1), name='t_mask')
+        #current phi(a|s)
         p_mask = tf.reshape(tf.one_hot(pieces_training[:,:],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ), name='p_mask')
-        rtp_mask = r_mask * t_mask * p_mask
-        probability = tf.expand_dims(tf.reduce_sum(policy * rtp_mask, axis=[1,2,3]),1)
-
         values = tf.reduce_sum(values * p_mask, axis=[2,3])
+        phi = tf.reduce_sum(phi_all * p_mask, axis=3, keepdims=True)
+        delta_phi = phi * tf.cast(deltas_training, tf.float32)
+        delta_sum_phi = phi * tf.cast(delta_sums_training, tf.float32)
+        probability = tf.reduce_sum(delta_phi, axis=[1,2]) / tf.reduce_sum(delta_sum_phi, axis=[1,2])
         #probability ratio
         r = tf.maximum(probability, e) / tf.maximum(old_probs, e)
         clipped_r = tf.clip_by_value( r, 1-clip_param, 1+clip_param )
         policy_loss = tf.minimum( r * advantages, clipped_r * advantages )
+        #impossibility loss
+        impossibility_loss_tf = phi * (1-tf.minimum(1.0, tf.cast(delta_sums_training, tf.float32)))
         #entropy
-        entropy_bonus = action_entropy = tf.reduce_sum(N.action_entropy(policy + e) * p_mask, axis=3)
+        entropy_bonus = action_entropy = N.action_entropy(phi + e)
         if "entropy_floor_loss" in params:
             eps = params["ppo_epsilon"]
             n_actions = self.n_rotations * self.n_translations
@@ -163,8 +171,9 @@ class delta_ppo_nets(network):
         self.value_loss_tf   =  c1 * tf.losses.mean_squared_error(values, target_values) #reduce loss
         self.policy_loss_tf  = -c2 * tf.reduce_mean(policy_loss) #increase expected advantages
         self.entropy_loss_tf = -c3 * tf.reduce_mean(entropy_bonus) #increase entropy
+        self.impossibility_loss_tf = 0.0 * tf.reduce_mean(impossibility_loss_tf)
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net.variables])
-        self.loss_tf = self.value_loss_tf + self.policy_loss_tf + self.entropy_loss_tf + self.regularizer_tf
+        self.loss_tf = self.value_loss_tf + self.policy_loss_tf + self.impossibility_loss_tf + self.entropy_loss_tf + self.regularizer_tf
         training_ops = self.settings["optimizer"](learning_rate=params['lr']).minimize(self.loss_tf)
         #Stats: we like stats.
         self.output_as_stats( action_entropy, name='entropy')
@@ -175,6 +184,7 @@ class delta_ppo_nets(network):
         self.output_as_stats( self.loss_tf, name='tot_loss', only_mean=True)
         self.output_as_stats( self.value_loss_tf, name='value_loss', only_mean=True)
         self.output_as_stats(-self.policy_loss_tf, name='policy_loss', only_mean=True)
+        self.output_as_stats( self.impossibility_loss_tf, name='impossibility_loss', only_mean=True)
         self.output_as_stats(-self.entropy_loss_tf, name='entropy_loss', only_mean=True)
         self.output_as_stats( self.regularizer_tf, name='reg_loss', only_mean=True)
         self.output_as_stats( params["entropy_loss"], name='params/entropy_loss_weight', only_mean=True)
@@ -214,4 +224,4 @@ class delta_ppo_nets(network):
 
     @property
     def output(self):
-        return self.pi_tf
+        return self.phi_tf

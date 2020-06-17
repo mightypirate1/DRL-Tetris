@@ -18,6 +18,7 @@ class base_architecture:
                 settings,
                 full_network=False,
                 training=tf.constant(False, dtype=tf.bool),
+                advantage_activation_fcn=None,
                 kbd_activation=None,
                 raw_outputs=False,
                 ):
@@ -28,6 +29,7 @@ class base_architecture:
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
         self.output_size = self.n_rotations * self.n_translations * self.n_pieces
         self.output_activation = settings["nn_output_activation"]
+        self.advantage_activation_fcn = advantage_activation_fcn
         self.advantage_range = self.settings["advantage_range"]
         self.n_used_pieces, self.used_pieces_mask_tf = self.create_used_pieces_mask()
         self.kbd_activation = kbd_activation

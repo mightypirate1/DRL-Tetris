@@ -118,8 +118,8 @@ def action_entropy(pi):
     entropy = -tf.reduce_sum(pi * log_pi, axis=[1,2], keepdims=True)
     return entropy
 
-def action_softmax(x):
-    #x.shape == [?, R, T, P]
+def action_softmax(x, clip=None):
+    #x.shape == [?, R, T, P] or [?, W, H, P]
     max_x = tf.reduce_max(x, axis=[1,2], keepdims=True)
     pi_unnormalized = tf.math.exp(x - max_x) #for numerical stability
     pi = pi_unnormalized / tf.reduce_sum(pi_unnormalized, axis=[1,2], keepdims=True)

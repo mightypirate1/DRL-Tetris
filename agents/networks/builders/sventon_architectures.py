@@ -50,7 +50,9 @@ class resblock(base_architecture):
             _V = N.normalize_advantages(_V, activation=tf.nn.tanh, axis=3, inplace=True, piece_mask=self.used_pieces_mask_tf, n_used_pieces=self.n_used_pieces)
         return _V, _A
     def advantage_output_fcn(self, x):
-        return x
+        if self.advantage_activation_fcn is None:
+            return x
+        return self.advantage_activation_fcn(x)
     def initialize_variables(self):
         n = self.n_pieces+1 if (self.settings["separate_piece_values"] and self.n_pieces>1) else 1
         resb_default      = {'n_layers' : 3, 'n_filters' : 128,  'dropout' : 0.0, 'training' : self.training_tf, 'normalization' : None,}

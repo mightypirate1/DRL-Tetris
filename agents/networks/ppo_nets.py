@@ -150,6 +150,7 @@ class ppo_nets(network):
         #probability ratio
         r = tf.maximum(probability, e) / tf.maximum(old_probs, e)
         clipped_r = tf.clip_by_value( r, 1-clip_param, 1+clip_param )
+        r_saturation = tf.reduce_mean(tf.cast(tf.not_equal(r, clipped_r),tf.float32))
         policy_loss = tf.minimum( r * advantages, clipped_r * advantages )
         #entropy
         entropy_bonus = action_entropy = tf.reduce_sum(N.action_entropy(policy + e) * p_mask, axis=3)
@@ -171,12 +172,14 @@ class ppo_nets(network):
         self.output_as_stats( entropy_bonus, name='entropy_bonus', only_mean=True)
         self.output_as_stats( values, name='values')
         self.output_as_stats( target_values, name='target_values')
+        self.output_as_stats( r_saturation, name='clip_saturation', only_mean=True)
         self.output_as_stats( self.loss_tf, name='tot_loss', only_mean=True)
         self.output_as_stats( self.value_loss_tf, name='value_loss', only_mean=True)
         self.output_as_stats(-self.policy_loss_tf, name='policy_loss', only_mean=True)
         self.output_as_stats(-self.entropy_loss_tf, name='entropy_loss', only_mean=True)
         self.output_as_stats( self.regularizer_tf, name='reg_loss', only_mean=True)
-        self.output_as_stats( params["entropy_loss"], name='params/entropy_loss_weight', only_mean=True)
+        # for param in params:
+        #     self.output_as_stats( param, name='params/'+param.name, only_mean=True)
         return training_ops
 
     def create_targets(self, values):
