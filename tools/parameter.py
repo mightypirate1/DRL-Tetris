@@ -1,14 +1,14 @@
 import math
 
 class parameter:
-    def __init__(self, value, final_val=None, time_horizon=None):
+    def __init__(self, value, final_val=None, time_horizon=None, min=0, max=math.inf):
         self.init_val = value
         self.final_val = final_val
         self.time_horizon = time_horizon
     def __eval__(self, t):
         return self.get_value(t)
     def __call__(self, t):
-        return self.get_value(t)
+        return max( min(self.get_value(t), self.max), self.min )
     def get_value(self, t):
         return self.init_val
     def __eq__(self, other):
@@ -25,8 +25,6 @@ class exp_parameter(parameter): #Very crude exp-decay :)
     def __init__(self, value, **kwargs):
         self.decay = kwargs.pop('decay', 10**-3)
         self.base  = kwargs.pop('base',  math.e)
-        self.min   = kwargs.pop('min',   0)
-        self.max   = kwargs.pop('max',   math.inf)
         parameter.__init__(self, value, **kwargs)
         self.__init_vars__()
     def __init_vars__(self):
