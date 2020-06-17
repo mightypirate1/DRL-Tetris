@@ -139,16 +139,16 @@ class trainer_thread(mp.Process):
         if avg_length > 0:
             frac_train = self.stats["t_training_total"] / (self.stats["t_loading_total"] + self.stats["t_training_total"] + 0.0000001)
             current_speed = self.stats["n_samples_total"] / self.walltime()
-            s = {
-                 "Average trajectory length" : avg_length,
-                 "Current speed"             : current_speed,
-                 "Time spent training"       : frac_train,
-                 "Global weights index"      : self.shared_vars["update_weights"]["idx"],
+            if self.current_step() > self.stats["last_tb_update"] + self.settings["n_workers"] * self.settings["n_envs_per_thread"] * self.settings["worker_steps"] / 10000:
+                s = {
+                "Average trajectory length" : avg_length,
+                "Current speed"             : current_speed,
+                "Time spent training"       : frac_train,
+                "Global weights index"      : self.shared_vars["update_weights"]["idx"],
                 }
-            # s.update(self.trainer.stats)
-            self.trainer.report_stats()
-            self.stats.update(s)
-            if self.current_step() > self.stats["last_tb_update"] + self.settings["n_workers"] * self.settings["n_envs_per_thread"] * self.settings["worker_steps"] / 1000:
+                # s.update(self.trainer.stats)
+                self.trainer.report_stats()
+                self.stats.update(s)
                 self.quick_summary.update(s, time=self.current_step())
                 self.stats["last_tb_update"] = self.current_step()
         # print("load!",flush=True)
