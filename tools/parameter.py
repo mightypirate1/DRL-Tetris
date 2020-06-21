@@ -22,6 +22,8 @@ class parameter:
         return "{}(init:{}, final:{}, time_horizon:{}{})".format(type(self).__name__,self.init_val,self.final_val,self.time_horizon,self.__str2__())
     def __str2__(self):
         return ""
+    def __repr__(self):
+        return self.__str__()
 
 class exp_parameter(parameter): #Very crude exp-decay :)
     def __init__(self, value, **kwargs):
