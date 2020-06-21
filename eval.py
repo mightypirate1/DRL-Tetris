@@ -74,6 +74,7 @@ Options:
     --width W           With of the score crosstable [default: 120]
     --argmax            Force evals to use argmax, regardless of project setting. [default: False]
     --gpu               Run on GPU. [default: False]
+    --solo              Play like it's a 1-player game (only P1 plays) [default: False]
 '''
 run_settings = docopt.docopt(docoptstring)
 total_steps = int(run_settings["--steps"])
@@ -86,7 +87,7 @@ settings =      list(map(utils.load_settings,settingsfiles))
 #Wedge some settings in...
 assert utils.test_setting_compatibility(*settings), "Incompatible settings :("
 s = adjust_settings(settings[0].copy())
-frac, weights_str, debug, fast, reload_weights, render, score_width = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], s["render"], int(run_settings["--width"])
+frac, weights_str, debug, fast, reload_weights, solo, render, score_width = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], run_settings["--solo"], s["render"], int(run_settings["--width"])
 
 with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': 1})) as session:
     n_envs = 1
@@ -132,6 +133,10 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         #Take turns...
         current_player = 1 - current_player
         state = s_prime
+
+        if solo:
+            current_player= np.array([0])#
+            env.envs[0].backend.states[1].field[:,:] = 0
 
         #Get action from agent
         action_idx, action    = agent[current_player[0]].get_action(state, player=current_player[0], training=False)
