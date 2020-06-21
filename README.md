@@ -41,6 +41,7 @@ Python modules:
 - Tensorflow (1.12.0)
 - SciPy (1.2.0)
 - Docopt (0.6.2)
+- PyGame (1.9.4)
 
 On Ubuntu, apt and pip3 solves the dependencies easily:
 ```
