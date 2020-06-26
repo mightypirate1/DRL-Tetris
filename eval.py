@@ -139,7 +139,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
             env.envs[0].backend.states[1].field[:,:] = 0
 
         #Get action from agent
-        action_idx, action    = agent[current_player[0]].get_action(state, player=current_player[0], training=False)
+        action_idx, action    = agent[current_player[0]].get_action(state, player=current_player[0], training=False, verbose=debug)
         # action = env.get_random_action(player=current_player)
 
         #Perform action
