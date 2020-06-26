@@ -1,5 +1,4 @@
 import random
-import random
 import numpy as np
 import tensorflow as tf
 from scipy.special import softmax
@@ -169,7 +168,7 @@ class vector_agent(vector_agent_base):
                     data = t.process_trajectory(
                                                 self.model_runner(model),
                                                 self.unpack,
-                                                reward_shaper=self.settings["reward_shaper"](self.settings["reward_shaper_param"](self.clock), single_policy=self.settings["single_policy"]),
+                                                reward_shaper=None,
                                                 gamma_discount=self.settings["gamma"],
                                                 )
                 else:
