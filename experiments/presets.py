@@ -10,10 +10,27 @@ presets = {
             "sherlock" : {
                             "agent_type" : sherlock_agent.sherlock_agent,
                             "trainer_type" : sherlock_agent_ppo_trainer.sherlock_agent_ppo_trainer,
+                            #"augment_data" : True, #We really want this!
+
+                            "separate_piece_values" : False,
+                            "state_processor_separate_piece" : True,
+                            "state_processor_piece_in_statevec" : True,
+
+                            "train_distribution" : "pi",
+                            "eval_distribution" : "pi",
+                            "nn_output_activation" : tf.nn.tanh,
+                            "advantage_type" : "mean",#,"none",#"mean", #"max",
+                            "advantage_range" : 1.0,
+                            "workers_computes_advantages" : True,
+                            "dynamic_n_epochs" : True,
+                            "value_estimator_params" : {
+                                                        "truncate_aggregation" : True,
+                                                        },
                         },
 
             "sventon" : {
                         "augment_data" : False, #make this option good, or remove from release
+                        "normalize_advantages" : False,
                         "dynamic_n_epochs" : False,
                         "worker_net_on_cpu" : False,
                         #q/v calculations
@@ -25,8 +42,6 @@ presets = {
                         "n_samples_each_update" : 8192,
                         "minibatch_size"            : 32, #256, #128
                         "n_train_epochs_per_update" : 3,
-                        "time_to_reference_update"  : 1,
-                        "n_samples_to_start_training" : 0,
                         #value estimator
                         "value_estimator_params" : {
                                                     "truncate_aggregation" : True,
@@ -41,8 +56,6 @@ presets = {
                         ###
                         "advantage_range" : 1.0,
                         "piece_advantage_range" : 1.0,
-                        "tau_learning_rate" : 0.01,
-                        "winrate_learningrate" : 0.01,
                         },
 
             "sventon_ppo" : {
@@ -141,6 +154,7 @@ presets = {
                          "n_players" : 2,
                          "bar_null_moves"    : True,
                          "time_elapsed_each_action" : 400,
+                         "trainer_thread_save_freq"  : 1000,
                          "old_state_dict" : False,
                          "state_processor_separate_piece" : True,
                          "state_processor_piece_in_statevec" : False,
@@ -153,7 +167,9 @@ presets = {
                          "experience_replay_size" : 2*10**6,
                          "experience_replay_sample_mode" : "rank",
                          "alternating_models"        : False,
-                         "time_to_training"          : 1024,
+                         "time_to_reference_update"  : 1,
+                         "time_to_training"          : 1024, #In debug-mode, this is training frequency
+                         "n_samples_to_start_training" : 0, #Start of each run, wait this many steps before ever considering to train
 
                          "workers_do_processing"     : True,
                          "trainer_thread_backup_freq"  : 1,
@@ -184,5 +200,8 @@ presets = {
                          "nn_regularizer" : 0.0001,
                          # "optimizer" : tf.train.GradientDescentOptimizer,
                          "optimizer" : tf.train.AdamOptimizer,
+                         "tau_learning_rate" : 0.01,
+                         "winrate_learningrate" : 0.01,
+                         "augment_data" : False,
                         }
 }
