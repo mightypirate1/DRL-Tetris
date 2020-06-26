@@ -16,14 +16,14 @@ def residual_block(x,
                     pool_strides=(3,2),
                     output_n_filters=None,
                     output_activation=tf.nn.elu,
-                    output_initializer=tf.random_normal_initializer(0,0.001),
+                    output_initializer=tf.random_normal_initializer(0,0.01),
                     normalization=None,
                     training=False,
                     output_layer=False,
                     ):
     for i in range(n_layers):
         #default params
-        y, n, activation, join_mode, initializer, normalize, last_layer = x, n_filters, tf.nn.elu, "add", tf.contrib.layers.xavier_initializer_conv2d(), False, (i==n_layers-1)
+        y, n, activation, join_mode, initializer, normalize, last_layer, second_last_layer = x, n_filters, tf.nn.elu, "add", tf.contrib.layers.xavier_initializer_conv2d(), False, (i==n_layers-1), (i==n_layers-2)
         #last layer sometimes different params
         if last_layer:
             activation = output_activation
@@ -31,9 +31,12 @@ def residual_block(x,
                 n = output_n_filters
                 join_mode = "truncate_add"
                 normalize = True if normalization is not None else False
-                if output_layer:
-                    normalize = False
-                    initializer = output_initializer
+        if output_layer:
+            if last_layer or second_last_layer:
+                initializer = output_initializer
+            if last_layer:
+                normalize = False
+
         #Build block!
         x = tf.layers.conv2d(
                               x,
