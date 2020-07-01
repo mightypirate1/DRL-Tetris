@@ -152,7 +152,7 @@ class ppo_nets(network):
         r = tf.maximum(probability, e) / tf.maximum(old_probs, e)
         clipped_r = tf.clip_by_value( r, 1-clip_param, 1+clip_param )
         r_saturation = tf.reduce_mean(tf.cast(tf.not_equal(r, clipped_r),tf.float32))
-        advnorm = adv_normalizer(0.01,clip_val=2.0)
+        advnorm = adv_normalizer(0.01,clip_val=3.0)
         if self.settings["normalize_advantages"]:
             advantages = advnorm(advantages)
         policy_loss = tf.minimum( r * advantages, clipped_r * advantages )
