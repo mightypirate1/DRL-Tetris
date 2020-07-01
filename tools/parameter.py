@@ -1,5 +1,10 @@
 import math
 
+def param_eval(x,t):
+    if issubclass(type(x), parameter):
+        return x(t)
+    return x
+
 class parameter:
     def __init__(self, value, final_val=None, time_horizon=None, min=0, max=math.inf):
         self.init_val = value
@@ -14,9 +19,7 @@ class parameter:
     def get_value(self, t):
         return self._eval(self.init_val, t)
     def _eval(self,x,t):
-        if issubclass(type(x), parameter):
-            return x.get_value(t)
-        return x
+        return param_eval(x,t)
     def __eq__(self, other):
         if isinstance(other, type(self)):
             if self.init_val == other.init_val and self.final_val == other.final_val and self.time_horizon == other.time_horizon:
