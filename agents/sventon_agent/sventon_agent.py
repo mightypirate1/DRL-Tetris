@@ -92,7 +92,7 @@ class sventon_agent(sventon_agent_base):
         action_eval, state_eval, pieces = self.run_model(model, state_vec, player=p_list)
         if verbose:
             print(state_eval.squeeze()[pieces[0]]*(-1)**p_list[0])
-        
+
         #Choose an action . . .
         distribution = self.eval_dist if not training else self.settings["train_distribution"]
         action_idxs = [None for _ in state_vec]
@@ -148,7 +148,7 @@ class sventon_agent(sventon_agent_base):
                                                 self.model_runner(model),
                                                 self.unpack,
                                                 compute_advantages=self.settings["workers_computes_advantages"],
-                                                gae_lambda=self.settings["gae_lambda"],
+                                                gae_lambda=tools.parameter.param_eval(self.settings["gae_lambda"], self.clock),
                                                 reward_shaper=None,
                                                 gamma_discount=self.gamma,
                                                 augment=self.settings["augment_data"]

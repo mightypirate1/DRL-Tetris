@@ -98,7 +98,7 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
                                                     self.unpack,
                                                     gamma_discount=self.gamma,
                                                     compute_advantages=False,
-                                                    gae_lambda=self.settings["gae_lambda"],
+                                                    gae_lambda=tools.parameter.param_eval(self.settings["gae_lambda"], self.clock),
                                                     augment=self.settings["augment_data"],
                                                     )
 
