@@ -65,19 +65,16 @@ class unpacker:
         return vector, visual
 
     def join_separate(self, data, player_list):
-        # f = lambda x:x if type(x) is not np.ndarray else x.shape
-        # g = lambda x:type(x)
-        # F = lambda x : utils.recursive_map(x, f)
-        # G = lambda x : utils.recursive_map(x, g)
-        # print(G(data))
-        # print(F(data));exit()
         return zip(*data)
 
     def collect_all_data(self,state_dict, mirrored=False):
         tmp = []
         if mirrored:
-            state_dict = self.dict_mirror(state_dict)
+            aug = state_dict.pop("aug", None)
+            state_dict.update(aug)
         for x in state_dict:
+            if x == "aug":
+                continue
             if x in ['piece', 'piece_idx'] and self.separate_piece:
                 piece = np.array(state_dict['piece_idx']).reshape((1))
                 if not self.piece_in_statevec or x in ['piece_idx']:
@@ -91,8 +88,11 @@ class unpacker:
     def collect_separate_data(self, state_dict, mirrored=False):
         tmp = []
         if mirrored:
-            state_dict = self.dict_mirror(state_dict)
+            aug = state_dict.pop("aug", None)
+            state_dict.update(aug)
         for x in state_dict:
+            if x == "aug":
+                continue
             if x in ['piece', 'piece_idx'] and self.separate_piece:
                 piece = np.array(state_dict['piece_idx']).reshape((1))
                 if not self.piece_in_statevec or x in ['piece_idx']:
@@ -103,25 +103,6 @@ class unpacker:
         visual = state_dict['field'][None,:,:,None]
         ret = (vector, visual) if not self.separate_piece else (vector, visual, piece)
         return ret
-
-    def dict_mirror(self, state_dict):
-        # prep i!
-        piece_swap = (1,0,3,2,4,5,6)
-        def swap(one_hot):
-            ret = np.zeros_like(one_hot)
-            for i,x in enumerate(one_hot):
-                if x == 1:
-                    ret[piece_swap[i]] = 1
-                    break
-            return ret
-        # do it!
-        state_dict = state_dict.copy()
-        state_dict['field'] = state_dict['field'][:,::-1]
-        if 'piece_idx' in state_dict:
-            state_dict['piece_idx'] = piece_swap[state_dict['piece_idx']]
-        state_dict['piece'] = swap(state_dict['piece'])
-        state_dict['nextpiece'] = swap(state_dict['nextpiece'])
-        return state_dict
 
     def pack(self, data_list, player_lists):
         if not self.separate_piece:

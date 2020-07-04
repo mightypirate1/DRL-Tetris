@@ -41,6 +41,15 @@ def state_dict(x, player, *parameters):
             }
     if parameters[0][2]: #settings["state_processor_separate_piece"]
         ret["piece_idx"] = col_code[x.states[player].piece.max()]
+    if parameters[0][3]: #settings["augment_data"]
+        swap_col_code = { 4 : 1, 3 : 0, 5 : 3, 7 : 2, 2 : 4, 1 : 5, 6 : 6,}
+        piece_swap = [1,0,3,2,4,5,6]
+        aug = {
+                "field"     : ret["field"][:,::-1], #horizontal flip
+                "piece"     : np.array([int(p==swap_col_code[x.states[player].piece.max()]) for p in piece_set]).astype(np.uint8),
+                "nextpiece" : np.array([ piece_swap[int(p==x.states[player].nextpiece)] for p in piece_set], dtype=np.uint8),
+                "piece_idx" : swap_col_code[x.states[player].piece.max()],
+              }
     return ret
 
 def raw(x, player, *parameters):
@@ -58,7 +67,7 @@ def raw(x, player, *parameters):
 # NOTE: The parameters are set up when the environment is created
 func_dict = {
                 "raw" : (raw, []),
-                "state_dict": (state_dict, ["pieces", "old_state_dict", "state_processor_separate_piece"]),
+                "state_dict": (state_dict, ["pieces", "old_state_dict", "state_processor_separate_piece", "augment_data"]),
             }
 ''' # # # # # # # # # # '''
 ''' # # # # # # # # # # '''
