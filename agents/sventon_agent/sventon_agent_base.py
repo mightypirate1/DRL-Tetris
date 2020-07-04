@@ -64,6 +64,9 @@ class sventon_agent_base:
         self.piece_in_statevec = self.settings["state_processor_piece_in_statevec"]
         self.n_pieces = 7 if not self.piece_in_statevec else 1
         self.model_output_shape = [self.n_rotations, self.n_translations, self.n_pieces]
+        #
+        self.n_envs = 1
+        self.n_workers = 1
         #distrubutions
         self.eval_dist = self.settings["eval_distribution"]
         self.train_dist = self.settings["train_distribution"]
@@ -78,6 +81,10 @@ class sventon_agent_base:
         self.clock = 0
         self.stats = {}
 
+    def tick_clock(self, *args, **kwargs):
+        tick = kwargs.pop("tick", self.n_envs * self.n_workers)
+        self.clock += tick
+
     def update_clock(self, clock):
         old_clock = self.clock
         self.clock = clock
@@ -91,8 +98,8 @@ class sventon_agent_base:
     def model_runner(self, net):
         if type(net) is str:
             net = self.model_dict[net]
-        def runner(data, player=None):
-            return self.run_model(net, data, player=player)
+        def runner(*args, **kwargs):
+            return self.run_model(net, *args, **kwargs)
         return runner
 
     # # # # #
@@ -121,7 +128,7 @@ class sventon_agent_base:
             main_weights, ref_weights = input_models[net]
             self.model_dict[net].set_weights(
                                              self.model_dict[net].main_net_assign_list,
-                                             main_weights
+                                             main_weights,
                                             )
             if not self.model_dict[net].worker_only:
                 self.model_dict[net].set_weights(
@@ -129,11 +136,12 @@ class sventon_agent_base:
                                                  ref_weights
                                                 )
 
-    def update_weights(self, weight_list): #As passed by the trainer's export_weights-fcn..
+    def update_weights(self, weight_list, seed=None): #As passed by the trainer's export_weights-fcn..
+        apply_noise = "parameter_noise" in self.settings
         models = sorted([x for x in self.model_dict])
         for m,w in zip(models, weight_list):
             model = self.model_dict[m]
-            model.set_weights(model.main_net_assign_list,w)
+            model.set_weights(model.main_net_assign_list,w, seed=seed, apply_noise=apply_noise)
 
     def process_settings(self):
         #General requirements:

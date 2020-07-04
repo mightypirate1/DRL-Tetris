@@ -56,6 +56,7 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
             self.scoreboard[model] = 0.5
             self.n_train_steps[model] = 0
             self.time_to_reference_update[model] = 0
+
         self.n_train_epochs = self.settings["n_train_epochs_per_update"] if not self.settings["dynamic_n_epochs"] else 1
         self.n_train_epochs_lock = False
         self.n_samples_to_start_training = max(self.settings["n_samples_each_update"], self.settings["n_samples_to_start_training"])

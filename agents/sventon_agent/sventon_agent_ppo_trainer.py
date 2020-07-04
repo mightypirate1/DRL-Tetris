@@ -30,7 +30,7 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
         #1) Get a sample!
         if sample is None: #If no one gave us one, we get one ourselves!
             sample = exp_rep.retrieve_and_clear(compute_stats=True)
-            
+
         #Unpack a little...
         states, _actions, rewards, dones = sample
         a_env, a_int = _actions

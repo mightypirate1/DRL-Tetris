@@ -28,9 +28,9 @@ class sventon_agent(sventon_agent_base):
         #Some general variable initialization etc...
 
         #Helper variables
-        self.env_idxs = [i for i in range(n_envs)]
         self.n_envs = n_envs
         self.n_workers = n_workers
+        self.env_idxs = [i for i in range(n_envs)]
         self.n_experiences,self.send_count, self.send_length = 0, 0, 0
 
         #In any mode, we need a place to store transitions!
@@ -64,6 +64,12 @@ class sventon_agent(sventon_agent_base):
                                      )
                 self.model_dict[model] = m
 
+        self.action_callbacks = []
+        self.action_callbacks.append(self.tick_clock) #This makes the internal clock tick each time actions are taken
+        if "parameter_noise" in self.settings:
+            for m in self.model_dict.values():
+                self.action_callbacks.append(m.param_noiser.volume_adjust_callback) #This updates the noise
+
         if init_weights is not None:
             print("Agent{} initialized from weights: {} and clock: {}".format(self.id, init_weights, init_clock))
             self.update_clock(init_clock)
@@ -84,14 +90,12 @@ class sventon_agent(sventon_agent_base):
         if self.settings["single_policy"]:
             model = self.model_dict["main_net"]
         else:
-            assert False, "not tested yet. comment out this line if you brave"
             assert p_list[0] == p_list[-1], "{} ::: In dual-policy mode we require queries to be for one policy at a time... (for speed)".format(p_list)
             model = self.model_dict["policy_{}".format(p_list[0])]
+        model_eval_fcn, model_args, model_kwargs = self.model_runner(model), (state_vec,), {"player" : p_list, "disable_noise" : False}
 
         #Run model!
-        action_eval, state_eval, pieces = self.run_model(model, state_vec, player=p_list)
-        if verbose:
-            print(state_eval.squeeze()[pieces[0]]*(-1)**p_list[0])
+        action_eval, state_eval, pieces = model_eval_fcn(*model_args,**model_kwargs)
 
         #Choose an action . . .
         distribution = self.eval_dist if not training else self.settings["train_distribution"]
@@ -121,9 +125,9 @@ class sventon_agent(sventon_agent_base):
         #Nearly done! Just need to create the actions...
         actions = [S.make_action(r,t) for (r,t,_), _ in action_idxs]
 
-        #Keep the clock going...
-        if training:
-            self.clock += self.n_envs * self.n_workers
+        #Action callbacks:
+        for action_callback in self.action_callbacks:
+            action_callback(model_eval_fcn, model_args, model_kwargs, training=training)
         return action_idxs, actions
 
     #
