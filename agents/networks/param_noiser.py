@@ -25,10 +25,10 @@ class param_noiser:
         self.scale_to_weight = scale_to_weight
         self.noise_fcn = _type_dict[type]
         self.distance_fcn = _dist_dict[distance]
-        self.volume = 0.1
+        self.volume = 0.01
         self._noised_vars = {}
         self.disable_noise_tf = tf.placeholder(tf.bool, shape=[])
-        self.update_frequency = 1
+        self.update_frequency = update_frequency
         self.time_to_update = 0
         self.activated = False
 
