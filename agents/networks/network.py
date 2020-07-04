@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tools.utils as utils
+from agents.networks.param_noiser import param_noiser
 from agents.networks.builders import sventon_architectures as arch
 
 class network:
@@ -14,6 +15,11 @@ class network:
         self.stats_tensors, self.debug_tensors, self.visualization_tensors = [], [], []
         assert len(output_shape) == 3, "expected 3D-actions"
         assert k_step > 0, "k_step AKA n_step_value_estimates has to be greater than 0!"
+
+        #Noise
+        self.param_noiser = None
+        if "parameter_noise" in self.settings:
+            self.param_noiser = param_noiser(**self.settings["parameter_noise"])
 
         #Shapes and params etc
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
@@ -43,6 +49,7 @@ class network:
                                             {
                                                 "assign_op" : assign_op_tf,
                                                 "assign_val_placeholder" : assign_val_placeholder_tf,
+                                                "assign_variable_name" : var.name,
                                             }
                                           )
         return assign_placeholder_list
@@ -62,13 +69,15 @@ class network:
         ret = self.session.run(collection)
         return ret
 
-    def set_weights(self, assign_list, weights):
+    def set_weights(self, assign_list, weights, apply_noise=False, seed=None):
         run_list = []
         feed_dict = {}
         for w,assign in zip(weights,assign_list):
             run_list.append(assign['assign_op'])
             feed_dict[assign['assign_val_placeholder']] = w
         self.session.run(run_list, feed_dict=feed_dict)
+        if apply_noise:
+            self.param_noiser.update_noise(self.session, seed=seed)
 
     def output_as_stats(self, tensor, name=None, only_mean=False):
         if name is None:

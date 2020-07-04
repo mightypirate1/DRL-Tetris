@@ -10,6 +10,8 @@ from agents.networks import network_utils as N
 # Outputs have one state-dependent part, and one or 2 state-action dependent,
 # parts depending on whether raw_outputs is True or False.
 
+tf_false = tf.constant(False, dtype=tf.bool) #if this is in-line below, it messes up my syntax highlighting
+
 class base_architecture:
     def __init__(
                 self,
@@ -17,10 +19,11 @@ class base_architecture:
                 output_shape,
                 settings,
                 full_network=False,
-                training=tf.constant(False, dtype=tf.bool),
+                training=tf_false,
                 advantage_activation_fcn=None,
                 kbd_activation=None,
                 raw_outputs=False,
+                param_noiser=None,
                 ):
         self.name = name
         self.settings = settings
@@ -34,6 +37,7 @@ class base_architecture:
         self.n_used_pieces, self.used_pieces_mask_tf = self.create_used_pieces_mask()
         self.kbd_activation = kbd_activation
         self.raw_outputs = raw_outputs
+        self.param_noiser = param_noiser
         self.scope = tf.variable_scope(self.name, reuse=tf.AUTO_REUSE)
         self.initialize_variables()
     def initialize_variables(self):

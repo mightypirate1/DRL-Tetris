@@ -1,7 +1,8 @@
 import tensorflow as tf
 from agents.networks import network_utils as N
 
-# Game plan: write good code and put it here. Migrate the mess in q_net_base into here and network utils; but tidy please...
+#This messes up my syntax-highlighting if it's in-line below...
+tf_rn_init = tf.random_normal_initializer(0,0.01)
 
 # This is a resudual-block a-la ResNet etc. Silver used it. I trust it.
 def residual_block(x,
@@ -16,10 +17,11 @@ def residual_block(x,
                     pool_strides=(3,2),
                     output_n_filters=None,
                     output_activation=tf.nn.elu,
-                    output_initializer=tf.random_normal_initializer(0,0.01),
+                    output_initializer=tf_rn_init,
                     normalization=None,
                     training=False,
                     output_layer=False,
+                    param_noiser=None,
                     ):
     for i in range(n_layers):
         #default params
@@ -38,15 +40,22 @@ def residual_block(x,
                 normalize = False
 
         #Build block!
-        x = tf.layers.conv2d(
-                              x,
-                              n,
-                              filter_size,
-                              padding='same',
-                              activation=None,
-                              kernel_initializer=initializer,
-                              bias_initializer=tf.zeros_initializer(),
-                            )
+        if last_layer or param_noiser is None:
+            x = tf.layers.conv2d(
+                                  x,
+                                  n,
+                                  filter_size,
+                                  padding='same',
+                                  activation=None,
+                                  kernel_initializer=initializer,
+                                  bias_initializer=tf.zeros_initializer(),
+                                )
+        else:
+            #TIDY
+            conv_layer = tf.keras.layers.Conv2D(n, filter_size, padding='same', activation=None, kernel_initializer=initializer)
+            conv_layer.build(x.shape)
+            param_noiser.add_noise(conv_layer)
+            x = conv_layer(x)
         if peepholes:
             x = N.peephole_join(x,y, mode=join_mode)
         if normalize:

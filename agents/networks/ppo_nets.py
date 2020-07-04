@@ -23,7 +23,8 @@ class ppo_nets(network):
                                                full_network=(not worker_only or self.settings["workers_computes_advantages"]),
                                                training=self.training_tf,
                                                kbd_activation=N.action_softmax,
-                                               raw_outputs=True
+                                               raw_outputs=True,
+                                               param_noiser=self.param_noiser,
                                               )
             self.v_tf, self.pi_tf = self.main_net(self.vector_inputs, self.visual_inputs)
             #
@@ -61,10 +62,12 @@ class ppo_nets(network):
         #Run init-op
         self.session.run(self.init_ops)
 
-    def evaluate(self, inputs):
+    def evaluate(self, inputs, disable_noise=False):
         vector, visual = inputs
         run_list = [self.pi_tf, self.v_tf]
         feed_dict = {self.training_tf : False}
+        if self.param_noiser is not None:
+            feed_dict[self.param_noiser.disable_noise_tf] = disable_noise
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
         for idx, vis in enumerate(visual):
@@ -98,7 +101,7 @@ class ppo_nets(network):
                     self.stats_tensors,
                     self.debug_tensors,
                     self.visualization_tensors,
-                    ]
+                   ]
         if self.settings["workers_computes_advantages"]:
             val_and_adv_dict = { self.target_value_tf : target_vals[:,0,:], self.advantages_tf : advantages[:,0,:] }
         else:
@@ -119,6 +122,8 @@ class ppo_nets(network):
                         self.params['entropy_floor_loss']  : entropy_floor_loss,
                         self.params['lr']                  : lr,
                     }
+        if self.param_noiser is not None:
+            feed_dict[self.param_noiser.disable] = False
         _filter = lambda x : x[:,0,:] if unfiltered_inputs else lambda x : x
         feed_dict.update(dict(zip(self.vector_inputs, map(_filter,vector_states))))
         feed_dict.update(dict(zip(self.visual_inputs, map(_filter,visual_states))))

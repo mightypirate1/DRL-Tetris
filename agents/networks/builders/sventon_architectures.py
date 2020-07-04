@@ -55,13 +55,17 @@ class resblock(base_architecture):
         return self.advantage_activation_fcn(x)
     def initialize_variables(self):
         n = self.n_pieces+1 if (self.settings["separate_piece_values"] and self.n_pieces>1) else 1
-        resb_default      = {'n_layers' : 3, 'n_filters' : 128,  'dropout' : 0.0, 'training' : self.training_tf, 'normalization' : None,}
+        resb_default      = {'n_layers' : 3, 'n_filters' : 128,  'dropout' : 0.0, 'training' : self.training_tf, 'normalization' : None}
         val_resb_settings = {'n_layers' : 3, 'n_filters' : 1024, 'dropout' : 0.0, 'training' : self.training_tf, 'normalization' : None, 'output_n_filters' : n, 'filter_size' : (5,5), 'pools' : True, 'output_activation' : None, 'output_layer' : True,}
         if "residual_block_settings" not in self.settings:
                 self.resblock_settings = {"visual": resb_default, "visvec": resb_default, "adv_stream" : resb_default, "val_stream": val_resb_settings,}
                 return
         resb_default.update(self.settings["residual_block_settings"]["default"])
-        self.resblock_settings = {"visual": resb_default, "visvec": resb_default, "adv_stream" : resb_default, "val_stream": val_resb_settings,}
+        self.resblock_settings = {"visual": resb_default.copy(), "visvec": resb_default.copy(), "adv_stream" : resb_default.copy(), "val_stream": val_resb_settings,}
+
+        #TIDY
+        self.resblock_settings["adv_stream"]["param_noiser"] = self.param_noiser
+
         if "residual_block_settings" in self.settings:
             for key in self.resblock_settings:
                 if key in self.settings["residual_block_settings"]:
