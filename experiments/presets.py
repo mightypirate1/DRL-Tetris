@@ -201,7 +201,8 @@ presets = {
                          # "optimizer" : tf.train.GradientDescentOptimizer,
                          "optimizer" : tf.train.AdamOptimizer,
                          "tau_learning_rate" : 0.01,
-                         "winrate_learningrate" : 0.01,
+                         "winrate_learningrate" : 0.02,
+                         "winrate_tolerance" : 0.1,
                          "augment_data" : False,
                         }
 }
