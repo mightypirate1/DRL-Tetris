@@ -2,7 +2,7 @@ class state:
     def __init__(self, backend_state,state_processor,unlocked=True):
         self.unlocked=unlocked
         self.state_processor=state_processor
-        self.backend_state=backend_state.copy()
+        self.backend_state=backend_state#.copy()
         self.is_dead = [x.dead[0] for x in backend_state.states]
         if not unlocked:
             self.lock()
