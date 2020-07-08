@@ -48,8 +48,9 @@ def state_dict(x, player, *parameters):
                 "field"     : ret["field"][:,::-1], #horizontal flip
                 "piece"     : np.array([int(p==swap_col_code[x.states[player].piece.max()]) for p in piece_set]).astype(np.uint8),
                 "nextpiece" : np.array([ piece_swap[int(p==x.states[player].nextpiece)] for p in piece_set], dtype=np.uint8),
-                "piece_idx" : swap_col_code[x.states[player].piece.max()],
+                "piece_idx" : swap_col_code[x.states[player].piece.max().astype(np.uint8)],
               }
+        ret["aug"] = aug
     return ret
 
 def raw(x, player, *parameters):
