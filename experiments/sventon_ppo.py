@@ -2,12 +2,14 @@ import tensorflow as tf
 from tools.parameter import *
 
 settings = {
+            "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
+
             #Project
+            "autonomous_workers" : False,
             "augment_data" : False,
             "normalize_advantages" : True,
-            "run-id" : "I-Z07",
+            "run-id" : "HALO-Z01-ambitious",
             "trainer_thread_save_freq" : 1000,
-            "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
             "n_step_value_estimates"    : 1,
 
 
@@ -17,21 +19,22 @@ settings = {
                     'value_loss' : 0.4,
                     'policy_loss' : 0.9,
 
-                    'entropy_loss' : linear_parameter(0.05, final_val=0.0, time_horizon=2e8, max=0.027),
+                    'entropy_loss' : linear_parameter(0.035, final_val=0.0, time_horizon=2e8, max=0.027),
                     'entropy_floor_loss' : 0.0,
                     },
-            "nn_regularizer" : 5e-6,
-            # "resblock_dropout" : 0.08,
+            "nn_regularizer" : 5e-7,
+            "resblock_dropout" : 0.15,
 
-            #Noise
-            "parameter_noise" : {
-                                    "type" : "multiplicative_gaussian",
-                                    "std_dev" : 0.1,
-                                },
+            # #Noise
+            # "parameter_noise" : {
+            #                         "type" : "additive_gaussian",
+            #                         "distance" : "ratio",
+            #                         "target_distance" : 1.02,
+            #                     },
 
             #Train parameters
-            "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=2e-6), base=10.0, decay=1/2e8),
-            "gae_lambda"                : 0.87, #0.95 default
+            "value_lr"                  : exp_parameter(3e-5, base=10.0, decay=2/2e8),
+            "gae_lambda"                : linear_parameter(2.0, final_val=0.0, time_horizon=2e8, max=0.85),
             "n_samples_each_update"     : 4096,
             "minibatch_size"            : 256,
             "n_train_epochs_per_update" : 1,
@@ -69,6 +72,146 @@ settings = {
 
 patches = \
 [
+
+# {
+#     "run-id" : "HALO-Q01-noise_1.02",
+#     # #Noise
+#     "parameter_noise" : {
+#                             "type" : "additive_gaussian",
+#                             "distance" : "ratio",
+#                             "target_distance" : 1.02,
+#                         },
+# },
+
+# {
+#     "run-id" : "I-Z04b",
+#     "nn_regularizer" : 5e-6,
+#     "gae_lambda" : 0.87,
+#     "n_samples_each_update"     : 4096,
+#     "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
+#     #RL-algo-settings
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.10,
+#             'value_loss' : 0.4,
+#             'policy_loss' : 0.9,
+#
+#             'entropy_loss' : linear_parameter(0.03, final_val=0.0, time_horizon=2e8, max=0.0025),
+#             'entropy_floor_loss' : 0.0,
+#             },
+# },
+# {
+#     "run-id" : "I-Z04c",
+#     "nn_regularizer" : 5e-6,
+#     "gae_lambda" : 0.87,
+#     "n_samples_each_update"     : 4096,
+#     "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
+#     #RL-algo-settings
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.10,
+#             'value_loss' : 0.4,
+#             'policy_loss' : 0.9,
+#
+#             'entropy_loss' : linear_parameter(0.04, final_val=0.0, time_horizon=2e8, max=0.0035),
+#             'entropy_floor_loss' : 0.0,
+#             },
+# },
+# {
+#     "run-id" : "I-Z04d",
+#     "nn_regularizer" : 5e-6,
+#     "gae_lambda" : 0.87,
+#     "n_samples_each_update"     : 4096,
+#     "value_lr"                  : exp_parameter(exp_parameter(1e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
+#     #RL-algo-settings
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.10,
+#             'value_loss' : 0.4,
+#             'policy_loss' : 0.9,
+#
+#             'entropy_loss' : linear_parameter(0.02, final_val=0.0, time_horizon=2e8, max=0.0015),
+#             'entropy_floor_loss' : 0.0,
+#             },
+# },
+# {
+#     "run-id" : "I-Z04e",
+#     "nn_regularizer" : 5e-6,
+#     "gae_lambda" : 0.87,
+#     "n_samples_each_update"     : 4096,
+#     "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
+#     #RL-algo-settings
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.10,
+#             'value_loss' : 0.4,
+#             'policy_loss' : 0.9,
+#
+#             'entropy_loss' : linear_parameter(0.02, final_val=0.0, time_horizon=2e8, max=0.0015),
+#             'entropy_floor_loss' : 10.0,
+#             },
+# },
+# {
+#     "run-id" : "I-Z04f",
+#     "nn_regularizer" : 5e-6,
+#     "gae_lambda" : 0.87,
+#     "n_samples_each_update"     : 4096,
+#     "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
+#     #RL-algo-settings
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.10,
+#             'value_loss' : 0.4,
+#             'policy_loss' : 0.9,
+#
+#             'entropy_loss' : linear_parameter(0.05, final_val=0.0, time_horizon=2e8, max=0.0045),
+#             'entropy_floor_loss' : 0.0,
+#             },
+# },
+# {
+#     "run-id" : "I-Z04g",
+#     "nn_regularizer" : 5e-6,
+#     "gae_lambda" : 0.87,
+#     "n_samples_each_update"     : 4096,
+#     "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
+#     #RL-algo-settings
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.10,
+#             'value_loss' : 0.4,
+#             'policy_loss' : 0.9,
+#
+#             'entropy_loss' : linear_parameter(0.07, final_val=0.0, time_horizon=2e8, max=0.0065),
+#             'entropy_floor_loss' : 0.0,
+#             },
+# },
+# {
+#     "run-id" : "I-Z04h",
+#     "nn_regularizer" : 5e-6,
+#     "gae_lambda" : 0.87,
+#     "n_samples_each_update"     : 4096,
+#     "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
+#     #RL-algo-settings
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.10,
+#             'value_loss' : 0.4,
+#             'policy_loss' : 0.9,
+#
+#             'entropy_loss' : linear_parameter(0.09, final_val=0.0, time_horizon=2e8, max=0.0085),
+#             'entropy_floor_loss' : 0.0,
+#             },
+# },
+# {
+#     "run-id" : "I-Z04i",
+#     "nn_regularizer" : 5e-6,
+#     "gae_lambda" : 0.87,
+#     "n_samples_each_update"     : 4096,
+#     "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
+#     #RL-algo-settings
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.10,
+#             'value_loss' : 0.4,
+#             'policy_loss' : 0.9,
+#
+#             'entropy_loss' : linear_parameter(0.13, final_val=0.0, time_horizon=2e8, max=0.00125),
+#             'entropy_floor_loss' : 0.0,
+#             },
+# },
+
 # {
 #         "run-id" : "I-Q06-lambda95",
 #         "value_lr"                  : exp_parameter(exp_parameter(3e-5, base=10.0, decay=1/17e6, min=1e-5), base=10.0, decay=1/2e8),
