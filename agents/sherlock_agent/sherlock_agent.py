@@ -24,7 +24,7 @@ class sherlock_agent(sherlock_agent_base):
 
         #The base class provides basic functionality, and provides us with types to use! (This is how we are both ppo and q)
         sherlock_agent_base.__init__(self, id=id, name="worker{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
-
+        self.DBG = {"delta_zero" : 0, "delta_sum_zero" : 0, 'p_sum_zero' : 0}
         #Some general variable initialization etc...
 
         #Helper variables
@@ -101,9 +101,11 @@ class sherlock_agent(sherlock_agent_base):
         phi_p = np.concatenate([phi[np.newaxis,:,:,p,np.newaxis] for phi,p in zip(phi_eval,pieces)], axis=0)
         p_unreduced = all_deltas * phi_p
         p_unnormalized = np.sum(p_unreduced, axis=(1,2))
-        p_sum = p_unnormalized.sum()
-        if p_sum == 0: # avoid a corner case :)
-            p_sum = 1.0
+        p_sum = p_unnormalized.sum(axis=-1,keepdims=True)
+
+        if (p_sum == 0).any(): # avoid a corner case :)
+            self.DBG["p_sum_zero"] += 1
+            p_sum[np.where(p_sum==0)] = 1.0
         probablilities = p_unnormalized / p_unnormalized.sum(axis=1, keepdims=True)
 
         #Be cautious?
@@ -142,11 +144,17 @@ class sherlock_agent(sherlock_agent_base):
                  delta[np.newaxis,:,:,a_idx,np.newaxis],
                  delta_sum[np.newaxis,:]
                  )
-            action_idxs[i] = a
 
+            if delta.sum() == 0:
+                self.DBG["delta_zero"] += 1
+            if delta_sum.sum() == 0:
+                self.DBG["delta_sum_zero"] += 1
+            if prob[a_idx].sum() == 0:
+                self.DBG["delta_sum_zero"] += 1
+            action_idxs[i] = a
         #Nearly done! Just need to create the actions...
         actions = [a[idx[0].squeeze()] for a, idx in zip(all_actions,action_idxs)]
-
+        print(self.DBG)
         #Keep the clock going...
         if training:
             self.clock += self.n_envs * self.n_workers
