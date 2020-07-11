@@ -160,6 +160,7 @@ class ppo_nets(network):
         advnorm = adv_normalizer(0.01, safety=2.0, clip_val=4.0)
         if self.settings["normalize_advantages"]:
             advantages = advnorm(advantages)
+
         policy_loss = tf.minimum( r * advantages, clipped_r * advantages )
         #entropy
         entropy_bonus = action_entropy = tf.reduce_sum(N.action_entropy(policy + e) * p_mask, axis=3)
