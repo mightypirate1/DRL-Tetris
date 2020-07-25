@@ -82,17 +82,20 @@ class trainer_thread(mp.Process):
                                                          init_clock=self.init_clock,
                                                          summarizer=self.quick_summary,
                                                         )
+            if "initialization" in self.settings:
+                self.trainer.clock = self.settings["initialization"]["clock"]
+                self.trainer.load_weights(*utils.weight_location(self.settings["initialization"]["weights"]))
 
             ### ## ## # # #
             ## Run!
             try:
                 #This is ALL we do. All day long.
                 while self.workers_running():
+                    self.transfer_weights()
                     self.load_worker_data()
                     self.do_training()
                     self.print_stats()
                     self.update_global_clock()
-                    self.transfer_weights()
                     self.save_weights()
             ### ## ## # # #
             ## In case of a crash:

@@ -21,7 +21,7 @@ class worker_thread(mp.Process):
         self.t_thread_start = 0
         self.gpu_count = 1 if (not self.settings["worker_net_on_cpu"]) or self.settings["run_standalone"] else 0
         self.random_actions = init_weights is None #Speed up initial datagathering by making random moves.
-        self.current_weights = 0 #I have really old weights
+        self.current_weights = -1 #I have really old weights
         self.current_weights_timestamp = None
         self.last_global_clock = 0
         self.stashed_experience = None
@@ -86,6 +86,11 @@ class worker_thread(mp.Process):
             ###
             for t in range(0,self.n_steps):
 
+                # Get data back and forth to the trainer!
+                self.send_training_data(t)
+                self.check_thread_status()
+                self.update_weights_and_clock()
+
                 # Who's turn, and what state do they see?
                 current_player = 1 - current_player
                 state = self.env.get_state()
@@ -107,11 +112,6 @@ class worker_thread(mp.Process):
                 #If some game has reached termingal state, it's reset here. Agents also get a chance to update their internals...
                 reset_list = self.reset_envs(done, reward, current_player)
                 self.agent.ready_for_new_round(training=True, env=reset_list)
-
-                # Get data back and forth to the trainer!
-                self.send_training_data(t)
-                self.check_thread_status()
-                self.update_weights_and_clock()
 
                 #Print
                 self.print_stats(t)
