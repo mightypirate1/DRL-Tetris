@@ -65,6 +65,7 @@ class tetris_environment:
 
     def reset(self):
         self.backend.reset()
+        self.process_settings()
         self.done         = False
         self.round_reward = [self.reward_fcn(p_idx) for p_idx in self.player_idxs]
         self.reward       = [self.reward_fcn(p_idx) for p_idx in self.player_idxs]
@@ -107,7 +108,7 @@ class tetris_environment:
         a[player] = action
         self.backend.make_action(a)
         if finalize:
-            self.done = self.backend.finish_action(self.settings["time_elapsed_each_action"])
+            self.done = self.backend.finish_action(self.time_elapsed_each_action)
         if not simulate:
             reward = self.last_reward[player] = self.reward_fcn(player)
             self.round_reward[player] += reward
@@ -193,6 +194,13 @@ class tetris_environment:
         return (p*7)[:7]
 
     def process_settings(self):
+        if "random_bpm" not in self.settings:
+            self.settings["using_random_bpm"] = False
+            self.time_elapsed_each_action = self.settings["time_elapsed_each_action"]
+        else:
+            self.settings["using_random_bpm"] = True
+            _min, _max = self.settings["random_bpm"]["min"], self.settings["random_bpm"]["max"]
+            self.time_elapsed_each_action = self.settings["time_elapsed_each_action"] = np.random.randint(_min, high=max)
         if type(self.settings["state_processor"]) is str:
             func, parameter_list = state_processors.func_dict[self.settings["state_processor"]]
             self.state_processor = state_processors.state_processor(func, [self.settings[x] for x in parameter_list])

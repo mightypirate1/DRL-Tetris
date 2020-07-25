@@ -51,6 +51,8 @@ def state_dict(x, player, *parameters):
                 "piece_idx" : swap_col_code[x.states[player].piece.max().astype(np.uint8)],
               }
         ret["aug"] = aug
+    if parameters[0][5]: #settings["random_bpm"]
+        ret["bpm"] = np.array(1000 / parameters[0][4]) # 1000/settings["time_elapsed_each_action"]
     return ret
 
 def raw(x, player, *parameters):
@@ -68,7 +70,7 @@ def raw(x, player, *parameters):
 # NOTE: The parameters are set up when the environment is created
 func_dict = {
                 "raw" : (raw, []),
-                "state_dict": (state_dict, ["pieces", "old_state_dict", "state_processor_separate_piece", "augment_data"]),
+                "state_dict": (state_dict, ["pieces", "old_state_dict", "state_processor_separate_piece", "augment_data", "time_elapsed_each_action", "using_random_bpm"]),
             }
 ''' # # # # # # # # # # '''
 ''' # # # # # # # # # # '''
