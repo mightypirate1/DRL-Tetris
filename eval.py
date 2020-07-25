@@ -73,6 +73,7 @@ Options:
     --frac              Print scoreboard with fractions instead of floats. [default: False]
     --width W           With of the score crosstable [default: 120]
     --argmax            Force evals to use argmax, regardless of project setting. [default: False]
+    --argmax-p2         Force player-2's evals to use argmax, regardless of project setting. [default: False]
     --gpu               Run on GPU. [default: False]
     --solo              Play like it's a 1-player game (only P1 plays) [default: False]
 '''
@@ -136,9 +137,16 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
 
         if solo:
             current_player= np.array([0])#
-            env.envs[0].backend.states[1].field[:,:] = 0
+            # env.envs[0].backend.states[1].field[:,:] = 0
+            env.envs[0].backend.states[1].field[:5,:] = 0#env.envs[0].backend.states[0].field[5:,:]
 
         #Get action from agent
+        if run_settings["--argmax-p2"]:
+            if current_player[0] == 1:
+                agent[current_player[0]].settings["eval_distribution"] == "argmax"
+            else:
+                agent[current_player[0]].settings["eval_distribution"] == "pi"
+
         action_idx, action    = agent[current_player[0]].get_action(state, player=current_player[0], training=False, verbose=debug)
         # action = env.get_random_action(player=current_player)
 
