@@ -200,7 +200,7 @@ class tetris_environment:
         else:
             self.settings["using_random_bpm"] = True
             _min, _max = self.settings["random_bpm"]["min"], self.settings["random_bpm"]["max"]
-            self.time_elapsed_each_action = self.settings["time_elapsed_each_action"] = np.random.randint(_min, high=max)
+            self.time_elapsed_each_action = self.settings["time_elapsed_each_action"] = np.random.randint(_min, high=_max)
         if type(self.settings["state_processor"]) is str:
             func, parameter_list = state_processors.func_dict[self.settings["state_processor"]]
             self.state_processor = state_processors.state_processor(func, [self.settings[x] for x in parameter_list])

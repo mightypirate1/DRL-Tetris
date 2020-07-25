@@ -49,6 +49,7 @@ class sherlock_agent_base:
                                             state_from_perspective=True,
                                             separate_piece=self.settings["state_processor_separate_piece"],
                                             piece_in_statevec=self.settings["state_processor_piece_in_statevec"],
+                                            speed_in_statevec=("random_bpm" in self.settings),
                                             )
         #nn-shapes etc
         self.state_size = self.unpack.get_shapes()

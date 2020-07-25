@@ -11,6 +11,7 @@ class unpacker:
                  # piece_mode='1hot',
                  separate_piece=False,
                  piece_in_statevec=False,
+                 speed_in_statevec=False,
                  ):
         self.state_fcn = self.states_from_perspective if state_from_perspective else self.states_to_vectors
         self.collect_data = self.collect_all_data if observation_mode == 'vector' else self.collect_separate_data
@@ -21,6 +22,12 @@ class unpacker:
         # self.piece_mode = piece_mode
         self.separate_piece = separate_piece
         self.piece_in_statevec = piece_in_statevec
+        self.speed_in_statevec = speed_in_statevec
+        self.ignored_fields = ["aug"]
+        if not piece_in_statevec:
+            self.ignored_fields += ["piece", "piece_idx"]
+        if not speed_in_statevec:
+            self.ignored_fields += ["bpm"]
         self.state_size = self.get_shapes(state=state)
 
     ##Frontend
@@ -73,13 +80,11 @@ class unpacker:
             aug = state_dict.pop("aug", None)
             state_dict.update(aug)
         for x in state_dict:
-            if x == "aug":
+            if x == self.ignored_fields:
                 continue
-            if x in ['piece', 'piece_idx'] and self.separate_piece:
-                piece = np.array(state_dict['piece_idx']).reshape((1))
-                if not self.piece_in_statevec or x in ['piece_idx']:
-                    continue
             tmp.append(state_dict[x].reshape((1,-1)))
+        if self.separate_piece:
+            piece = np.array(state_dict['piece_idx']).reshape((1))
         vector = np.concatenate(tmp, axis=1)
         visual = None
         ret = vector, visual if not self.separate_piece else vector, visual, piece
@@ -91,14 +96,12 @@ class unpacker:
             aug = state_dict.pop("aug", None)
             state_dict.update(aug)
         for x in state_dict:
-            if x == "aug":
+            if x in self.ignored_fields:
                 continue
-            if x in ['piece', 'piece_idx'] and self.separate_piece:
-                piece = np.array(state_dict['piece_idx']).reshape((1))
-                if not self.piece_in_statevec or x in ['piece_idx']:
-                    continue
             elif x != 'field':
                 tmp.append(state_dict[x].reshape((1,-1)))
+        if self.separate_piece:
+            piece = np.array(state_dict['piece_idx']).reshape((1))
         vector = np.concatenate(tmp, axis=1)
         visual = state_dict['field'][None,:,:,None]
         ret = (vector, visual) if not self.separate_piece else (vector, visual, piece)
