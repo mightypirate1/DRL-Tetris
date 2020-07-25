@@ -41,7 +41,7 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
         self.train_lossstats_raw = list()
 
         #TRAIN!
-        train_params = utils.evaluate_params(self.settings["ppo_parameters"], self.clock)
+        train_params, lr = utils.evaluate_params( [self.settings["ppo_parameters"], self.settings["value_lr"]], self.clock)
         for t in range(n_epochs):
             if self.verbose_training: print("[",end='',flush=False); last_print = 0
             last_epoch = t+1 == n_epochs
@@ -57,7 +57,7 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
                                          target_values[perm[i:i+minibatch_size]],
                                          rewards[perm[i:i+minibatch_size]],
                                          dones[perm[i:i+minibatch_size]],
-                                         lr=self.settings["value_lr"].get_value(self.clock),
+                                         lr=lr,
                                          **train_params,
                                         )
                 self.train_stats_raw.append(stats)
