@@ -7,23 +7,28 @@ settings = {
             #Project
             "autonomous_workers" : False,
             "augment_data" : False,
-            "normalize_advantages" : True,
-            "run-id" : "HALO-Z01-ambitious",
+            "advantage_normalizer" : {"lr" : 0.01, "safety" : 2.0, "clip_val" : 4.0},
+            "run-id" : "JAB-Z04-fix400",
+            # "initialization" : {
+            #                     "clock" : 100000000,
+            #                     "weights" : "",
+            #                     },
+            # "random_bpm" : {"min" : 100, "max" : 500,},
             "trainer_thread_save_freq" : 1000,
             "n_step_value_estimates"    : 1,
 
 
             #RL-algo-settings
             "ppo_parameters" : {
-                    'clipping_parameter' : 0.10,
+                    'clipping_parameter' : 0.15,
                     'value_loss' : 0.4,
                     'policy_loss' : 0.9,
 
-                    'entropy_loss' : linear_parameter(0.035, final_val=0.0, time_horizon=2e8, max=0.027),
+                    'entropy_loss' : linear_parameter(0.035, final_val=0.0, time_horizon=2e8, max=0.025),
                     'entropy_floor_loss' : 0.0,
                     },
-            "nn_regularizer" : 5e-7,
-            "resblock_dropout" : 0.15,
+            "nn_regularizer" : 1e-5,
+            "resblock_dropout" : 0.25,
 
             # #Noise
             # "parameter_noise" : {
@@ -33,8 +38,8 @@ settings = {
             #                     },
 
             #Train parameters
-            "value_lr"                  : exp_parameter(3e-5, base=10.0, decay=2/2e8),
-            "gae_lambda"                : linear_parameter(2.0, final_val=0.0, time_horizon=2e8, max=0.85),
+            "value_lr"                  : exp_parameter(3e-5, base=10.0, decay=1/2e8, min=1e-6),
+            "gae_lambda"                : linear_parameter(0.8, final_val=1.0, time_horizon=2e8, min=0.87),
             "n_samples_each_update"     : 4096,
             "minibatch_size"            : 256,
             "n_train_epochs_per_update" : 1,
@@ -64,7 +69,7 @@ settings = {
             "n_envs_per_thread"    : 80,
             "worker_steps"         : total_steps // 3*80,
             #Misc
-            "render_screen_dims" : (3840,2160),
+            "render_screen_dims" : (1920,1080),
            }
 ###
 ###
@@ -72,6 +77,32 @@ settings = {
 
 patches = \
 [
+# {
+#     "run-id" : "HALO-Z03-mu03",
+#     "gae_lambda" : linear_parameter(0.7, final_val=1.0, time_horizon=2e8, max=0.96),
+#     "ppo_parameters" : {
+#             'clipping_parameter' : 0.05,
+#             'value_loss' : 0.1,
+#             'policy_loss' : 1.0,
+#
+#             'entropy_loss' : 0.0001,#linear_parameter(31.035, final_val=0.0, time_horizon=2.03e8, max=0.027),
+#             'entropy_floor_loss' : 0.0,
+#             },
+#     "value_lr"                  : 1e-6,#exp_parameter(3e-5, base=10.0, decay=1/2e8),
+#     "initialization" : {
+#                         "clock" : 200000000,
+#                         "weights" : "models/HALO-Z01-ambitious/weights24000.w",
+#                         },
+#     "nn_regularizer" : 1e-6,
+#     "resblock_dropout" : 0.25,
+#     "n_samples_each_update"     : 8*4096,
+#     "minibatch_size"            : 32,
+#     "advantage_normalizer" : {"lr" : 0.005, "safety" : 1.5, "clip_val" : 3.0},
+# },
+
+
+
+
 
 # {
 #     "run-id" : "HALO-Q01-noise_1.02",

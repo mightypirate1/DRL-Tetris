@@ -30,7 +30,6 @@ presets = {
 
             "sventon" : {
                         "augment_data" : False, #make this option good, or remove from release
-                        "normalize_advantages" : False,
                         "dynamic_n_epochs" : False,
                         "worker_net_on_cpu" : False,
                         #q/v calculations
