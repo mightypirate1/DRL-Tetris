@@ -22,6 +22,10 @@ import threads
 
 def adjust_settings(s):
     S = s.copy()
+    if run_settings["--speed"] != "0":
+        S["time_elapsed_each_action"] = speed = int(run_settings["--speed"])
+        if "random_bpm" in S:
+            S["random_bpm"] = {"min":speed,"max":speed+1}
     if run_settings["--null"]:
         S["bar_null_moves"] = False
     if run_settings["--no-null"]:
@@ -75,6 +79,7 @@ Options:
     --argmax            Force evals to use argmax, regardless of project setting. [default: False]
     --argmax-p2         Force player-2's evals to use argmax, regardless of project setting. [default: False]
     --gpu               Run on GPU. [default: False]
+    --speed S           Fix the time for an action to S (0 disables this feature) [default: 0]
     --solo              Play like it's a 1-player game (only P1 plays) [default: False]
 '''
 run_settings = docopt.docopt(docoptstring)
@@ -84,7 +89,6 @@ if len(run_settings["<weights>"]) < 2:
 settingsfiles = map(utils.find_weight_settings, run_settings["<weights>"])
 settings =      list(map(utils.load_settings,settingsfiles))
 ####
-
 #Wedge some settings in...
 assert utils.test_setting_compatibility(*settings), "Incompatible settings :("
 s = adjust_settings(settings[0].copy())
@@ -162,7 +166,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         if render:
             env.render()
             if not fast:
-                time.sleep(s["time_elapsed_each_action"]/1000)
+                time.sleep(env.envs[0].time_elapsed_each_action/1000)
 
         #Reset the envs that reach terminal states
         for i,d in enumerate(done):
