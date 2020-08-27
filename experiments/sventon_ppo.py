@@ -8,7 +8,8 @@ settings = {
             "autonomous_workers" : False,
             "augment_data" : False,
             "advantage_normalizer" : {"lr" : 0.01, "safety" : 2.0, "clip_val" : 4.0},
-            "run-id" : "JAB-Z04-fix400",
+            "run-id" : "KELVIN-Z02-fix400",
+            "time_elapsed_each_action" : 400,
             # "initialization" : {
             #                     "clock" : 100000000,
             #                     "weights" : "",
@@ -27,7 +28,7 @@ settings = {
                     'entropy_loss' : linear_parameter(0.035, final_val=0.0, time_horizon=2e8, max=0.025),
                     'entropy_floor_loss' : 0.0,
                     },
-            "nn_regularizer" : 1e-5,
+            "nn_regularizer" : 1e-6,
             "resblock_dropout" : 0.25,
 
             # #Noise
@@ -38,10 +39,12 @@ settings = {
             #                     },
 
             #Train parameters
-            "value_lr"                  : exp_parameter(3e-5, base=10.0, decay=1/2e8, min=1e-6),
-            "gae_lambda"                : linear_parameter(0.8, final_val=1.0, time_horizon=2e8, min=0.87),
+            # "value_lr"                  : exp_parameter(5e-5, base=10.0, decay=1/2e8, min=1e-6),
+            "value_lr"                  : exp_parameter(5e-5, base=10.0, decay=1/2e8),
+            "gae_lambda"                : linear_parameter(0.8, final_val=0.95, time_horizon=2e8, min=0.87),
             "n_samples_each_update"     : 4096,
-            "minibatch_size"            : 256,
+            # "minibatch_size"            : 256,
+            "minibatch_size"            : 512,
             "n_train_epochs_per_update" : 1,
 
             #Architecture
