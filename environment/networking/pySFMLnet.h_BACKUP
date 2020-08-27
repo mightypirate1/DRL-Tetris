@@ -1,0 +1,66 @@
+#ifndef PYSFMLNET_H
+#define PYSFMLNET_H
+
+#include <SFML/Network.hpp>
+#include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
+#include "pybind11/numpy.h"
+
+extern sf::Packet packet;
+
+template <typename T>
+void write_data(T t) {
+	packet << t;
+}
+
+template <typename T>
+T read_data() {
+	T t;
+	packet >> t;
+	return t;
+}
+
+bool init(int tcp_port, int udp_port);
+
+int listen();
+uint16_t receive();
+
+void sendTCP(uint16_t client);
+void sendUDP(uint16_t client);
+
+bool updateID(uint16_t from, uint16_t to);
+
+PYBIND11_MODULE(MODULE_NAME, m) {
+  m.doc() = "python wrapper for SFML network";
+
+	m.def("init", &init);
+	m.def("receive", &receive);
+	m.def("sendTCP", &sendTCP);
+	m.def("sendUDP", &sendUDP);
+
+	m.def("write_uint8", &write_data<uint8_t>);
+	m.def("write_uint16", &write_data<uint16_t>);
+	m.def("write_uint32", &write_data<uint32_t>);
+	m.def("write_uint64", &write_data<unsigned long long>);
+	m.def("write_int8", &write_data<int8_t>);
+	m.def("write_int16", &write_data<int16_t>);
+	m.def("write_int32", &write_data<int32_t>);
+	m.def("write_int64", &write_data<long long>);
+	m.def("write_float", &write_data<float>);
+	m.def("write_double", &write_data<double>);
+	m.def("write_string", &write_data<std::string>);
+
+	m.def("read_uint8", &read_data<uint8_t>);
+	m.def("read_uint16", &read_data<uint16_t>);
+	m.def("read_uint32", &read_data<uint32_t>);
+	m.def("read_uint64", &read_data<unsigned long long>);
+	m.def("read_int8", &read_data<int8_t>);
+	m.def("read_int16", &read_data<int16_t>);
+	m.def("read_int32", &read_data<int32_t>);
+	m.def("read_int64", &read_data<long long>);
+	m.def("read_float", &read_data<float>);
+	m.def("read_double", &read_data<double>);
+	m.def("read_string", &read_data<std::string>);
+}
+
+#endif

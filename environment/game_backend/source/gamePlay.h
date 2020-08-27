@@ -56,6 +56,7 @@ class GamePlay {
     static bool only_zs;
 
     uint8_t nextpiece = 7;
+    uint8_t send_lines = 0;
 
     float incoming_lines = 0;
 

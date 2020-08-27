@@ -63,7 +63,8 @@ struct State {
           combo_count({1}, {1}, &gp.combo.comboCount, pybind11::capsule(this, [](void*) {})),
           nextpiece({1}, {1}, &gp.nextpiece, pybind11::capsule(this, [](void*) {})),
           reward({1}, {1}, &gp.reward, pybind11::capsule(this, [](void*) {})),
-          dead({1}, {1}, &gp.dead, pybind11::capsule(this, [](void*) {})) {}
+          dead({1}, {1}, &gp.dead, pybind11::capsule(this, [](void*) {})),
+          send_lines({1}, {1}, &gp.send_lines, pybind11::capsule(this, [](void*) {})) {}
 
     State(const State&) {}  // Added no-op copy so env can be copied without ruining state
     State& operator=(const State&) { return *this; }
@@ -79,6 +80,7 @@ struct State {
     pybind11::array_t<uint8_t> nextpiece;
     pybind11::array_t<uint8_t> reward;
     pybind11::array_t<uint8_t> dead;
+    pybind11::array_t<uint8_t> send_lines;
 };
 
 struct PythonHandle {
@@ -102,8 +104,12 @@ struct PythonHandle {
 
     void reset();
     void seed();
+    void re_seed(unsigned long long, unsigned long long);
 
     void get_actions(int player);
+
+    std::vector<uint8_t> compress_state(int);
+    void extract_state(int, std::vector<uint8_t>);
 
     PythonHandle copy();
 
@@ -307,11 +313,14 @@ PYBIND11_MODULE(TETRIS_MODULE_NAME, m) {
                 return ret;
             }))
         .def(pybind11::init(&PythonHandle::init))
+        .def("compress_state", &PythonHandle::compress_state)
+        .def("extract_state", &PythonHandle::extract_state)
         .def("make_action", &PythonHandle::make_actions)
         .def("finish_action", &PythonHandle::finish_actions)
         .def("copy", &PythonHandle::copy)
         .def("set", &PythonHandle::set)
         .def("reset", &PythonHandle::reset)
+        .def("set_seed", &PythonHandle::re_seed)
         .def("recreate_state", &PythonHandle::recreate_state)
         .def("get_actions", &PythonHandle::get_actions)
         .def_readonly("states", &PythonHandle::states)
@@ -334,6 +343,7 @@ PYBIND11_MODULE(TETRIS_MODULE_NAME, m) {
         .def_readwrite("nextpiece", &State::nextpiece)
         .def_readonly("reward", &State::reward)
         .def_readonly("dead", &State::dead)
+        .def_readonly("send_lines", &State::send_lines)
         .def_readonly("x", &State::x)
         .def_readonly("y", &State::y)
         .def(pybind11::pickle([](const State&) { return pybind11::make_tuple(0); }, [](pybind11::tuple) { return State(); }));

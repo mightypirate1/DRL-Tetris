@@ -1,4 +1,5 @@
 #include "PythonHandle.h"
+#include "packet_compress.hpp"
 
 #include <iostream>
 
@@ -65,6 +66,9 @@ void PythonHandle::reset() {
     seed();
 }
 
+void PythonHandle::re_seed(unsigned long long seed1, unsigned long long seed2) {
+    for (auto& player : players) player.seed(seed1, seed2);
+}
 void PythonHandle::seed() {
     unsigned long long seed1 = time(NULL), seed2 = time(NULL);
     for (auto& player : players) player.seed(seed1, seed2);
@@ -117,7 +121,7 @@ bool PythonHandle::action_finish(int player) {
         return true;
     else if (!sent)  // Nothing sent
         return false;
-
+    players[player].send_lines += sent;
     distributeLines(player, sent);
 }
 
@@ -165,6 +169,7 @@ bool PythonHandle::finish_actions(int time_elapsed) {
         if (player.dead) continue;
 
         int sent = player.delayCheck(time_elapsed);
+        player.send_lines += sent;
         if (sent == -1) {
             player.dead = true;
             masks[player_count].clear();
@@ -188,3 +193,56 @@ bool PythonHandle::finish_actions(int time_elapsed) {
 }
 
 void PythonHandle::get_actions(int p) { masks[p] = players[p].getMask(2); }
+
+std::vector<uint8_t> PythonHandle::compress_state(int p){
+  PacketCompress pc;
+  std::size_t m = pc.square.size();
+  std::size_t n = pc.square[0].size();
+  for (uint8_t i=0; i<m;i++){
+    for (uint8_t j=0;j<n;j++){
+      pc.square[i][j] = players[p].field.square[i*m+j];
+    }
+  }
+  // pc.square = players[p].field.square;
+  pc.posX = players[p].field.piece.posX;
+  pc.posY = players[p].field.piece.posY;
+  pc.piece = players[p].field.piece.piece;
+  pc.color = players[p].field.piece.tile;
+  pc.rotation = players[p].field.piece.current_rotation;
+  pc.nextpiece = players[p].nextpiece;
+  pc.npcol = players[p].nextpiece;
+  pc.nprot = 0;
+  pc.comboText = players[p].combo.comboCount;
+  pc.pendingText = players[p].incoming_lines_count;
+  pc.bpmText = 0;
+  pc.comboTimerCount = players[p].combo.remaining;
+  pc.countdown = 0;
+  pc.time_val = 0;
+  pc.compress();
+  return pc.m_data;
+}
+
+void PythonHandle::extract_state(int p, std::vector<uint8_t> data){
+  PacketCompress pc;
+  pc.loadTmp(data);
+  pc.extract();
+  std::size_t m = pc.square.size();
+  std::size_t n = pc.square[0].size();
+  for (uint8_t i=0; i<m;i++){
+    for (uint8_t j=0;j<n;j++){
+      players[p].field.square[i*m+j] = pc.square[i][j];
+    }
+  }
+  // players[p].field.square = pc.square;
+  players[p].field.piece.posX = pc.posX;
+  players[p].field.piece.posY = pc.posY;
+  players[p].field.piece.piece = pc.piece;
+  players[p].field.piece.tile = pc.color;
+  players[p].field.piece.current_rotation = pc.rotation;
+  players[p].nextpiece = pc.nextpiece;
+  players[p].nextpiece = pc.npcol;
+  players[p].combo.comboCount = pc.comboText;
+  players[p].incoming_lines_count = pc.pendingText;
+  players[p].combo.remaining = pc.comboTimerCount;
+
+}

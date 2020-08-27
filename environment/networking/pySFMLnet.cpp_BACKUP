@@ -1,0 +1,145 @@
+#include "pySFMLnet.h"
+#include <list>
+
+sf::Packet packet;
+sf::TcpListener listener;
+sf::SocketSelector selector;
+sf::UdpSocket udpSock;
+
+sf::IpAddress udp_address;
+uint16_t udp_port;
+
+struct Client {
+  uint16_t id;
+  uint32_t udp_port;
+  sf::TcpSocket socket;
+  sf::IpAddress address;
+};
+
+std::list<Client> clients;
+
+bool init(int tcp_port, int udp_port_) {
+  udpSock.bind(udp_port_);
+  selector.add(udpSock);
+
+  if (listener.listen(tcp_port) == sf::Socket::Done) {
+		selector.add(listener);
+		return true;
+	}
+
+  return false;
+}
+
+int listen() {
+  if (!selector.wait(sf::milliseconds(100)))
+    return 0;
+
+  if (selector.isReady(listener)) {
+		static uint16_t idcount = 60000;
+		clients.emplace_back();
+		Client& newclient = clients.back();
+		newclient.id = idcount++;
+
+    if (listener.accept(newclient.socket) == sf::Socket::Done) {
+      newclient.address = newclient.socket.getRemoteAddress();
+      return newclient.id;
+    }
+		else {
+			std::cout << "CLient accept failed" << std::endl;
+			clients.pop_back();
+			idcount--;
+      return 0;
+		}
+		if (idcount<60000)
+			idcount=60000;
+	}
+  return 1;
+}
+
+void validateUDP() {
+  uint16_t id;
+  packet >> id;
+
+  for (auto& client : clients) {
+    if (client.id == id) {
+      client.udp_port = udp_port;
+      packet.clear();
+      packet << (uint8_t)254 << (uint8_t)14;
+      client.socket.send(packet);
+      return;
+    }
+  }
+}
+
+uint16_t checkUdpPacket() {
+  uint8_t packetid;
+  packet >> packetid;
+  if (packetid == 99) {
+    validateUDP();
+    return 0;
+  }
+  else {
+    uint16_t clientid;
+		packet >> clientid;
+		for (auto&& client : clients)
+			if (client.id == clientid && client.address == udp_address && client.udp_port == udp_port)
+        return client.id;
+  }
+
+  return 0;
+}
+
+uint16_t receive() {
+  if (selector.isReady(udpSock)) {
+    auto status = udpSock.receive(packet, udp_address, udp_port);
+		if (status == sf::Socket::Done)
+			return checkUdpPacket();
+
+    return 0;
+	}
+
+	for (auto it = clients.begin(); it != clients.end();  it++) {
+		if (selector.isReady(it->socket)) {
+			sf::Socket::Status status = it->socket.receive(packet);
+			if (status == sf::Socket::Done)
+        return it->id;
+			else if (status == sf::Socket::Disconnected) {
+        packet.clear();
+        packet << (uint8_t)253;
+        uint16_t id = it->id;
+				it = clients.erase(it);
+        return id;
+			}
+		}
+	}
+
+  return 0;
+}
+
+void sendTCP(uint16_t id) {
+  for (auto& client : clients)
+    if (client.id == id) {
+      if (client.socket.send(packet) != sf::Socket::Done)
+        std::cout << "Error sending TCP packet to client " << client.id << std::endl;
+      return;
+    }
+}
+
+void sendUDP(uint16_t id) {
+  for (auto& client : clients)
+    if (client.id == id) {
+      if (udpSock.send(packet, client.address, client.udp_port) != sf::Socket::Done)
+        std::cout << "Error sending UDP packet to client " << client.id << std::endl;
+      return;
+    }
+}
+
+bool updateID(uint16_t from, uint16_t to) {
+  for (auto& client : clients)
+    if (client.id == from) {
+      client.id = to;
+      return true;
+    }
+
+  return false;
+}

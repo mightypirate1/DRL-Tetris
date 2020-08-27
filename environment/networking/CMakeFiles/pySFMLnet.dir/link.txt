@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -Werror -Wall -Wextra -pedantic  -shared  -o pySFMLnet.cpython-36m-x86_64-linux-gnu.so CMakeFiles/pySFMLnet.dir/pySFMLnet.cpp.o -flto -lsfml-network -lsfml-system 
