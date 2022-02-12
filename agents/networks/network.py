@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import tools.utils as utils
 from agents.networks.param_noiser import param_noiser
 from agents.networks.builders import sventon_architectures as arch

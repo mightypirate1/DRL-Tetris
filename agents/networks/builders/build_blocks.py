@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from agents.networks import network_utils as N
 
 #This messes up my syntax-highlighting if it's in-line below...

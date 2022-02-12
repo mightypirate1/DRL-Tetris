@@ -1,5 +1,5 @@
 from tools.parameter import *
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 settings = {
             #Project
             "run-id" : "SIXten-v1.0",

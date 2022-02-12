@@ -2,7 +2,7 @@ import os
 import pickle
 import numpy as np
 import itertools
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from scipy.stats import rankdata
 import experiments.presets
 from collections import Collection, Mapping

@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
