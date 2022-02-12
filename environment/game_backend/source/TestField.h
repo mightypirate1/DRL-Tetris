@@ -1,6 +1,7 @@
 #ifndef TESTFIELD_H
 #define TESTFIELD_H
 
+#include <cstdint>
 #include "gameField.h"
 #include <array>
 #include <vector>
