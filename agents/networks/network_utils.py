@@ -1,5 +1,5 @@
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.python.client import device_lib
 
 ###
@@ -106,7 +106,7 @@ def qva_from_raw_streams(_V,_A, mask=1.0, n_used_pieces=7, separate_piece_values
 
 def pool_spatial_dims_until_singleton(x, warning=False):
     for axis in [1, 2]:
-        if x.shape[axis].value > 1:
+        if x.shape[axis] > 1:
             if warning:
                 print("applying reduce_mean to ", x, "along axis", axis)
             x = tf.reduce_mean(x, axis=axis, keepdims=True)
@@ -145,7 +145,7 @@ def argmax_entropy_reg(q, mask=1.0, n_pieces=7.0):
 conv_default_kwargs = {
                         'padding' : 'same',
                         'activation' : tf.nn.elu,
-                        'kernel_initializer' : tf.contrib.layers.xavier_initializer_conv2d(),
+                        'kernel_initializer' : tf.keras.initializers.glorot_uniform(),
                         'bias_initializer' : tf.zeros_initializer(),
                       }
 drop_default_kwargs = {}

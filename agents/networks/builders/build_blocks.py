@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from agents.networks import network_utils as N
 
 #This messes up my syntax-highlighting if it's in-line below...
@@ -25,7 +25,7 @@ def residual_block(x,
                     ):
     for i in range(n_layers):
         #default params
-        y, n, activation, join_mode, initializer, normalize, last_layer, second_last_layer = x, n_filters, tf.nn.elu, "add", tf.contrib.layers.xavier_initializer_conv2d(), False, (i==n_layers-1), (i==n_layers-2)
+        y, n, activation, join_mode, initializer, normalize, last_layer, second_last_layer = x, n_filters, tf.nn.elu, "add", tf.keras.initializers.glorot_uniform(), False, (i==n_layers-1), (i==n_layers-2)
         #last layer sometimes different params
         if last_layer:
             activation = output_activation

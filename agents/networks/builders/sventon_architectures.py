@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
 
 from agents.networks import network_utils as N
@@ -113,7 +113,7 @@ class convthendense(base_architecture):
                             self.n_rotations * self.n_translations * self.n_pieces,
                             name='advantages_unshaped',
                             activation=None,
-                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            kernel_initializer=tf.keras.initializers.glorot_uniform(),
                             bias_initializer=tf.zeros_initializer(),
                            )
         _A = self.advantage_range * tf.reshape(_A, [-1, self.n_rotations, self.n_translations, self.n_pieces])

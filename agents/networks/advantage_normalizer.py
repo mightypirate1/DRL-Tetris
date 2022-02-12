@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 class adv_normalizer:
     def __init__(self, lr, clip_val=2.0, safety=2.0):

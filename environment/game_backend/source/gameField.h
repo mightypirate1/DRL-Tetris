@@ -1,6 +1,7 @@
 #ifndef GAMEFIELD_H
 #define GAMEFIELD_H
 
+#include <cstdint>
 #include "pieces.h"
 #include <vector>
 

@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from agents.networks import network_utils as N
 
 # This file is to provide backwards compatibility mainly.
@@ -12,16 +12,16 @@ def create_vectorencoder(x, settings):
                                 settings['vectorencoder_hidden_size'],
                                 name='vectorencoder_layer{}'.format(n),
                                 activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer(),
+                                kernel_initializer=tf.keras.initializers.glorot_uniform(),
+                                bias_initializer=tf.keras.initializers.glorot_uniform(),
                                )
         x = tf.layers.dense(
                             x,
                             settings['vectorencoder_output_size'],
                             name='layer{}'.format(settings['vectorencoder_n_hidden']+1),
                             activation=self.output_activation,
-                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                            bias_initializer=tf.contrib.layers.xavier_initializer(),
+                            kernel_initializer=tf.keras.initializers.glorot_uniform(),
+                            bias_initializer=tf.keras.initializers.glorot_uniform(),
                            )
     return x
 
@@ -37,7 +37,7 @@ def create_visualencoder(x, settings):
                                     name='visualencoder_layer{}'.format(n),
                                     padding='same',
                                     activation=tf.nn.elu,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                    kernel_initializer=tf.keras.initializers.glorot_uniform(),
                                     bias_initializer=tf.zeros_initializer(),
                                 )
             if "visualencoder_dropout" in settings:
@@ -71,7 +71,7 @@ def create_kbd(x, settings):
                                 name='keyboard_conv{}'.format(i),
                                 padding='same',
                                 activation=tf.nn.elu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                kernel_initializer=tf.keras.initializers.glorot_uniform(),
                                 bias_initializer=tf.zeros_initializer(),
                             )
         if "visualencoder_dropout" in settings:
@@ -91,14 +91,14 @@ def create_value_head(x, settings):
                             settings['valuenet_hidden_size'],
                             name='layer{}'.format(n),
                             activation=tf.nn.elu,
-                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            kernel_initializer=tf.keras.initializers.glorot_uniform(),
                             bias_initializer=tf.zeros_initializer(),
                            )
     v = tf.layers.dense(
                         x,
                         1,
                         name='values',
-                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                        kernel_initializer=tf.keras.initializers.glorot_uniform(),
                         activation=settings["nn_output_activation"],
                         bias_initializer=tf.zeros_initializer(),
                        )
@@ -108,7 +108,7 @@ def create_value_head(x, settings):
                           x,
                           7,
                           name='piece_values',
-                          kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                          kernel_initializer=tf.keras.initializers.glorot_uniform(),
                           activation=None,
                           bias_initializer=tf.zeros_initializer(),
                          )
