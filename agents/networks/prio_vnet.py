@@ -100,16 +100,16 @@ class prio_vnet:
                                     self.settings['vectorencoder_hidden_size'],
                                     name='vectorencoder_layer{}'.format(n),
                                     activation=tf.nn.elu,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
+                                    kernel_initializer=tf.keras.initializers.glorot_uniform(),
+                                    bias_initializer=tf.keras.initializers.glorot_uniform(),
                                    )
             x = tf.layers.dense(
                                 x,
                                 self.settings['vectorencoder_output_size'],
                                 name='layer{}'.format(self.settings['vectorencoder_n_hidden']+1),
                                 activation=self.output_activation,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                bias_initializer=tf.contrib.layers.xavier_initializer(),
+                                kernel_initializer=tf.keras.initializers.glorot_uniform(),
+                                bias_initializer=tf.keras.initializers.glorot_uniform(),
                                )
         return x
 
@@ -125,7 +125,7 @@ class prio_vnet:
                                         name='visualencoder_layer{}'.format(n),
                                         padding='same',
                                         activation=tf.nn.elu,
-                                        kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                        kernel_initializer=tf.keras.initializers.glorot_uniform(),
                                         bias_initializer=tf.zeros_initializer(),
                                     )
                 if n in self.settings["visualencoder_peepholes"] and self.settings["peephole_convs"]:
@@ -158,8 +158,8 @@ class prio_vnet:
                                     self.settings['valuenet_hidden_size'],
                                     name='valuenet_layer{}'.format(n),
                                     activation=tf.nn.elu,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                    bias_initializer=tf.contrib.layers.xavier_initializer(),
+                                    kernel_initializer=tf.keras.initializers.glorot_uniform(),
+                                    bias_initializer=tf.keras.initializers.glorot_uniform(),
                                    )
             x = tf.layers.dense(
                                 x,
