@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+FROM python:3.7-alpine
+WORKDIR /code
+ENV FLASK_APP=sidecar_app.py
+ENV FLASK_RUN_HOST=0.0.0.0
+ENV PYTHONPATH=.
+RUN apk add --no-cache gcc musl-dev linux-headers
+COPY dockerfiles/requirements.sidecar.txt .
+RUN pip install -r requirements.sidecar.txt
+COPY tools/sidecar_app.py .
+EXPOSE 5000
+CMD ["flask", "run"]

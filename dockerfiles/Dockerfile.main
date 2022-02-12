@@ -1,0 +1,19 @@
+FROM tensorflow/tensorflow:2.8.0-gpu
+
+### Environment
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt install -y cmake
+COPY dockerfiles/requirements.main.txt .
+RUN pip install -r requirements.main.txt
+
+### Build C-code
+RUN mkdir -p /code
+COPY environment /code/environment/
+RUN cd /code/environment/game_backend/source && cmake . && make
+
+### Get the rest
+COPY . /code
+WORKDIR /code
+
+### Go!
+ENTRYPOINT ["python", "lolscript.py"]
