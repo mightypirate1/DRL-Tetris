@@ -142,7 +142,7 @@ class sventon_agent(sventon_agent_base):
             if len(self.current_trajectory[e]) > 0 or training is False:
                 self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*len(self.current_trajectory[e])
 
-        # Preprocess the trajectories specifiel to prepare them for training
+        # Preprocess the trajectories specified to prepare them for training
         for e in e_idxs:
             if training and len(self.current_trajectory[e]) > 0:
                 t = self.current_trajectory[e]
@@ -199,7 +199,7 @@ class sventon_agent(sventon_agent_base):
                 #Player1's trajectories strored first (n_envs many) and then player2's:
                 self.current_trajectory[i + e[4]*self.n_envs].add(e)
             self.n_experiences += 1
-        self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
+        self.logger.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
 
     def transfer_data(self, keep_data=False):
         #This function gives away the data gathered

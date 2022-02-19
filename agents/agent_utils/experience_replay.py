@@ -5,7 +5,7 @@ from .. import agent_utils
 
 class experience_replay:
     def __init__(self, max_size=None, action_size=1, state_size=None, k_step=1, log=None, sample_mode='rank'):
-        self.log = log
+        self.logger = log
         self.stats = {}
         self.vector_state_size, self.visual_state_size = state_size
         self.actions_not_list = False

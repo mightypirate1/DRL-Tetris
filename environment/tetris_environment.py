@@ -19,7 +19,7 @@ class tetris_environment:
 
         #Set up logging
         self.debug = False
-        self.log = logging.getLogger("environment")
+        self.logger = logging.getLogger("environment")
 
         ## Stats
         self.rounds_played = None
@@ -51,8 +51,8 @@ class tetris_environment:
 
         #Say hi!
         if self.debug:
-            self.log.info("Created tetris_environment!")
-            self.log.info(self)
+            self.logger.info("Created tetris_environment!")
+            self.logger.info(self)
 
     # # # # #
     # Env interface fcns
@@ -75,7 +75,7 @@ class tetris_environment:
         self.rounds_played += 1
 
     def get_actions(self, state, player=None):
-        if self.debug: self.log.debug("get_action invoked: player={}".format(player))
+        if self.debug: self.logger.debug("get_action invoked: player={}".format(player))
         assert type(player)  is int,  "tetris_environment.get_actions(int player) was called with type(player)={}".format(type(player))
         self.set(state)
         if self.settings["action_type"] == "place_block":
@@ -85,7 +85,7 @@ class tetris_environment:
             return data_types.action_list([[0],[1],[2],[3],[4],[5],[6],[7],[8],[9],[10]]) #This is not error-tested (but "should work")
 
     def simulate_actions(self,actions, player=None, finalize=True):
-        if self.debug: self.log.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))
+        if self.debug: self.logger.debug("simulate_actions invoked: actions={}, player={}".format(actions,player))
         assert type(player)  is int,                    "tetris_environment.simulate_actions(action_list actions,int player) was called with type(player)={}".format(type(player))
         assert type(actions) is data_types.action_list, "tetris_environment.simulate_actions(action_list actions,int player) was called with type(actions)={}".format(type(actions))
         ret = [None for _ in range(len(actions))]
@@ -100,7 +100,7 @@ class tetris_environment:
         return ret
 
     def perform_action(self, action, player=None, simulate=False, finalize=True):
-        if self.debug: self.log.debug("executing action {} for player {}".format(action, player))
+        if self.debug: self.logger.debug("executing action {} for player {}".format(action, player))
         assert type(player) is int,               "tetris_environment.perform_action(action a,int p) was called with type(player)={}".format(type(player))
         assert type(action) is data_types.action, "tetris_environment.perform_action(action a,int p) was called with type(action)={}".format(type(action))
         a         = [data_types.null_action for _ in self.player_idxs]
@@ -121,7 +121,7 @@ class tetris_environment:
         for i in range(self.settings["n_players"]):
             if not self.backend.info[i].dead:
                 return i
-        if self.debug: self.log.warning("get_winner: env returned done=True, no one was alive to win game. I returned winner=666 in the hopes that this will be noticed...")
+        if self.debug: self.logger.warning("get_winner: env returned done=True, no one was alive to win game. I returned winner=666 in the hopes that this will be noticed...")
         return 666 #This should never happen.
 
     def simulate_all_actions(self, state, player=None, finalize=True):
@@ -173,7 +173,7 @@ class tetris_environment:
         elif isinstance(e,data_types.state):
             self.backend.set(e.backend_state)
         else:
-            if self.debug: self.log.error("tetris_environment.set was called with an unrecognized argument!")
+            if self.debug: self.logger.error("tetris_environment.set was called with an unrecognized argument!")
 
     # # # # #
     # Helper functions

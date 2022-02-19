@@ -130,7 +130,7 @@ class vector_agent_trainer(vector_agent_base):
 
         #Start!
         self.train_lossstats_raw = list()
-        self.log.debug("trainer[{}] doing training".format(self.id))
+        self.logger.debug("trainer[{}] doing training".format(self.id))
 
         #Some values:
         minibatch_size = self.settings["minibatch_size"]

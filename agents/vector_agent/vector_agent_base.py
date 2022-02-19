@@ -32,8 +32,8 @@ class vector_agent_base:
         self.clock = 0
 
         #Logger
-        self.log = logging.getLogger(self.name)
-        self.log.debug("name created! type={} mode={}".format(self.name,self.mode))
+        self.logger = logging.getLogger(self.name)
+        self.logger.debug("name created! type={} mode={}".format(self.name,self.mode))
         self.stats = {}
 
         #Some basic core functionality
