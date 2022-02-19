@@ -1,20 +1,27 @@
+from pathlib import Path
+
 class experiment_schedule:
-    def __init__(self, experiments, total_steps=None, only_last=False):
+    def __init__(self, experiments, total_steps=1000000, only_last=False, overrides={}):
         assert total_steps is not None
         self.total_steps = total_steps
         self._scheduled_settings = []
         #Check that all files are found as expected
-        for experiment in experiments:
+        if type(experiments) is str:
+            experiments = [experiments]
+        for experiment in map(Path,experiments):
             settings, patches = self.load_file(experiment)
             patches = [{}] + patches #Add a null-patch so we always loop over the vanilla-setting when we loop over patches
             s = settings.copy()
             for p in patches:
                 s.update(p)
+                s.update(overrides)
                 if not only_last:
                     self._scheduled_settings.append(s.copy())
             if only_last:
                 self._scheduled_settings.append(s.copy())
     def load_file(self, file):
+        if not file.exists():
+            raise IOException(f"{file} NOT found!")
         with open(file,'r') as f:
             raw_code = f.read()
         #This is so ugly I will forever deny writing it. I could have done an import, but then I get no tab-completion without complicating things elsewhere....

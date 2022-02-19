@@ -82,7 +82,8 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
 
     #What if someone just sends us some experiences?! :D
     def receive_data(self, data_list):
-        if len(data_list) == 0: return
+        if len(data_list) == 0:
+            return 0, 0
         if type(data_list[0]) is list:
             input_data = list()
             for d in data_list:
@@ -110,7 +111,6 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
                 else:
                     exp_rep = self.experience_replay_dict["policy_{}".format(metadata["policy"])]
                 exp_rep.add_samples(d,p)
-                self.n_samples_from[metadata["worker"]] += metadata["length"]
                 self.update_scoreboard(metadata["winner"])
                 tot += metadata["length"]
         self.clock += tot
@@ -180,11 +180,6 @@ class sventon_agent_trainer_base(agents.sventon_agent.sventon_agent_base.sventon
             else:
                 score = 0
             self.scoreboard[p] = (1-self.settings["winrate_learningrate"]) * self.scoreboard[p] + self.settings["winrate_learningrate"] * score
-
-    def export_weights(self):
-        models = sorted([x for x in self.model_dict])
-        weights = [self.model_dict[x].get_weights(self.model_dict[x].main_net.variables) for x in models]
-        return self.n_train_steps["total"], weights
 
     #Moves the reference model to be equal to the model, or changes their role (depending on setting)
     def reference_update(self, net=None):

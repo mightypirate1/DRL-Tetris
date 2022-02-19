@@ -26,8 +26,8 @@ class sventon_agent_base:
         self.name = name
         self.mode = mode
         #Logger
-        self.log = logging.getLogger(self.name)
-        self.log.debug("name created! type={} mode={}".format(self.name,self.mode))
+        self.logger = logging.getLogger(self.name)
+        self.logger.debug("name created! type={} mode={}".format(self.name,self.mode))
         #Parse settings
         self.settings = utils.parse_settings(settings)
         settings_ok, error = self.process_settings() #Checks so that the settings are not conflicting
@@ -136,12 +136,17 @@ class sventon_agent_base:
                                                  ref_weights
                                                 )
 
-    def update_weights(self, weight_list, seed=None): #As passed by the trainer's export_weights-fcn..
+    def import_weights(self, weight_list, seed=None): #As passed by the trainer's export_weights-fcn..
         apply_noise = "parameter_noise" in self.settings
         models = sorted([x for x in self.model_dict])
         for m,w in zip(models, weight_list):
             model = self.model_dict[m]
             model.set_weights(model.main_net_assign_list,w, seed=seed, apply_noise=apply_noise)
+
+    def export_weights(self):
+        models = sorted([x for x in self.model_dict])
+        weights = [self.model_dict[x].get_weights(self.model_dict[x].variables) for x in models]
+        return weights
 
     def process_settings(self):
         #General requirements:
@@ -159,7 +164,7 @@ class sventon_agent_base:
             forced_settings = {}
         for key in forced_settings.keys():
             if key in self.settings:
-                self.log.warning("Overriding setting: " + key + " : {}->{}".format(self.settings[key],forced_settings[key]))
+                self.logger.warning("Overriding setting: " + key + " : {}->{}".format(self.settings[key],forced_settings[key]))
         self.settings.update(forced_settings)
         if self.settings["eval_distribution"] not in allowed_dists:
             return False, "eval_distribution"

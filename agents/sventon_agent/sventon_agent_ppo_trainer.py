@@ -6,7 +6,6 @@ from agents.sventon_agent.sventon_agent_trainer_base import sventon_agent_traine
 class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
     def do_training(self, sample=None, policy=None):
         minibatch_size, n_epochs, n_enough_samples_for_training, update_prio_flag = self.settings["minibatch_size"], self.n_train_epochs, self.settings["n_samples_each_update"], False
-
         #Figure out what policy, model, and experience replay to use...
         if self.settings["single_policy"]:
             policy = "main_net"
@@ -22,7 +21,6 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
         if sample is None and len(exp_rep) < n_enough_samples_for_training:
             self.adjust_epochs_up()
             return 0
-
         # # #
         #Start!
         # # #
@@ -48,18 +46,18 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
             perm = np.random.permutation(n)
             for i in range(0,n,minibatch_size):
                 stats, _ = model.train(
-                                         [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
-                                         [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
-                                         actions[perm[i:i+minibatch_size]],
-                                         pieces[perm[i:i+minibatch_size]],
-                                         probabilities[perm[i:i+minibatch_size]],
-                                         advantages[perm[i:i+minibatch_size]],
-                                         target_values[perm[i:i+minibatch_size]],
-                                         rewards[perm[i:i+minibatch_size]],
-                                         dones[perm[i:i+minibatch_size]],
-                                         lr=self.settings["value_lr"].get_value(self.clock),
-                                         **train_params,
-                                        )
+                                [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
+                                [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
+                                actions[perm[i:i+minibatch_size]],
+                                pieces[perm[i:i+minibatch_size]],
+                                probabilities[perm[i:i+minibatch_size]],
+                                advantages[perm[i:i+minibatch_size]],
+                                target_values[perm[i:i+minibatch_size]],
+                                rewards[perm[i:i+minibatch_size]],
+                                dones[perm[i:i+minibatch_size]],
+                                lr=self.settings["value_lr"].get_value(self.clock),
+                                **train_params,
+                           )
                 self.train_stats_raw.append(stats)
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
             if self.verbose_training: print("]",flush=False)

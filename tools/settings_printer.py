@@ -16,6 +16,11 @@ class settings_printer:
         print("--- {} settings---".format(self.title))
         for key in sorted(self.settings.keys()):
             print("\t{}".format(key).ljust(35),self.settings[key])
+    def format(self):
+        ret = ""
+        for key in sorted(self.settings.keys()):
+            ret += f"\n\t{key.ljust(35)}{self.settings[key]}"
+        return ret
     def compare(self, x):
         if type(x) not in [settings_printer, dict]:
             raise Exception("give me a settings_printer or a dict!")
