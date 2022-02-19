@@ -33,8 +33,8 @@ class prio_qnet(network):
                 self.estimator_target_tf, self.target_q_value_tf = self.create_targets(self.V_tf)
                 self.training_ops           = self.create_training_ops()
 
-            self.main_net_assign_list = self.create_weight_setting_ops(self.main_net.variables)
             self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+            self.main_net_assign_list = self.create_weight_setting_ops(self.variables)
             self.init_ops = tf.variables_initializer(self.variables)
         #Run init-op
         self.session.run(self.init_ops)

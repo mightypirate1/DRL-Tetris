@@ -56,8 +56,8 @@ class ppo_nets(network):
                                                               self.params,
                                                              )
 
-            self.main_net_assign_list = self.create_weight_setting_ops(self.main_net.variables)
             self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+            self.main_net_assign_list = self.create_weight_setting_ops(self.variables)
             self.init_ops = tf.variables_initializer(self.variables)
         #Run init-op
         self.session.run(self.init_ops)
