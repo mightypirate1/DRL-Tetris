@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:2.8.0-gpu
+FROM tensorflow/tensorflow:2.8.0-gpu as base
 
 ### Environment
 ENV DEBIAN_FRONTEND=noninteractive
@@ -14,6 +14,12 @@ RUN cd /code/environment/game_backend/source && cmake . && make
 ### Get the rest
 COPY . /code
 WORKDIR /code
+ENV PYTHONPATH=.
 
-### Go!
-ENTRYPOINT ["python", "lolscript.py"]
+### Trainer image
+FROM base as trainer
+ENTRYPOINT ["python", "scripts/trainer_runscript.py"]
+
+### Worker image
+FROM base as worker
+ENTRYPOINT ["python", "scripts/worker_runscript.py"]

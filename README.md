@@ -1,4 +1,4 @@
-![DRL-Logo](/logo.png)
+![DRL-Logo](assets/logo.png)
 
 # DRL-Tetris
 This repository is three things:
