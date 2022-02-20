@@ -7,6 +7,7 @@ from drl_tetris.worker import worker
 import experiments.presets
 from tools.experiment_schedule import experiment_schedule
 from tools.settings_printer import settings_printer
+import tools.utils as utils
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -24,7 +25,7 @@ def main(experiment, render):
     for settings in experiments:
         settings['render'] = render
         logger.info(f"starting worker with settings: {settings_printer(settings).format()}")
-        worker(settings).run()
+        worker(utils.parse_settings(settings)).run()
 
 if __name__ == "__main__":
     main()

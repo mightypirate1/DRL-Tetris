@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 import threads
@@ -7,6 +8,7 @@ from agents.sventon_agent.sventon_agent_base import sventon_agent_base
 import agents.agent_utils as agent_utils
 import agents.sventon_agent.sventon_utils as S
 from tools.parameter import *
+logger = logging.getLogger(__name__)
 
 class sventon_agent(sventon_agent_base):
     def __init__(
@@ -18,8 +20,6 @@ class sventon_agent(sventon_agent_base):
                  sandbox=None,              # Sandbox to play in!
                  mode=threads.STANDALONE,   # What's our role?
                  settings=None,             # Settings-dict passed down from the ancestors
-                 init_weights=None,
-                 init_clock=0,
                 ):
 
         #The base class provides basic functionality, and provides us with types to use! (This is how we are both ppo and q)
@@ -36,7 +36,6 @@ class sventon_agent(sventon_agent_base):
         #In any mode, we need a place to store transitions!
         self.current_trajectory = [self.trajectory_type() for _ in range(self.n_envs if self.settings["single_policy"] else 2*self.n_envs)]
         self.stored_trajectories = list()
-        self.avg_trajectory_length = 12 #tau is initialized to something...
         self.action_entropy = 0
         self.theta = 0
 
@@ -47,33 +46,6 @@ class sventon_agent(sventon_agent_base):
             self.model_dict = self.trainer.model_dict
             #STANDALONE agents have to keep track of their own training habits!
             self.time_to_training = max(self.settings['time_to_training'],self.settings['n_samples_each_update'])
-
-        if self.mode is threads.WORKER: #If we are a WORKER, we bring our own equipment
-            #Create models
-            self.model_dict = {}
-            models = ["main_net"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
-            for model in models:
-                m = self.network_type(
-                                        self.id,
-                                        model,
-                                        self.state_size,
-                                        self.model_output_shape, #Output_shape
-                                        session,
-                                        worker_only=True,
-                                        settings=self.settings,
-                                     )
-                self.model_dict[model] = m
-
-        self.action_callbacks = []
-        self.action_callbacks.append(self.tick_clock) #This makes the internal clock tick each time actions are taken
-        if "parameter_noise" in self.settings:
-            for m in self.model_dict.values():
-                self.action_callbacks.append(m.param_noiser.volume_adjust_callback) #This updates the noise
-
-        if init_weights is not None:
-            print("Agent{} initialized from weights: {} and clock: {}".format(self.id, init_weights, init_clock))
-            self.update_clock(init_clock)
-            self.load_weights(init_weights,init_weights)
 
     # # # # #
     # Agent interface fcns
@@ -124,10 +96,6 @@ class sventon_agent(sventon_agent_base):
 
         #Nearly done! Just need to create the actions...
         actions = [S.make_action(r,t) for (r,t,_), _ in action_idxs]
-
-        #Action callbacks:
-        for action_callback in self.action_callbacks:
-            action_callback(model_eval_fcn, model_args, model_kwargs, training=training)
         return action_idxs, actions
 
     #
@@ -137,10 +105,6 @@ class sventon_agent(sventon_agent_base):
         e_idxs, _ = utils.parse_arg(env, self.env_idxs, indices=True)
         if not self.settings["single_policy"]:
             e_idxs += [e_idx + self.n_envs for e_idx in e_idxs]
-        for e in e_idxs:
-            a = self.settings["tau_learning_rate"]
-            if len(self.current_trajectory[e]) > 0 or training is False:
-                self.avg_trajectory_length = (1-a) * self.avg_trajectory_length + a*len(self.current_trajectory[e])
 
         # Preprocess the trajectories specified to prepare them for training
         for e in e_idxs:
@@ -149,27 +113,24 @@ class sventon_agent(sventon_agent_base):
                 if self.settings["workers_do_processing"]:
                     model = self.model_dict["main_net"] if self.settings["single_policy"] else self.model_dict["policy_{}".format(int(e>=self.n_envs))]
                     data = t.process_trajectory(
-                                                self.model_runner(model),
-                                                self.unpack,
-                                                compute_advantages=self.settings["workers_computes_advantages"],
-                                                gae_lambda=tools.parameter.param_eval(self.settings["gae_lambda"], self.clock),
-                                                reward_shaper=None,
-                                                gamma_discount=self.gamma,
-                                                augment=self.settings["augment_data"]
-                                               )
+                        self.model_runner(model),
+                        self.unpack,
+                        compute_advantages=self.settings["workers_computes_advantages"],
+                        gae_lambda=tools.parameter.param_eval(self.settings["gae_lambda"], self.clock),
+                        reward_shaper=None,
+                        gamma_discount=self.gamma,
+                        augment=self.settings["augment_data"]
+                    )
                 else:
                     data = t
                 metadata = {
-                            "policy"    : int(e>=self.n_envs),
-                            "winner"    : t.winner,
-                            "length"    : len(t),
-                            "worker"    : self.id,
-                            "packet_id" : self.send_count,
-                            }
+                    "policy"    : int(e>=self.n_envs),
+                    "winner"    : t.winner,
+                    "length"    : len(t),
+                    "worker"    : self.id,
+                    "packet_id" : self.send_count,
+                }
                 self.stored_trajectories.append((metadata,data))
-                #Increment some counters to guide what we do
-                self.send_count += 1
-                self.send_length += len(t)
                 if self.mode is threads.STANDALONE:
                     self.time_to_training  -= len(self.current_trajectory[e])
             #Clear trajectory
@@ -198,8 +159,7 @@ class sventon_agent(sventon_agent_base):
             if not self.settings["single_policy"]:
                 #Player1's trajectories strored first (n_envs many) and then player2's:
                 self.current_trajectory[i + e[4]*self.n_envs].add(e)
-            self.n_experiences += 1
-        self.logger.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
+        logger.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
 
     def transfer_data(self, keep_data=False):
         #This function gives away the data gathered

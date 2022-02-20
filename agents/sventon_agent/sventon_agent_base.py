@@ -11,6 +11,8 @@ from agents.agent_utils import state_unpack
 from agents.networks import ppo_nets, prio_qnet
 import agents.datatypes as dt
 
+logger = logging.getLogger(__name__)
+
 class sventon_agent_base:
     def __init__(
                   self,
@@ -25,9 +27,7 @@ class sventon_agent_base:
         self.id = id
         self.name = name
         self.mode = mode
-        #Logger
-        self.logger = logging.getLogger(self.name)
-        self.logger.debug("name created! type={} mode={}".format(self.name,self.mode))
+        logger.debug("name created! type={} mode={}".format(self.name,self.mode))
         #Parse settings
         self.settings = utils.parse_settings(settings)
         settings_ok, error = self.process_settings() #Checks so that the settings are not conflicting
@@ -75,19 +75,11 @@ class sventon_agent_base:
         self.workers_do_processing = self.settings["workers_do_processing"]
         #variables
         self.gamma = self.settings["gamma"] if not self.settings["single_policy"] else -self.settings["gamma"]
-        #we gunna need some models
-        self.model_dict = {}
-        #stats etc
-        self.clock = 0
-        self.stats = {}
 
-    def tick_clock(self, *args, **kwargs):
-        tick = kwargs.pop("tick", self.n_envs * self.n_workers)
-        self.clock += tick
-
-    def update_clock(self, clock):
-        old_clock = self.clock
-        self.clock = clock
+        if session is not None:
+            self.create_models(session)
+        else:
+            logger.warning(f"tf.Session NOT provided. You will have to create agent-models manually wigh create_model_dict when you have one")
 
     def run_model(self, net, states, **kwargs):
         player = kwargs.pop('player')
@@ -101,6 +93,24 @@ class sventon_agent_base:
         def runner(*args, **kwargs):
             return self.run_model(net, *args, **kwargs)
         return runner
+
+    def create_models(self,session):
+        models = ["main_net"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
+        model_dict = {}
+        worker_only = self.mode == threads.WORKER
+        for model in models:
+            m = self.network_type(
+                self.id,
+                model,
+                self.state_size,
+                self.model_output_shape,
+                session,
+                worker_only=worker_only,
+                settings=self.settings,
+            )
+            model_dict[model] = m
+        self.model_dict = model_dict
+        return model_dict
 
     # # # # #
     # Memory management fcns
@@ -164,7 +174,7 @@ class sventon_agent_base:
             forced_settings = {}
         for key in forced_settings.keys():
             if key in self.settings:
-                self.logger.warning("Overriding setting: " + key + " : {}->{}".format(self.settings[key],forced_settings[key]))
+                logger.warning("Overriding setting: " + key + " : {}->{}".format(self.settings[key],forced_settings[key]))
         self.settings.update(forced_settings)
         if self.settings["eval_distribution"] not in allowed_dists:
             return False, "eval_distribution"
@@ -175,11 +185,8 @@ class sventon_agent_base:
     #Pickling needed for multiprocessing...
     def __getstate__(self):
         d = self.__dict__.copy()
-        if 'log' in d:
-            d['log'] = d['log'].name
+        d.pop("model_dict", None)
         return d
 
     def __setstate__(self, d):
-        if 'log' in d:
-            d['log'] = logging.getLogger(d['log'])
         self.__dict__.update(d)

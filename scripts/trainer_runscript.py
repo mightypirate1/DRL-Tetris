@@ -7,6 +7,7 @@ from drl_tetris.trainer import trainer
 import experiments.presets
 from tools.experiment_schedule import experiment_schedule
 from tools.settings_printer import settings_printer
+import tools.utils as utils
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +23,7 @@ def main(experiment):
     )
     for settings in experiments:
         logger.info(f"starting training with settings: {settings_printer(settings).format()}")
-        trainer(settings).run()
+        trainer(utils.parse_settings(settings)).run()
 
 
 if __name__ == "__main__":

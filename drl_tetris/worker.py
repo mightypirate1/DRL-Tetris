@@ -5,28 +5,28 @@ import time
 import os
 import logging
 
-from drl_tetris.training_state import training_state
 from drl_tetris.utils.training_utils import timekeeper
+from drl_tetris.runner import runner
 
 import threads
 from tools.tf_hooks import quick_summary
-import tools.utils as utils
 
 logger = logging.getLogger(__name__)
 
-class worker:
+class worker(runner):
     def __init__(self, settings):
-        self.settings = utils.parse_settings(settings)
-        self.training_state = training_state()
+        super().__init__(settings)
         self.config = tf.ConfigProto(
             log_device_placement=False,
             device_count={'GPU': 0}
         )
         # self.config.gpu_options.allow_growth = True
-        self.print_freq            = 1000
+        self.print_freq            = 10000
         self.next_print            = 0
         self.current_weights_index = -1
         self.stashed_experience    = None
+
+    def read_settings(self):
         self.worker_agent_type     = self.settings["agent_type"]
         self.n_games               = self.settings["n_envs_per_thread"]
         self.n_players             = self.settings["n_players"]
@@ -35,23 +35,32 @@ class worker:
         self.single_policy         = self.settings["single_policy"]
         self.run_standalone        = self.settings["run_standalone"]
 
+    def set_runner_state(self, state):
+        [self.env, self.worker_agent] = state
+
+    def get_runner_state(self):
+        return [self.env, self.worker_agent]
+
+    def create_runner_state(self):
+        self.env = self.env_vector_type(
+            self.n_games,
+            self.env_type,
+            settings=self.settings
+        )
+        self.worker_agent = self.worker_agent_type(
+            self.n_games,
+            id=self.training_state.me,
+            settings=self.settings,
+            sandbox=self.env_type(settings=self.settings),
+            mode=threads.WORKER,
+        )
+        # TODO: Remove this
+        self.worker_agent.clock = 0
+
     def run(self):
         with tf.Session(config=self.config) as session:
             self.quick_summary = quick_summary(settings=self.settings, session=session)
-            #Initialize env and agents!
-            self.env = self.env_vector_type(
-                self.n_games,
-                self.env_type,
-                settings=self.settings
-            )
-            self.worker_agent = self.worker_agent_type(
-                self.n_games,
-                id=self.training_state.me,
-                settings=self.settings,
-                session=session,
-                sandbox=self.env_type(settings=self.settings),
-                mode=threads.WORKER,
-            )
+            self.worker_agent.create_models(session)
 
             ### Run!
             s_prime = self.env.get_state()
@@ -100,6 +109,7 @@ class worker:
         self.training_state.tick_worker_clock(self.n_games)
         found, index, weights = self.training_state.get_weights(newer_than=self.current_weights_index)
         if found:
+            self.current_weights_index = index
             self.worker_agent.import_weights(weights)
 
     @timekeeper()

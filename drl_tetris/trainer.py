@@ -8,6 +8,7 @@ from textwrap import dedent
 from drl_tetris.training_state import training_state
 from drl_tetris.utils.training_utils import timekeeper
 from drl_tetris.utils.math import mix
+from drl_tetris.runner import runner
 
 import threads
 from tools.tf_hooks import quick_summary
@@ -15,34 +16,45 @@ import tools.utils as utils
 
 logger = logging.getLogger(__name__)
 
-class trainer:
+class trainer(runner):
     def __init__(self, settings):
-        self.settings = utils.parse_settings(settings)
-        self.training_state = training_state(me="trainer")
+        super().__init__(settings, me="trainer")
         self.config = tf.ConfigProto(
             log_device_placement=False,
             device_count={'GPU': 1}
         )
         self.config.gpu_options.allow_growth = True
-        self.trainer_agent_type = self.settings["trainer_type"]
         self.latest_printed_weights = -1
+
+    def read_settings(self):
+        self.trainer_agent_type = self.settings["trainer_type"]
+        self.env_type           = self.settings["env_type"]
+    def set_runner_state(self, state):
+        [self.trainer_agent] = state
+
+    def get_runner_state(self):
+        return [self.trainer_agent]
+
+    def create_runner_state(self):
+        self.trainer_agent = self.trainer_agent_type(
+            id=self.training_state.me,
+            settings=self.settings,
+            sandbox=self.env_type(settings=self.settings),
+            mode=threads.TRAINER,
+        )
 
     def run(self):
         with tf.Session(config=self.config) as session:
             #Initialize!
-            self.quick_summary = quick_summary(
-                settings=self.settings, session=session)
-            self.trainer_agent = self.trainer_agent_type(
-                id=self.training_state.me,
-                settings=self.settings,
-                session=session,
-                sandbox=self.settings["env_type"](settings=self.settings),
-                summarizer=self.quick_summary,
-                mode=threads.TRAINER,
-            )
+            self.quick_summary = quick_summary(settings=self.settings, session=session)
+            self.trainer_agent.create_models(session)
+            # TODO: tidy here
+            self.trainer_agent.quick_summary = self.quick_summary
+            self.trainer_agent.clock = 0
+
             saved_weights_exists, _, saved_weights = self.training_state.get_weights()
             if saved_weights_exists:
-                self.trainer_agent.import_weights(weights)
+                self.trainer_agent.import_weights(saved_weights)
 
             ### Run!
             try:
@@ -90,15 +102,15 @@ class trainer:
         self.trainer_agent.save_weights(
             *utils.weight_location(
                 self.settings,
-                idx=self.training_state.get_current_weight_index()
+                idx="LATEST"#self.training_state.get_current_weight_index(),
             ),
             verbose=True,
         )
 
     def update_performance_stats(self, trajectories):
         trajectory_length = self.training_state.get_stat_by_key("trajectory_length", replacement=0.)
-        for trajectory in trajectories:
-            trajectory_length = mix(trajectory_length, len(trajectory), alpha=0.01)
+        for md, trajectory in trajectories:
+            trajectory_length = mix(md["length"], len(trajectory), alpha=0.05)
         self.training_state.set_stat_by_key("trajectory_length", trajectory_length)
 
     def update_stats(self):
