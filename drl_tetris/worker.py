@@ -21,7 +21,7 @@ class worker(runner):
             device_count={'GPU': 0}
         )
         # self.config.gpu_options.allow_growth = True
-        self.print_freq            = 10000
+        self.print_freq            = 1000
         self.next_print            = 0
         self.current_weights_index = -1
         self.stashed_experience    = None
@@ -106,22 +106,24 @@ class worker(runner):
 
     @timekeeper()
     def update_weights_and_clock(self):
-        self.training_state.tick_worker_clock(self.n_games)
-        found, index, weights = self.training_state.get_weights(newer_than=self.current_weights_index)
-        if found:
-            self.current_weights_index = index
+        self.training_state.alive_flag.set(expire=10)
+        self.training_state.workers_clock.tick(self.n_games)
+        index = self.training_state.trainer_weights_index.get()
+        if index > self.current_weights_index:
+            _, weights = self.training_state.trainer_weights.get()
             self.worker_agent.import_weights(weights)
+            self.current_weights_index = index
 
     @timekeeper()
     def send_training_data(self):
         data = self.worker_agent.transfer_data()
         if len(data) == 0 or self.run_standalone:
             return
-        self.training_state.push_worker_data(data)
+        self.training_state.data_queue.push(data)
 
     def print_stats(self):
-        clock = self.training_state.get_worker_clock()
-        self.training_state.increment_stats(timekeeper.stats)
+        clock = self.training_state.workers_clock.get()
+        self.training_state.stats.update(timekeeper.stats)
         if clock > self.next_print:
             self.next_print = clock + self.print_freq
             logger.info(f"worker-clock: {clock}")

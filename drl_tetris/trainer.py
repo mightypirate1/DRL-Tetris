@@ -3,7 +3,7 @@ import time
 import os
 import logging
 
-from textwrap import dedent
+from textwrap import dedent, indent
 
 from drl_tetris.training_state import training_state
 from drl_tetris.utils.training_utils import timekeeper
@@ -52,7 +52,7 @@ class trainer(runner):
             self.trainer_agent.quick_summary = self.quick_summary
             self.trainer_agent.clock = 0
 
-            saved_weights_exists, _, saved_weights = self.training_state.get_weights()
+            saved_weights_exists, saved_weights = self.training_state.weights.get()
             if saved_weights_exists:
                 self.trainer_agent.import_weights(saved_weights)
 
@@ -68,17 +68,17 @@ class trainer(runner):
                 self.trainer_agent.save_weights(
                     *utils.weight_location(
                         self.settings,
-                        idx=f"CRASH_t={self.training_state.get_trainer_clock()}"
+                        idx=f"CRASH_t={self.training_state.trainer_clock.get()}"
                     )
                 )
                 raise e
 
     @timekeeper()
     def load_worker_data(self):
-        data_from_workers = [*self.training_state.pop_all_worker_data_it()]
+        data_from_workers = [*self.training_state.data_queue.pop_iter()]
         n_samples, _ = self.trainer_agent.receive_data(data_from_workers)
         # stats
-        self.training_state.increment_stats({'n_samples_loaded': n_samples})
+        self.training_state.stats.update({'runner': {'n_samples_loaded': n_samples}})
         self.update_performance_stats(data_from_workers)
 
     @timekeeper()
@@ -89,45 +89,49 @@ class trainer(runner):
             n  = self.trainer_agent.do_training(policy=0)
             n += self.trainer_agent.do_training(policy=1)
         # stats
-        self.training_state.increment_stats({'n_samples_trained': n})
+        self.training_state.stats.update({'runner': {'n_samples_trained': n}})
         return n
 
     @timekeeper()
     def transfer_weights(self):
         weights = self.trainer_agent.export_weights()
-        self.training_state.publish_weights(weights)
+        self.training_state.weights.set(weights)
+        self.training_state.weights_index.tick(1)
 
     @timekeeper()
     def save_weights(self):
         self.trainer_agent.save_weights(
             *utils.weight_location(
                 self.settings,
-                idx="LATEST"#self.training_state.get_current_weight_index(),
+                idx="LATEST"#self.training_state.trainer_weights_index(),
             ),
             verbose=True,
         )
 
     def update_performance_stats(self, trajectories):
-        trajectory_length = self.training_state.get_stat_by_key("trajectory_length", replacement=0.)
+        trajectory_length = self.training_state.stats.get("trajectory_length", replacement=0.)
         for md, trajectory in trajectories:
             trajectory_length = mix(md["length"], len(trajectory), alpha=0.05)
-        self.training_state.set_stat_by_key("trajectory_length", trajectory_length)
+        self.training_state.stats.set("trajectory_length", trajectory_length)
+        self.training_state.alive_flag.set(expire=120)
 
     def update_stats(self):
         timestats = timekeeper.stats
-        self.training_state.increment_stats(timestats)
-        if (current_weights := self.training_state.get_current_weight_index()) > self.latest_printed_weights:
-            logger.info(dedent(
-                f'''
-                --------------------------------
-                trainer metrics:
-                    - weights: {current_weights}
-                    - trajectory_len: {self.training_state.get_stat_by_key("trajectory_length")}
-                time:
-                    - training: TO-BE-DONE
-                --------------------------------
-                '''
-            ))
+        self.training_state.stats.update(timestats)
+        if (current_weights := self.training_state.trainer_weights_index.get()) > self.latest_printed_weights:
+            timestats = [(k.split('/')[-1]+":",v) for k,v in self.training_state.stats.get_all().items() if 'time' in k]
+            k_len = max([len(k) for k,v in timestats])
+            time_strs = '\n'.join([f" - {k.ljust(k_len)} {v}" for k,v in timestats])
+            message = \
+f'''
+--------------------------------
+trainer metrics:
+ - weights: {current_weights}
+ - trajectory_len: {self.training_state.stats.get('trajectory_length')}
+time:
+{time_strs}
+--------------------------------
+'''
+            logger.info(message)
             self.latest_printed_weights = current_weights
-            logger.info(f"current_weights: {current_weights}")
         timekeeper.flush()

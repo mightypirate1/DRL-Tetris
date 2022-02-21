@@ -87,12 +87,16 @@ class experience_replay:
                           }
         return data, is_weights, filter
 
+
     def retrieve_and_clear(self, compute_stats=False):
+        data = self.retrieve_all()
+        self.initialize()
+        return data
+        
+    def retrieve_all(self, compute_stats=False):
         #retrieve
         all_indices = np.arange(self.current_size)
         data = self.retrieve_samples_by_idx(all_indices)
-        #clear
-        self.initialize()
         #Stats?
         if compute_stats:
             self.stats = {

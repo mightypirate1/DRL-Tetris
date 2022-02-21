@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import signal
 import logging
 
-from drl_tetris.training_state import training_state
+from drl_tetris.training_state.training_state import training_state
 
 logger = logging.getLogger(__name__)
 signals = {
@@ -40,13 +40,14 @@ class runner(ABC):
     def store_runner_state_and_exit(self, signum, frame):
         logger.info(f"{self.training_state.me} Saving runner-state due to {signals[signum]}")
         self.training_state.set_dead()
-        self.training_state.save_runner_state(
+        self.training_state.runner_state.set(
             self.get_runner_state()
         )
 
     def recover_runner_state(self):
-        found_state, state = self.training_state.load_runner_state()
-        logger.info(f"No runner-state found - starting from scratch!")
+        found_state, state = self.training_state.runner_state.get()
         if found_state:
             self.set_runner_state(state)
+        else:
+            logger.info(f"No runner-state found - starting from scratch!")
         return found_state

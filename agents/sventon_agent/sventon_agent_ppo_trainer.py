@@ -28,7 +28,7 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
 
         #1) Get a sample!
         if sample is None: #If no one gave us one, we get one ourselves!
-            sample = exp_rep.retrieve_and_clear(compute_stats=True)
+            sample = exp_rep.retrieve_all(compute_stats=True)
 
         #Unpack a little...
         states, _actions, rewards, dones = sample
@@ -61,6 +61,8 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
                            )
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
             if self.verbose_training: print("]",flush=False)
+        # Clear AFTER training so that samples don't get lost on SIGINT
+        exp_rep.initialize()
 
         #Sometimes we do a reference update
         if self.time_to_reference_update[policy] == 0:
