@@ -3,7 +3,6 @@ from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
 from agents.sventon_agent import sventon_agent, sventon_agent_ppo_trainer, sventon_agent_dqn_trainer
 from agents.sherlock_agent import sherlock_agent, sherlock_agent_ppo_trainer
-from agents.vector_agent import vector_agent, vector_agent_trainer
 from tools.parameter import *
 
 presets = {
@@ -22,7 +21,7 @@ presets = {
                             "advantage_type" : "mean",#,"none",#"mean", #"max",
                             "advantage_range" : 1.0,
                             "workers_computes_advantages" : True,
-                            "dynamic_n_epochs" : True,
+                            "dynamic_n_epochs" : False,
                             "value_estimator_params" : {
                                                         "truncate_aggregation" : True,
                                                         },
@@ -86,29 +85,6 @@ presets = {
                                 "optimistic_prios" : 0.0,
                                 "workers_computes_advantages" : False,
                             },
-
-            "sixten" : {
-                        "agent_type"        : vector_agent.vector_agent,
-                        "trainer_type"      : vector_agent_trainer.vector_agent_trainer,
-                        "train_distribution"    : "distribution_pareto",
-                        "action_temperature"    : constant_parameter(1),
-                        "optimistic_prios"      : 0.0,
-                        "trainer_thread_save_freq"  : 100,
-                        "n_samples_each_update"     : 16384,
-                        "minibatch_size"            : 128,
-                        "n_train_epochs_per_update" : 1,  #5
-                        "time_to_reference_update"  : 20, #How after how many do_training calls do we update the reference-model?
-                        "value_lr"                  : constant_parameter(1e-4),
-                        "n_samples_to_start_training" : 40000,
-                        "old_state_dict" : True,
-                        "state_processor_separate_piece" : False,
-                        "state_processor_piece_in_statevec" : True,
-                        "field_as_image" : True,
-                        "players_separate" : True,
-                        "relative_state" : True,
-                        "n_value_functions" : 1,
-                        "gae_lambda" : 0.97,
-                        },
 
             "resblock" : {
                             "resblock_dropout" : 0.0,#0.15,
