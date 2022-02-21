@@ -125,6 +125,8 @@ class flag(entry):
         super().set(1)
         if expire:
             cache.expire(self._key, expire)
+    def unset(self):
+        super().set(0)
     def get(self):
         return super().get()[1]
 

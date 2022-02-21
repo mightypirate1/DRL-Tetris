@@ -37,9 +37,13 @@ class runner(ABC):
     def set_runner_state(self):
         pass
 
+    @abstractmethod
+    def run(self):
+        pass
+
     def store_runner_state_and_exit(self, signum, frame):
         logger.info(f"{self.training_state.me} Saving runner-state due to {signals[signum]}")
-        self.training_state.set_dead()
+        self.training_state.alive_flag.unset()
         self.training_state.runner_state.set(
             self.get_runner_state()
         )
