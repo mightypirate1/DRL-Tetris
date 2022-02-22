@@ -41,12 +41,16 @@ class runner(ABC):
     def run(self):
         pass
 
+    def graceful_exit(self):
+        pass
+
     def store_runner_state_and_exit(self, signum, frame):
         logger.info(f"{self.training_state.me} Saving runner-state due to {signals[signum]}")
         self.training_state.alive_flag.unset()
         self.training_state.runner_state.set(
             self.get_runner_state()
         )
+        self.graceful_exit()
 
     def recover_runner_state(self):
         found_state, state = self.training_state.runner_state.get()

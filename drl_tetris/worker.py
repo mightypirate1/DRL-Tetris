@@ -5,7 +5,8 @@ import time
 import os
 import logging
 
-from drl_tetris.utils.training_utils import timekeeper
+from drl_tetris.utils.timekeeper import timekeeper
+from drl_tetris.utils.logging import logstamp
 from drl_tetris.runner import runner
 
 import threads
@@ -23,7 +24,6 @@ class worker(runner):
         # self.config.gpu_options.allow_growth = True
         self.print_freq            = 1000
         self.next_print            = 0
-        self.current_weights_index = -1
         self.stashed_experience    = None
 
     def read_settings(self):
@@ -54,8 +54,12 @@ class worker(runner):
             sandbox=self.env_type(settings=self.settings),
             mode=threads.WORKER,
         )
-        # TODO: Remove this
+        # TODO: Remove this dependency
         self.worker_agent.clock = 0
+
+    @logstamp(logger.info, on_exit=True)
+    def graceful_exit(self):
+        self.training_state.alive_flag.unset()
 
     def run(self):
         with tf.Session(config=self.config) as session:
@@ -70,14 +74,14 @@ class worker(runner):
             reset_list = [i for i in range(self.n_games)]
             try:
                 while True:
-                    self.update_weights_and_clock()
+                    current_weights_idx = self.update_weights_and_clock()
 
                     # Who's turn, and what state do they see?
                     current_player = 1 - current_player
                     state = self.env.get_state()
 
                     # What action do they want to perform?
-                    action_idx, action = self.worker_agent.get_action(state, player=current_player, training=True, random_action=self.current_weights_index<1)
+                    action_idx, action = self.worker_agent.get_action(state, player=current_player, training=True, random_action=current_weights_idx<1)
 
                     #Perform action!
                     reward, done = self.env.perform_action(action, player=current_player)
@@ -105,14 +109,17 @@ class worker(runner):
                 raise e
 
     @timekeeper()
+    @logstamp(logger.info, only_new=True)
     def update_weights_and_clock(self):
         self.training_state.alive_flag.set(expire=10)
         self.training_state.workers_clock.tick(self.n_games)
         index = self.training_state.trainer_weights_index.get()
-        if index > self.current_weights_index:
+        current_index = self.training_state.weights_index.get()
+        if index > current_index:
             _, weights = self.training_state.trainer_weights.get()
             self.worker_agent.import_weights(weights)
-            self.current_weights_index = index
+            self.training_state.weights_index.set(index)
+        return index
 
     @timekeeper()
     def send_training_data(self):
@@ -124,6 +131,7 @@ class worker(runner):
     def print_stats(self):
         clock = self.training_state.workers_clock.get()
         self.training_state.stats.update(timekeeper.stats)
+        # self.training_state.stats.update({'runner': {'current_weights_index': index}}, update_op="set")
         if clock > self.next_print:
             self.next_print = clock + self.print_freq
             logger.info(f"worker-clock: {clock}")

@@ -1,11 +1,10 @@
 from time import time
 from collections import defaultdict
-from functools import partial
+from functools import partial, wraps
 from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 ### Measure time for calls
 # Use timekeeper defined below unless you wanna fine-grain sub process-granularity
@@ -13,6 +12,7 @@ class timekeeper_type:
     def __init__(self):
         self.flush()
     def measure_time(self, func, prefix="", debug=False):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             if debug: logger.info(func)
             t_start = time()

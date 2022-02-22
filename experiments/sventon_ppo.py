@@ -18,30 +18,30 @@ settings = {
                     'value_loss' : 0.4,
                     'policy_loss' : 0.9,
 
-                    'entropy_loss' : 0.02,
+                    'entropy_loss' : 0.025,
                     'entropy_floor_loss' : 0.0,
                     },
-            "nn_regularizer" : 5e-6,
+            "nn_regularizer" : 5e-7,
             "resblock_dropout" : 0.15,
 
             #Train parameters
-            "value_lr"                  : 3e-5, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
+            "value_lr"                  : 1e-5, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
             "gae_lambda"                : 0.85, #linear_parameter(2.0, final_val=0.0, time_horizon=2e8, max=0.85),
             "n_samples_each_update"     : 4096,
             "minibatch_size"            : 256,
-            "n_train_epochs_per_update" : 2,
+            "n_train_epochs_per_update" : 1,
 
             #Architecture
             "residual_block_settings" : {
                                             "default" : {
-                                                            "n_layers" : 7,
+                                                            "n_layers" : 5,
                                                             "n_filters" : 64,
                                                             "normalization" : "layer",
                                                             "filter_size" : (3,3),
                                                         },
                                             "val_stream" : {
-                                                            "n_layers" : 7,
-                                                            "n_filters" : 256,
+                                                            "n_layers" : 6,
+                                                            "n_filters" : 128,
                                                             "filter_size" : (5,5),
                                                             }
                                         },

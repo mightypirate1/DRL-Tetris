@@ -21,33 +21,40 @@ services:
       target: worker
     depends_on:
       - redis
+      - trainer
     profiles: ["training"]
     scale: 4
 
   redis:
     image: "redis:7.0-rc1"
-    # command: sh -c "rm -f /data/dump.rdb && redis-server"
-    ports:
-      - "6379:6379"
-    profiles: ["training", "db"]
-
-  sidecar:
-    build:
-      context: .
-      dockerfile: dockerfiles/Dockerfile.sidecar
-    ports:
-      - "8000:5000"
-    depends_on:
-      - redis
-    profiles: ["training", "db"]
-
-  tensorboard:
-    image: tensorflow/tensorflow:2.8.0-gpu
-    command: ["bash", "-c", "tensorboard", "--logdir", "/mnt"]
+    command: sh -c "cd /mnt && redis-server"
+    ports: ["6379:6379"]
+    profiles: ["training", "data", "db"]
     volumes:
-      - tb:/mnt:ro
-    profiles: ["training"]
+      - db:/mnt:rw
 
+  # sidecar:
+  #   build:
+  #     context: .
+  #     dockerfile: dockerfiles/Dockerfile.sidecar
+  #   ports: ["8000:5000"]
+  #   depends_on:
+  #     - redis
+  #   profiles: ["training", "data", "db"]
+  #
+  # tensorboard:
+  #   image: tensorflow/tensorflow:2.8.0-gpu
+  #   command: ["tensorboard", "--logdir", "/mnt", "--bind_all"]
+  #   volumes:
+  #     - tb:/mnt:ro
+  #   profiles: ["training", "data"]
+  #   ports: ["6006:6006"]
+
+#
+#
+##
+###
+#####
 volumes:
   tb:
     driver: local
@@ -61,3 +68,9 @@ volumes:
       type: none
       o: bind
       device: "./models"
+  db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "./db"

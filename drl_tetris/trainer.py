@@ -3,11 +3,10 @@ import time
 import os
 import logging
 
-from textwrap import dedent, indent
-
 from drl_tetris.training_state import training_state
-from drl_tetris.utils.training_utils import timekeeper
+from drl_tetris.utils.timekeeper import timekeeper
 from drl_tetris.utils.math import mix
+from drl_tetris.utils.logging import logstamp
 from drl_tetris.runner import runner
 
 import threads
@@ -29,11 +28,13 @@ class trainer(runner):
     def read_settings(self):
         self.trainer_agent_type = self.settings["trainer_type"]
         self.env_type           = self.settings["env_type"]
+
     def set_runner_state(self, state):
-        [self.trainer_agent] = state
+        self.create_runner_state()
+        [self.trainer_agent.experience_replay_dict] = state
 
     def get_runner_state(self):
-        return [self.trainer_agent]
+        return [self.trainer_agent.experience_replay_dict]
 
     def create_runner_state(self):
         self.trainer_agent = self.trainer_agent_type(
@@ -42,6 +43,10 @@ class trainer(runner):
             sandbox=self.env_type(settings=self.settings),
             mode=threads.TRAINER,
         )
+
+    @logstamp(logger.info, on_exit=True)
+    def graceful_exit(self):
+        self.training_state.cache.save()
 
     def run(self):
         with tf.Session(config=self.config) as session:
@@ -82,6 +87,7 @@ class trainer(runner):
         self.update_performance_stats(data_from_workers)
 
     @timekeeper()
+    @logstamp(logger.info, on_entry=True, on_exit=True)
     def do_training(self):
         if self.settings["single_policy"]:
             n = self.trainer_agent.do_training()
@@ -89,7 +95,9 @@ class trainer(runner):
             n  = self.trainer_agent.do_training(policy=0)
             n += self.trainer_agent.do_training(policy=1)
         # stats
-        self.training_state.stats.update({'runner': {'n_samples_trained': n}})
+        self.training_state.stats.update(
+            {'runner': {'n_samples_trained': n}},
+        )
         return n
 
     @timekeeper()
@@ -109,9 +117,9 @@ class trainer(runner):
         )
 
     def update_performance_stats(self, trajectories):
-        trajectory_length = self.training_state.stats.get("trajectory_length", replacement=0.)
+        trajectory_length = self.training_state.stats.get("trajectory_length", replacement=35.)
         for md, trajectory in trajectories:
-            trajectory_length = mix(md["length"], len(trajectory), alpha=0.05)
+            trajectory_length = mix(float(trajectory_length), md["length"], alpha=0.05)
         self.training_state.stats.set("trajectory_length", trajectory_length)
         self.training_state.alive_flag.set(expire=120)
 

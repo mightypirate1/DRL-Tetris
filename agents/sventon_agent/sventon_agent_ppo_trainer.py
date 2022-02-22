@@ -47,18 +47,18 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
             perm = np.random.permutation(n)
             for i in range(0,n,minibatch_size):
                 stats, _ = model.train(
-                                [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
-                                [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
-                                actions[perm[i:i+minibatch_size]],
-                                pieces[perm[i:i+minibatch_size]],
-                                probabilities[perm[i:i+minibatch_size]],
-                                advantages[perm[i:i+minibatch_size]],
-                                target_values[perm[i:i+minibatch_size]],
-                                rewards[perm[i:i+minibatch_size]],
-                                dones[perm[i:i+minibatch_size]],
-                                lr=lr,
-                                **train_params,
-                           )
+                    [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
+                    [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
+                    actions[perm[i:i+minibatch_size]],
+                    pieces[perm[i:i+minibatch_size]],
+                    probabilities[perm[i:i+minibatch_size]],
+                    advantages[perm[i:i+minibatch_size]],
+                    target_values[perm[i:i+minibatch_size]],
+                    rewards[perm[i:i+minibatch_size]],
+                    dones[perm[i:i+minibatch_size]],
+                    lr=lr,
+                    **train_params,
+                )
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i
             if self.verbose_training: print("]",flush=False)
         # Clear AFTER training so that samples don't get lost on SIGINT

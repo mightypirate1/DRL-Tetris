@@ -106,6 +106,7 @@ class queue(byte_block):
 class clock(entry):
     def __init__(self, key, replacement=0, as_type=int, **kwargs):
         super().__init__(key, replacement=replacement, as_type=as_type, **kwargs)
+        self.meee = key
     def tick(self, increment):
         return self.decode(cache.incrby(self._key, amount=int(increment)))[1]
     def get(self):
