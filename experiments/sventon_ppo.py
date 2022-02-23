@@ -27,9 +27,9 @@ settings = {
             #Train parameters
             "value_lr"                  : 1e-5, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
             "gae_lambda"                : 0.85, #linear_parameter(2.0, final_val=0.0, time_horizon=2e8, max=0.85),
-            "n_samples_each_update"     : 4096,
-            "minibatch_size"            : 256,
-            "n_train_epochs_per_update" : 1,
+            "n_samples_each_update"     : 2048,
+            "minibatch_size"            : 64,
+            "n_train_epochs_per_update" : 3,
 
             #Architecture
             "residual_block_settings" : {

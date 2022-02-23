@@ -23,6 +23,10 @@ CLAIM_TIME = 20 # Number of seconds a flag is claimed for. (All threads need to 
 
 ### Path-like joins for keys
 def keyjoin(x,y):
+    if not x:
+        return y
+    if not y:
+        return x
     return str(Path(x)/Path(y))
 
 class redis_obj(ABC):
@@ -170,9 +174,9 @@ class dictionary(redis_obj):
     def get_all(self):
         keys = self.get_keys(replacement=[])
         return {key: entry(key).get()[1] for key in keys}
-    def update(self, update_dict, update_op=None):
+    def update(self, update_dict, update_op=None, prefix=''):
         update_op = update_op or self.update_op
         keys_in = self.get_keys(replacement=[])
-        new_keys = _recurse(update_dict, self._key, update_op)
+        new_keys = _recurse(update_dict, keyjoin(self._key, prefix), update_op)
         keys_out = list(set(keys_in+new_keys))
         self.keys.set(keys_out)

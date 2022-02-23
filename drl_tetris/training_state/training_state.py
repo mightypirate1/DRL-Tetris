@@ -31,5 +31,6 @@ class training_state:
         self.weights_index         =       clock("latest-weights-index", scope=self.me)
         self.data_queue            =       queue("data-queue", scope=trainer_scope)
         self.trainer_clock         =       clock("clock", scope=trainer_scope)
-        self.stats                 =  dictionary("stats", scope=self.me, update_op="increment")
+        self.stats                 =  dictionary("stats", scope=self.me, as_type=float, update_op="increment")
+        self.stats_str             =  dictionary("stats-str", scope=self.me, update_op="increment")
         self.alive_flag            =        flag("alive", scope=self.me)

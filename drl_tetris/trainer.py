@@ -69,11 +69,8 @@ class trainer(runner):
                         self.save_weights()
                     self.update_stats()
             except Exception as e:
-                self.trainer_agent.save_weights(
-                    *utils.weight_location(
-                        self.settings,
-                        idx=f"CRASH_t={self.training_state.trainer_clock.get()}"
-                    )
+                self.save_weights(
+                    idx=f"CRASH_t={self.training_state.trainer_clock.get()}"
                 )
                 raise e
 
@@ -106,13 +103,14 @@ class trainer(runner):
         self.training_state.weights_index.tick(1)
 
     @timekeeper()
-    def save_weights(self):
+    def save_weights(self, idx=None):
+        if not idx:
+            idx = "LATEST" if not (curr := self.training_state.trainer_weights_index.get()) % 250 else curr
         self.trainer_agent.save_weights(
             *utils.weight_location(
                 self.settings,
-                idx="LATEST"#self.training_state.trainer_weights_index(),
-            ),
-            verbose=True,
+                idx=idx,
+            )
         )
 
     def update_performance_stats(self, trajectories):
@@ -122,13 +120,18 @@ class trainer(runner):
         self.training_state.stats.set("trajectory_length", trajectory_length)
         self.training_state.alive_flag.set(expire=120)
 
-    def update_stats(self):
+    def update_stats(self): # and print :-)
         timestats = timekeeper.stats
-        self.training_state.stats.update(timestats)
+        self.training_state.stats.update(timestats['time'], prefix='time')
         if (current_weights := self.training_state.trainer_weights_index.get()) > self.latest_printed_weights:
-            timestats = [(k.split('/')[-1]+":",v) for k,v in self.training_state.stats.get_all().items() if 'time' in k]
-            k_len = max([len(k) for k,v in timestats])
-            time_strs = '\n'.join([f" - {k.ljust(k_len)} {v}" for k,v in timestats])
+            statsdict = self.training_state.stats.get_all()
+            timekeys = [(k.split('/')[-1],k) for k in statsdict.keys() if 'time' in k]
+            currtimes = [timestats['time'][k1] for k1,_ in timekeys]
+            tottimes  = [statsdict[k2] for _, k2 in timekeys]
+            timestats_totals = [(k1,tt, ct) for (k1,_), tt, ct in zip(timekeys, tottimes, currtimes)]
+            k_len = max([len(k) for k,*_ in timestats_totals])
+            tformat = lambda t: str(round(float(t),4)).ljust(15) # TODO: This conversion to float should not be needed if the "dict" worked as expected
+            time_strs = '\n'.join([f" - {k.ljust(k_len)}: {tformat(tt)} ({tformat(ct)})" for k,tt,ct in timestats_totals])
             message = \
 f'''
 --------------------------------
