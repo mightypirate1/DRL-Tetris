@@ -108,12 +108,12 @@ venv.bak/
 # # #
 
 #Maintain models and results as empty folders
-models/*
-!models/.gitkeep
-!models/demo_weights/
-!models/demo_weights/*
-summaries/*
-!summaries/.gitkeep
+data/models/*
+!data/models/.gitkeep
+!data/models/demo_weights/
+!data/models/demo_weights/*
+data/summaries/*
+!data/summaries/.gitkeep
 #
 experiments/*
 #but some files here are included!
@@ -124,8 +124,8 @@ experiments/*
 !experiments/sventon_ppo.py
 !experiments/presets.py
 
-db/*
-!db/.gitkeep
+data/db/*
+!data/db/.gitkeep
 #
 *.pkl
 
