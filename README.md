@@ -1,4 +1,4 @@
-![DRL-Logo](/logo.png)
+![DRL-Logo](assets/logo.png)
 
 # DRL-Tetris
 This repository is three things:
@@ -24,45 +24,18 @@ The quality of code has changed as I learned. Please be lenient when looking at 
 ## Installation:
 * Pull the repository.
 * Install dependencies (see "Dependencies").
-* Build the backend module (see "Build backend").
+* Run: `make build`
 
-> NOTE: It has come to my attention that this code-base does not easily run on mac or windows. My apologies, I might fix that one day. Feel free to contribute :)
-
-Once these steps are done, you should be able to use the environment, and to train your own agents (see "Usage").
-
+If you want to get more experimental, you can create a `virtualenv` and install `dockerfiles/requirements.local.txt` and go nuts.
 #### Dependencies:
-The versions specified are the version used on the test system.
 
-- Python3 (3.6.3)
-- CMake (3.9.1)
+- docker
+- docker-compose (1.2.7 used on dev machine)
 
-Python modules:
-- NumPy (1.16)
-- Tensorflow (1.12.0)
-- SciPy (1.2.0)
-- Docopt (0.6.2)
-- PyGame (1.9.4)
-
-On Ubuntu, apt and pip3 solves the dependencies easily:
-```
-apt install cmake python3-dev python3-pip
-pip3 install docopt scipy numpy tensorflow
-```
-> Replace tensorflow with tensorflow-gpu for GPU support. This might require some work, but the official documentation should help: [tensorflow].
-
-If the installation of any dependency fails, we refer to their documentation.
-
-If you are not on Ubuntu, install the dependencies as you would on you system and proceed to the next step.
-
-#### Build backend:
-To build the package, we used CMake and make:
-```
-cd path/to/DRL-tetris/environment/game_backend/source
-cmake .
-make
-```
+Make sure you make them GPU-enabled.
 
 ## Usage:
+
 To start training, we recommend starting off from the example in experiments/sixten_base.py
 
 To run the example project using 32 environments per worker thread, and 3 worker threads (+1 trainer thread), for 10M steps, run

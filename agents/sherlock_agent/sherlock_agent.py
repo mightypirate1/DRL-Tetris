@@ -229,7 +229,7 @@ class sherlock_agent(sherlock_agent_base):
                 #Player1's trajectories strored first (n_envs many) and then player2's:
                 self.current_trajectory[i + e[4]*self.n_envs].add(e)
             self.n_experiences += 1
-        self.log.debug("agent[{}] appends experience {} to its trajectory-buffer".format(self.id, experience))
+        self.logger.debug("agent[{}] appends experience to its trajectory-buffer".format(self.id))
 
     def transfer_data(self, keep_data=False):
         #This function gives away the data gathered

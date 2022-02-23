@@ -1,3 +1,7 @@
+#######
+### TODO: Refactor / remove / anything
+#####
+
 #Type of thread
 STANDALONE = None
 WORKER     = "WORKER"

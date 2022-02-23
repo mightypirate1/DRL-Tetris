@@ -9,8 +9,8 @@ default_settings = {
 
 class random_agent(tetris_agent):
     def __init__(self, id=0, session=None, sandbox=None, training=False, settings=None):
-        self.log = logging.getLogger("agent")
-        self.log.debug("Test agent created!")
+        self.logger = logging.getLogger("agent")
+        self.logger.debug("Test agent created!")
         self.id = id
         self.sandbox = sandbox
         self.training = training

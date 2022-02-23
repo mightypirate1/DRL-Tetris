@@ -37,8 +37,9 @@ def parse_settings(settings):
         s = {"presets" : preset_keys}
         for key in preset_keys:
             s.update(experiments.presets.presets[key])
-    for x in settings:
-        s[x] = settings[x]
+        s.update(settings)
+    else:
+        s = settings
     #Here we get a chance to add some derived properties
     s["game_area"] = s["game_size"][0] * s["game_size"][1]
     return s

@@ -180,11 +180,6 @@ class sherlock_agent_trainer_base(agents.sherlock_agent.sherlock_agent_base.sher
                 score = 0
             self.scoreboard[p] = (1-self.settings["winrate_learningrate"]) * self.scoreboard[p] + self.settings["winrate_learningrate"] * score
 
-    def export_weights(self):
-        models = sorted([x for x in self.model_dict])
-        weights = [self.model_dict[x].get_weights(self.model_dict[x].main_net.variables) for x in models]
-        return self.n_train_steps["total"], weights
-
     #Moves the reference model to be equal to the model, or changes their role (depending on setting)
     def reference_update(self, net=None):
         if net is None:

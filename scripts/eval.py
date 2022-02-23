@@ -8,7 +8,6 @@ import itertools
 import experiments.presets
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
-from agents.vector_agent import vector_agent, vector_agent_trainer
 import threads.threaded_runner
 from tools.scoreboard import scoreboard
 import tools.utils as utils
@@ -173,7 +172,9 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                 for a,w in zip(agent, weight):
                     if reload_weights:
                         if debug:
-                            print("agent loaded:",w,"(",a,")")
+                            print("[*]agent loaded:",w,"(",a,")")
+                        else:
+                            print("[*]", end='')
                         try:
                             a.load_weights(*w)
                         except Exception as e:

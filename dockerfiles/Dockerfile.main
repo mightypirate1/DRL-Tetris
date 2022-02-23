@@ -1,0 +1,25 @@
+FROM tensorflow/tensorflow:2.8.0-gpu as base
+
+### Environment
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt install -y cmake
+COPY dockerfiles/requirements.main.txt .
+RUN pip install -r requirements.main.txt
+
+### Build C-code
+RUN mkdir -p /code
+COPY environment /code/environment/
+RUN cd /code/environment/game_backend/source && cmake . && make
+
+### Get the rest
+COPY . /code
+WORKDIR /code
+ENV PYTHONPATH=.
+
+### Trainer image
+FROM base as trainer
+ENTRYPOINT ["python", "scripts/trainer_runscript.py"]
+
+### Worker image
+FROM base as worker
+ENTRYPOINT ["python", "scripts/worker_runscript.py"]

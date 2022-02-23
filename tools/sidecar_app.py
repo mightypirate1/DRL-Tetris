@@ -1,0 +1,28 @@
+import time
+from flask import Flask
+from pathlib import Path
+import json
+
+from drl_tetris.training_state.training_state import training_state, cache, is_agent_root
+
+app = Flask(__name__)
+state = training_state(me="sidecar", dummy=True)
+
+@app.route('/')
+def hello():
+    count = cache.incr('sidecar-hits')
+    return 'Hello World! I have been seen {} times.\n'.format(count)
+
+@app.route('/keys')
+def list_keys():
+    ret = ""
+    for key in cache.keys():
+    # for key in cache.scan_iter():
+        ret += f"<br>{key}"
+    return ret
+
+@app.route('/redis', defaults={'key': 'trainer'})
+@app.route('/redis/<path:key>')
+def get_key(key):
+    val   = cache.get(key)
+    return list_keys() + f"<br>---<br>{key}: {val}"

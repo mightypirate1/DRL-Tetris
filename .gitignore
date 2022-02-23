@@ -108,12 +108,12 @@ venv.bak/
 # # #
 
 #Maintain models and results as empty folders
-models/*
-!models/.gitkeep
-!models/demo_weights/
-!models/demo_weights/*
-summaries/*
-!summaries/.gitkeep
+data/models/*
+!data/models/.gitkeep
+!data/models/demo_weights/
+!data/models/demo_weights/*
+data/summaries/*
+!data/summaries/.gitkeep
 #
 experiments/*
 #but some files here are included!
@@ -124,6 +124,8 @@ experiments/*
 !experiments/sventon_ppo.py
 !experiments/presets.py
 
+data/db/*
+!data/db/.gitkeep
 #
 *.pkl
 
@@ -133,15 +135,3 @@ environment/game_backend/source/CMakeCache.txt
 environment/game_backend/source/CMakeFiles/*
 environment/game_backend/source/CMakeFiles/
 environment/game_backend/source/Makefile
-
-#Secret test-scripts that doesnt need to be official
-yeah.py
-settings_update.py
-_summaries
-
-#Graveyard
-aux
-agents/vector_ppo_agent
-agents/vector_q_agent
-agents/agent_utils/q_helper_fcns.py
-*_old
