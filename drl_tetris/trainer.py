@@ -30,11 +30,10 @@ class trainer(runner):
         self.env_type           = self.settings["env_type"]
 
     def set_runner_state(self, state):
-        self.create_runner_state()
-        [self.trainer_agent.experience_replay_dict] = state
+        [self.trainer_agent] = state
 
     def get_runner_state(self):
-        return [self.trainer_agent.experience_replay_dict]
+        return [self.trainer_agent]
 
     def create_runner_state(self):
         self.trainer_agent = self.trainer_agent_type(
