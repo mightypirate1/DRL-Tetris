@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-import pickle
+import dill
 import logging
 from pathlib import Path
 
@@ -70,11 +70,11 @@ class entry(redis_obj):
 
 class byte_block(entry):
     def encode(self, x):
-        return pickle.dumps(x)
+        return dill.dumps(x)
     def decode(self, x, replacement=None):
         replacement = replacement or self.replacement
         if (found := x is not None):
-            x = pickle.loads(x)
+            x = dill.loads(x)
         if not found and replacement:
                 return False, x
         return found, x
