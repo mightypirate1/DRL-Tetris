@@ -23,7 +23,7 @@ services:
       - redis
       - trainer
     profiles: ["training"]
-    scale: 4
+    scale: 3
 
   redis:
     image: "redis:7.0-rc1"

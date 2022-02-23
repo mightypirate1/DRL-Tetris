@@ -106,22 +106,12 @@ class queue(byte_block):
 class clock(entry):
     def __init__(self, key, replacement=0, as_type=int, **kwargs):
         super().__init__(key, replacement=replacement, as_type=as_type, **kwargs)
-        self.meee = key
     def tick(self, increment):
         return self.decode(cache.incrby(self._key, amount=int(increment)))[1]
     def get(self):
         return super().get()[1]
 
-class claim_flag(clock):
-    def claim(self):
-        if (my_ticket := self.tick(1)) > 1:
-            return False
-        cache.expire(self._key, CLAIM_TIME)
-        return True
-
-class flag(entry):
-    def __init__(self, key, replacement=0, **kwargs):
-        super().__init__(key, replacement=replacement, **kwargs)
+class flag(clock): # truthy or not
     def set(self, expire=None):
         super().set(1)
         if expire:
@@ -130,6 +120,12 @@ class flag(entry):
         super().set(0)
     def get(self):
         return super().get()[1]
+    def claim(self, expire=None): # Try to claim, return whether it was successful (will mess up ttl.. TODO: fix)
+        if (my_ticket := self.tick(1)) > 1:
+            return False
+        if expire:
+            cache.expire(self._key, expire)
+        return True
 
 ### Helper fcn for dictionary-class
 operation_dict = {

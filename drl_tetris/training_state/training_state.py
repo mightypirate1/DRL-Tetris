@@ -3,7 +3,7 @@ import pickle
 import logging
 from pathlib import Path
 
-from drl_tetris.training_state.redis_types import clock, byte_block, queue, dictionary, flag, entry, claim_flag, cache
+from drl_tetris.training_state.redis_types import clock, byte_block, queue, dictionary, entry, flag, cache
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ trainer_scope = "trainer"
 ### Cheese queue
 def get_next_worker_id():
     for id in range(1000):
-        if claim_flag("claimed", scope=worker_scope(id)).claim():
+        if flag("alive", scope=worker_scope(id)).claim():
             return id
     raise IOError(f"creating too many workers!")
 
@@ -32,4 +32,4 @@ class training_state:
         self.data_queue            =       queue("data-queue", scope=trainer_scope)
         self.trainer_clock         =       clock("clock", scope=trainer_scope)
         self.stats                 =  dictionary("stats", scope=self.me, update_op="increment")
-        self.alive_flag            =        flag("alive",scope=self.me)
+        self.alive_flag            =        flag("alive", scope=self.me)
