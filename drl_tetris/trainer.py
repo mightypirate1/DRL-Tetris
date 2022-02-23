@@ -126,7 +126,7 @@ class trainer(runner):
         if (current_weights := self.training_state.trainer_weights_index.get()) > self.latest_printed_weights:
             statsdict = self.training_state.stats.get_all()
             timekeys = [(k.split('/')[-1],k) for k in statsdict.keys() if 'time' in k]
-            currtimes = [timestats['time'][k1] for k1,_ in timekeys]
+            currtimes = [timestats['time'].get(k1,0.) for k1,_ in timekeys]
             tottimes  = [statsdict[k2] for _, k2 in timekeys]
             timestats_totals = [(k1,tt, ct) for (k1,_), tt, ct in zip(timekeys, tottimes, currtimes)]
             k_len = max([len(k) for k,*_ in timestats_totals])
