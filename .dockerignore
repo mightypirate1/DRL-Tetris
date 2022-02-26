@@ -2,4 +2,4 @@ environment/game_backend/source/CMakeFiles
 environment/game_backend/source/cmake_install.cmake
 environment/game_backend/source/CMakeCache.txt
 .venv
-models
+data

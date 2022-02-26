@@ -12,8 +12,8 @@ services:
     profiles: ["training"]
     volumes:
       - models:/code/models:rw
-      - tb:/code/summaries:rw
-    scale: 0
+      - tb:/code/data/summaries:rw
+    scale: 1
 
   worker:
     build:
@@ -22,9 +22,9 @@ services:
       target: worker
     depends_on:
       - redis
-      # - trainer
+      - trainer
     profiles: ["training"]
-    scale: 1
+    scale: 3
 
   redis:
     image: "redis:7.0-rc1"

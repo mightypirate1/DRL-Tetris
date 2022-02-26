@@ -60,9 +60,12 @@ class worker(runner):
         self.training_state.alive_flag.unset()
 
     def validation_artifact(self):
-        return self.env.get_state()  # This is the state we will perform validation on
+        artefact = [self.env.get_state(), self.worker_agent.export_weights()]
+        return artefact  # This is the state we will perform validation on
 
-    def runner_validation(self, state):  # Successful recovery entails being able to reproduce the exact same actions from a state
+    def runner_validation(self, artefact):  # Successful recovery entails being able to reproduce the exact same actions from a state
+        state, weights = artefact
+        self.worker_agent.import_weights(weights)
         return self.worker_agent.get_action(
             state,
             player=[0]*self.n_games,
@@ -73,7 +76,6 @@ class worker(runner):
         with tf.Session(config=self.config) as session:
             self.tb_writer = tb_writer("worker", session)
             self.worker_agent.create_models(session)
-            self.update_weights()
             self.validate_runner()
 
             ### Run!
@@ -129,8 +131,10 @@ class worker(runner):
         index = self.training_state.trainer_weights_index.get()
         current_index = self.training_state.weights_index.get()
         if index > current_index:
-            _, weights = self.training_state.trainer_weights.get()
-            self.worker_agent.import_weights(weights)
+            logger.info(f"updating weights: {current_index} -> {index}")
+            found, weights = self.training_state.trainer_weights.get()
+            if found:
+                self.worker_agent.import_weights(weights)
             self.training_state.weights_index.set(index)
         return index
 

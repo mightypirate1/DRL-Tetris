@@ -74,6 +74,13 @@ class runner(ABC):
         )
         validation_artifact = self.validation_artifact()
         self.set_validation_artifact(validation_artifact)
+        logger.info(f"{self.training_state.me}: ARTIFACT CHECKSUM: [{self.compute_checksum(validation_artifact)}]")
+
+        # ####### TODO: remove if validation proves reliable
+        # proof = self.runner_validation(validation_artifact)
+        # logger.info(f"{self.training_state.me}: PROOF CHECKSUM: [{self.compute_checksum(proof)}]")
+        # #######
+
         self.graceful_exit()
         self.received_interrupt = True
 
@@ -94,16 +101,22 @@ class runner(ABC):
         logger.info(f"target: [{targetchecksum}]")
         proof = self.runner_validation(artifact)
         checksum = self.compute_checksum(proof)
-        logger.info(f"validation: [{targetchecksum}]")
+
+        # TODO: remove if validation proves reliable
+        # logger.info(f"{self.training_state.me}: ARTIFACT CHECKSUM: [{self.compute_checksum(artifact)}]")
+        # logger.info(f"{self.training_state.me}: PROOF CHECKSUM: [{self.compute_checksum(proof)}]")
+
+        logger.info(f"validation: [{checksum}]")
         if checksum == targetchecksum:  # If my result is equal to the stored target-result, it means I have successfully recovered runner-state
             return True
-        raise RuntimeError(f"{self.me} unable to reproduce validation checksum ({checksum}) != {targetchecksum}")
+        raise RuntimeError(f"{self.training_state.me} unable to reproduce validation checksum ({checksum}) != {targetchecksum}")
 
     def set_validation_artifact(self, artifact):
         validation_target = self.runner_validation(artifact)  # Anyone who can perform this calculation correctly is good to take my place
         validation_checksum = self.compute_checksum(validation_target)
         self.training_state.validation_artifact.set(artifact)
         self.training_state.validation_checksum.set(validation_checksum)
+        logger.info(f"validation_checksum: {validation_checksum}")
 
     def get_validation_artifact(self):
         found_artifact, artifact = self.training_state.validation_artifact.get()

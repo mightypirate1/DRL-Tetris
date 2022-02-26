@@ -46,6 +46,7 @@ class trainer(runner):
 
     @logstamp(logger.info, on_exit=True)
     def graceful_exit(self):
+        self.transfer_weights()
         self.training_state.cache.save()
 
     # def validation_artifact(self):
@@ -64,19 +65,20 @@ class trainer(runner):
             if saved_weights_exists:
                 self.trainer_agent.import_weights(saved_weights)
 
-            ### Run!
-            try:
-                while not self.received_interrupt:
-                    self.load_worker_data()
-                    if self.do_training():
-                        self.transfer_weights()
-                        self.save_weights()
-                    self.update_stats()
-            except Exception as e:
-                self.save_weights(
-                    idx=f"CRASH_t={self.training_state.trainer_clock.get()}"
-                )
-                raise e
+            with self.tb_writer:
+                ### Run!
+                try:
+                    while not self.received_interrupt:
+                        self.load_worker_data()
+                        if self.do_training():
+                            self.transfer_weights()
+                            self.save_weights()
+                        self.update_stats()
+                except Exception as e:
+                    self.save_weights(
+                        idx=f"CRASH_t={self.training_state.trainer_clock.get()}"
+                    )
+                    raise e
 
     @timekeeper()
     def load_worker_data(self):
