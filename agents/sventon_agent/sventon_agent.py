@@ -54,7 +54,7 @@ class sventon_agent(sventon_agent_base):
     #
     ###
     #####
-    def get_action(self, state_vec, player=None, random_action=False, training=False, verbose=False):
+    def get_action(self, state_vec, time=0, player=None, random_action=False, training=False, raw=False, verbose=False):
         #Get hypothetical future states and turn them into vectors!
         p_list = utils.parse_arg(player, self.player_idxs)
 
@@ -69,6 +69,9 @@ class sventon_agent(sventon_agent_base):
         #Run model!
         action_eval, state_eval, pieces = model_eval_fcn(*model_args,**model_kwargs)
 
+        if raw:  # For verifying models are the same...
+            return  action_eval, state_eval, pieces
+
         #Choose an action . . .
         distribution = self.eval_dist if not training else self.settings["train_distribution"]
         action_idxs = [None for _ in state_vec]
@@ -78,17 +81,17 @@ class sventon_agent(sventon_agent_base):
             elif distribution == "pi": #for training
                 (r, t), entropy = S.action_distribution(action_eval[i,:,:,piece])
             elif distribution == "pareto_distribution":
-                theta = self.theta = self.settings["action_temperature"](self.clock)
+                theta = self.theta = self.settings["action_temperature"](time)
                 (r, t), entropy = S.action_pareto(action_eval[i,:,:,piece], theta)
             elif distribution == "boltzman_distribution":
                 assert False, "boltzman_distribution is deprecated"
-                theta = self.theta = self.settings["action_temperature"](self.clock)
+                theta = self.theta = self.settings["action_temperature"](time)
                 (r, t), entropy = S.action_boltzman(action_eval[i,:,:,piece], theta)
             elif distribution == "adaptive_epsilon":
-                epsilon = self.settings["epsilon"](self.clock) * self.avg_trajectory_length**(-1)
+                epsilon = self.settings["epsilon"](time) * self.avg_trajectory_length**(-1)
                 (r, t), entropy = S.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
             elif distribution == "epsilon":
-                epsilon = self.settings["epsilon"](self.clock)
+                epsilon = self.settings["epsilon"](time)
                 (r, t), entropy = S.action_epsilongreedy(action_eval[i,:,:,piece], epsilon)
             a_environment = (r,t,piece)
             a_internal = (action_eval[i,r,t,piece] ,S.value_piece(state_eval[i], piece), S.value_mean(state_eval[i]))
@@ -101,7 +104,7 @@ class sventon_agent(sventon_agent_base):
     #
     ###
     #####
-    def ready_for_new_round(self, training=False, env=None):
+    def ready_for_new_round(self, time=0, training=False, env=None):
         e_idxs, _ = utils.parse_arg(env, self.env_idxs, indices=True)
         if not self.settings["single_policy"]:
             e_idxs += [e_idx + self.n_envs for e_idx in e_idxs]
@@ -116,7 +119,7 @@ class sventon_agent(sventon_agent_base):
                         self.model_runner(model),
                         self.unpack,
                         compute_advantages=self.settings["workers_computes_advantages"],
-                        gae_lambda=tools.parameter.param_eval(self.settings["gae_lambda"], self.clock),
+                        gae_lambda=tools.parameter.param_eval(self.settings["gae_lambda"], time),
                         reward_shaper=None,
                         gamma_discount=self.gamma,
                         augment=self.settings["augment_data"]

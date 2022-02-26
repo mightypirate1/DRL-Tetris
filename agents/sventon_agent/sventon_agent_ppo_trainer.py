@@ -7,7 +7,7 @@ from agents.sventon_agent.sventon_agent_trainer_base import sventon_agent_traine
 logger = logging.getLogger(__name__)
 
 class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
-    def do_training(self, sample=None, policy=None):
+    def do_training(self, time=0, sample=None, policy=None):
         minibatch_size, n_epochs, n_enough_samples_for_training, update_prio_flag = self.settings["minibatch_size"], self.n_train_epochs, self.settings["n_samples_each_update"], False
         #Figure out what policy, model, and experience replay to use...
         if self.settings["single_policy"]:
@@ -39,8 +39,8 @@ class sventon_agent_ppo_trainer(sventon_agent_trainer_base):
         n = len(actions) #n samples
 
         #TRAIN!
-        lr =  utils.evaluate_params(self.settings["value_lr"], self.clock)
-        train_params = utils.evaluate_params(self.settings["ppo_parameters"], self.clock)
+        lr =  utils.evaluate_params(self.settings["value_lr"], time)
+        train_params = utils.evaluate_params(self.settings["ppo_parameters"], time)
         for t in range(n_epochs):
             if self.verbose_training: print("[",end='',flush=False); last_print = 0
             last_epoch = t+1 == n_epochs

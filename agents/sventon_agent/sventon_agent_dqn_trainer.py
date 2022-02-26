@@ -4,7 +4,7 @@ import agents.sventon_agent.sventon_utils as S
 from agents.sventon_agent.sventon_agent_trainer_base import sventon_agent_trainer_base
 
 class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
-    def do_training(self, sample=None, policy=None):
+    def do_training(self, time=0, sample=None, policy=None):
         minibatch_size, n_epochs, n, update_prio_flag = self.settings["minibatch_size"], self.settings["n_train_epochs_per_update"], self.settings["n_samples_each_update"], False
         self.train_lossstats_raw = list()
         #Figure out what policy, model, and experience replay to use...
@@ -31,13 +31,12 @@ class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
         t_sample = time.time()
         if sample is None: #If no one gave us one, we get one ourselves!
             update_prio_flag = True #If we sampled this ourselves, we take responsibility for updatig the prio of it
-            sample, is_weights, filter = \
-                            exp_rep.get_random_sample(
-                                                        n,
-                                                        alpha=self.settings["prioritized_replay_alpha"].get_value(self.clock),
-                                                        beta=self.settings["prioritized_replay_beta"].get_value(self.clock),
-                                                        compute_stats=True,
-                                                      )
+            sample, is_weights, filter = exp_rep.get_random_sample(
+                n,
+                alpha=self.settings["prioritized_replay_alpha"].get_value(time),
+                beta=self.settings["prioritized_replay_beta"].get_value(time),
+                compute_stats=True,
+            )
         #Unpack a little...
         states_k, _actions_k, rewards_k, dones_k = sample
         _actions_env_k, _actions_int_k = _actions_k
@@ -52,12 +51,12 @@ class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
         for i in range(0,n,minibatch_size):
             start, stop = i, min(n,i+minibatch_size)
             targets[start:stop] = model.compute_targets(
-                                                        [vec[start:stop] for vec in vector_states_k],
-                                                        [vis[start:stop] for vis in visual_states_k],
-                                                        rewards_k[start:stop],
-                                                        dones_k[start:stop],
-                                                        time_stamps=None
-                                                       )
+                [vec[start:stop] for vec in vector_states_k],
+                [vis[start:stop] for vis in visual_states_k],
+                rewards_k[start:stop],
+                dones_k[start:stop],
+                time_stamps=None
+            )
         #TRAIN!
         print("¤",flush=True)
         t_updates = time.time()
@@ -68,14 +67,14 @@ class sventon_agent_dqn_trainer(sventon_agent_trainer_base):
             perm = np.random.permutation(n) if not last_epoch else np.arange(n)
             for i in range(0,n,minibatch_size):
                 _new_prio, stats, = model.train(
-                                                [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
-                                                [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
-                                                actions[perm[i:i+minibatch_size]],
-                                                pieces[perm[i:i+minibatch_size]],
-                                                targets[perm[i:i+minibatch_size]],
-                                                weights=is_weights[perm[i:i+minibatch_size]],
-                                                lr=self.settings["value_lr"].get_value(self.clock),
-                                               )
+                    [vec_s[perm[i:i+minibatch_size]] for vec_s in vector_states],
+                    [vis_s[perm[i:i+minibatch_size]] for vis_s in visual_states],
+                    actions[perm[i:i+minibatch_size]],
+                    pieces[perm[i:i+minibatch_size]],
+                    targets[perm[i:i+minibatch_size]],
+                    weights=is_weights[perm[i:i+minibatch_size]],
+                    lr=self.settings["value_lr"].get_value(time),
+                )
                 self.train_stats_raw.append(stats)
                 if last_epoch: new_prio[i:i+minibatch_size] = _new_prio
                 if self.verbose_training and (i-last_print)/n > 0.02: print("-",end='',flush=False); last_print = i

@@ -2,13 +2,10 @@ import tensorflow.compat.v1 as tf
 import docopt
 import numpy as np
 import time
-import sys
-import itertools
 
 import experiments.presets
 from environment.tetris_environment_vector import tetris_environment_vector
 from environment.tetris_environment import tetris_environment
-import threads.threaded_runner
 from tools.scoreboard import scoreboard
 import tools.utils as utils
 import threads

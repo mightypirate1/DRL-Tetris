@@ -19,7 +19,6 @@ class sventon_agent_trainer_base(sventon_agent_base):
                  sandbox=None,              # Sandbox to play in!
                  mode=threads.ACTIVE,       # What's our role?
                  settings=None,             # Settings-dict passed down from the ancestors
-                 summarizer=None,
                 ):
 
         #Some general variable initialization etc...
@@ -30,7 +29,6 @@ class sventon_agent_trainer_base(sventon_agent_base):
         self.experience_replay_dict = {}
         self.n_train_steps = {}
         self.time_to_reference_update = {}
-        self.scoreboard = {}
         models = ["main_net"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
 
         for model in models:
@@ -45,10 +43,9 @@ class sventon_agent_trainer_base(sventon_agent_base):
 
         self.n_train_epochs = self.settings["n_train_epochs_per_update"]
         self.n_samples_to_start_training = max(self.settings["n_samples_each_update"], self.settings["n_samples_to_start_training"])
-        self.summarizer = summarizer
 
     #What if someone just sends us some experiences?! :D
-    def receive_data(self, data_list):
+    def receive_data(self, data_list, time=0):
         if len(data_list) == 0:
             return 0, 0
         if type(data_list[0]) is list:
@@ -59,17 +56,16 @@ class sventon_agent_trainer_base(sventon_agent_base):
         n_trajectories, tot = 0, 0
         for metadata,data in input_data:
                 n_trajectories += 1
-                # print("trainer recieved:", metadata["worker"], metadata["packet_id"], "len", metadata["length"])
                 if not self.settings["workers_do_processing"]:
                     assert False, "this line is not tested"
                     d, p = data.process_trajectory(
-                                                    self.model_runner(metadata["policy"]),
-                                                    self.unpack,
-                                                    gamma_discount=self.gamma,
-                                                    compute_advantages=False,
-                                                    gae_lambda=tools.parameter.param_eval(self.settings["gae_lambda"], self.clock),
-                                                    augment=self.settings["augment_data"],
-                                                    )
+                        self.model_runner(metadata["policy"]),
+                        self.unpack,
+                        gamma_discount=self.gamma,
+                        compute_advantages=False,
+                        gae_lambda=tools.parameter.param_eval(self.settings["gae_lambda"], time),
+                        augment=self.settings["augment_data"],
+                    )
 
                 else:
                     d, p = data

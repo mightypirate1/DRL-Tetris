@@ -7,10 +7,10 @@ import logging
 
 from drl_tetris.utils.timekeeper import timekeeper
 from drl_tetris.utils.logging import logstamp
+from drl_tetris.utils.tb_writer import tb_writer
 from drl_tetris.runner import runner
 
 import threads
-from tools.tf_hooks import quick_summary
 
 logger = logging.getLogger(__name__)
 
@@ -54,27 +54,37 @@ class worker(runner):
             sandbox=self.env_type(settings=self.settings),
             mode=threads.WORKER,
         )
-        # TODO: Remove this dependency
-        self.worker_agent.clock = 0
 
     @logstamp(logger.info, on_exit=True)
     def graceful_exit(self):
         self.training_state.alive_flag.unset()
 
+    def validation_artifact(self):
+        return self.env.get_state()  # This is the state we will perform validation on
+
+    def runner_validation(self, state):  # Successful recovery entails being able to reproduce the exact same actions from a state
+        return self.worker_agent.get_action(
+            state,
+            player=[0]*self.n_games,
+            raw=True,
+            )
+
     def run(self):
         with tf.Session(config=self.config) as session:
-            self.quick_summary = quick_summary(settings=self.settings, session=session)
+            self.tb_writer = tb_writer("worker", session)
             self.worker_agent.create_models(session)
+            self.update_weights()
+            self.validate_runner()
 
             ### Run!
-            s_prime = self.env.get_state()
             current_player = np.random.choice([i for i in range(self.n_players)], size=(self.n_games))
             if not self.single_policy:
                 current_player *= 0
             reset_list = [i for i in range(self.n_games)]
             try:
-                while True:
-                    current_weights_idx = self.update_weights_and_clock()
+                while not self.received_interrupt:
+                    self.update_clock()
+                    current_weights_idx = self.update_weights()
 
                     # Who's turn, and what state do they see?
                     current_player = 1 - current_player
@@ -109,10 +119,13 @@ class worker(runner):
                 raise e
 
     @timekeeper()
-    @logstamp(logger.info, only_new=True)
-    def update_weights_and_clock(self):
+    def update_clock(self):
         self.training_state.alive_flag.set(expire=10)
         self.training_state.workers_clock.tick(self.n_games)
+
+    @timekeeper()
+    @logstamp(logger.info, only_new=True)
+    def update_weights(self):
         index = self.training_state.trainer_weights_index.get()
         current_index = self.training_state.weights_index.get()
         if index > current_index:

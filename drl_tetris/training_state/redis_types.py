@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # dictionary - pretend dict
 #####
 
-CLAIM_TIME = 20 # Number of seconds a flag is claimed for. (All threads need to have started in this ammount of time)
+CLAIM_TIME = 3 # Number of seconds a flag is claimed for. (All workers need to have started in this ammount of time, and one iteration of the worker loop needs to be reliably shorter)
 
 ### Path-like joins for keys
 def keyjoin(x,y):
@@ -30,12 +30,13 @@ def keyjoin(x,y):
     return str(Path(x)/Path(y))
 
 class redis_obj(ABC):
-    def __init__(self, key, scope=None, as_type=None, replacement=None):
+    def __init__(self, key, scope=None, as_type=None, replacement=None, init=None):
         self._key = key if scope is None else keyjoin(scope, key)
+        if init is not None:
+            cache.set(self._key, init)
         self.scope = scope
         self.as_type = as_type
         self.replacement = replacement
-
     @abstractmethod
     def get(self):
         pass
@@ -117,19 +118,18 @@ class clock(entry):
 
 class flag(clock): # truthy or not
     def set(self, expire=None):
+        expire = expire or CLAIM_TIME
         super().set(1)
-        if expire:
-            cache.expire(self._key, expire)
+        cache.expire(self._key, expire)
     def unset(self):
         super().set(0)
     def get(self):
         return super().get()[1]
-    def claim(self, expire=None): # Try to claim, return whether it was successful (will mess up ttl.. TODO: fix)
-        if (my_ticket := self.tick(1)) > 1:
-            return False
-        if expire:
-            cache.expire(self._key, expire)
-        return True
+    def claim(self, expire=None): # Try to claim, return whether it was successful
+        expire = expire or CLAIM_TIME
+        success = (self.tick(1) == 1)
+        cache.expire(self._key, expire)
+        return success
 
 ### Helper fcn for dictionary-class
 operation_dict = {
