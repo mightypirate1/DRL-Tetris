@@ -12,7 +12,8 @@ services:
     profiles: ["training"]
     volumes:
       - models:/code/models:rw
-      - tb:/code/summaries:rw
+      - tb:/code/data/summaries:rw
+    scale: 1
 
   worker:
     build:
@@ -42,13 +43,13 @@ services:
   #     - redis
   #   profiles: ["training", "data", "db"]
   #
-  # tensorboard:
-  #   image: tensorflow/tensorflow:2.8.0-gpu
-  #   command: ["tensorboard", "--logdir", "/mnt", "--bind_all"]
-  #   volumes:
-  #     - tb:/mnt:ro
-  #   profiles: ["training", "data"]
-  #   ports: ["6006:6006"]
+  tensorboard:
+    image: tensorflow/tensorflow:2.8.0-gpu
+    command: ["tensorboard", "--logdir", "/mnt", "--bind_all"]
+    volumes:
+      - tb:/mnt:ro
+    profiles: ["training", "data"]
+    ports: ["6006:6006"]
 
 #
 #
