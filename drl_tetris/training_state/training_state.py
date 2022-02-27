@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 from drl_tetris.training_state.redis_types import clock, byte_block, queue, dictionary, entry, flag, cache
+from drl_tetris.utils.scope import keyjoin
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +23,12 @@ def get_next_worker_id():
     raise IOError(f"creating too many workers!")
 
 class training_state:
-    def __init__(self, me=None, trainer="trainer", dummy=False):
+    def __init__(self, me=None, scope='', trainer="trainer", dummy=False):
         init_weights = None  # this means do not overwrite any stored value for init_weights
         if me != "trainer":
             init_weights = -1  # so forces re-load of weights
             me = worker_scope(get_next_worker_id())
-        self.me = me
+        self.me = keyjoin(scope, me)
         self.trainer = trainer
         self.cache = cache
         ### Data:

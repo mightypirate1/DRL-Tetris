@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 class sventon_agent_trainer_base(sventon_agent_base):
     def __init__(
-                 self,
-                 id=0,                      # What's this trainers name?
-                 session=None,              # The session to operate in
-                 sandbox=None,              # Sandbox to play in!
-                 mode=threads.ACTIVE,       # What's our role?
-                 settings=None,             # Settings-dict passed down from the ancestors
-                ):
+            self,
+            id=0,                      # What's this trainers name?
+            session=None,              # The session to operate in
+            sandbox=None,              # Sandbox to play in!
+            mode=threads.ACTIVE,       # What's our role?
+            settings=None,             # Settings-dict passed down from the ancestors
+        ):
 
         #Some general variable initialization etc...
         sventon_agent_base.__init__(self, id=id, name="trainer{}".format(id), session=session, sandbox=sandbox, settings=settings, mode=mode)
@@ -80,6 +80,15 @@ class sventon_agent_trainer_base(sventon_agent_base):
 
     def do_training(self, sample=None, policy=None):
         raise Exception("sventon_trainer_base is abstract!")
+
+    def merge_training_stats(self, trainingstats):
+        ret = {}
+        for batchstats in trainingstats:
+            for tensor, value in batchstats:
+                ret[tensor.name] = [value, *ret.get(tensor.name, [])]
+        for tensorname, valuelist in ret.items():
+           ret[tensorname] = np.mean(valuelist)
+        return ret
 
     #Moves the reference model to be equal to the model, or changes their role (depending on setting)
     def reference_update(self, net=None):

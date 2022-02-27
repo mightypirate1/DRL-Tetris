@@ -1,6 +1,8 @@
 import tensorflow.compat.v1 as tf
 import numpy as np
 
+# LOOK AT: tf.summary.create_file_writer() # from tf2
+
 class tb_writer(tf.summary.FileWriter):
     def __init__(self, name, session, *args, **kwargs):
         super().__init__(

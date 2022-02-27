@@ -30,15 +30,17 @@ class _renderer:
         self.field_row_size = 4
         self.piece_size = self.pieceSize(20)
         if color_theme is None:
-            self.fg_colormap = [[25,25,25],
-                                [255,0,0],
-                                [0,255,0],
-                                [115,145,255],
-                                [255,0,255],
-                                [0,255,255],
-                                [255,255,0],
-                                [255,255,255],
-                                [170,170,170]]
+            self.fg_colormap = [
+                [25,25,25],
+                [255,0,0],
+                [0,255,0],
+                [115,145,255],
+                [255,0,255],
+                [0,255,255],
+                [255,255,0],
+                [255,255,255],
+                [170,170,170]
+            ]
         else:
             self.fg_colormap = [ list(hex2intlist(hex_str)) for hex_str in color_theme ]
         self.bg_colormap = []
@@ -73,7 +75,7 @@ class _renderer:
             print("--------PAUSED--------")
             print("----------------------")
             while not self.pollEvents():
-                time.sleep(1.0)
+                time.sleep(0.1)
 
     def drawField(self, field, x, y, width, height):
         if field is None:

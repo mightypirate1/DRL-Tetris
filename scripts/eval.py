@@ -10,6 +10,24 @@ from tools.scoreboard import scoreboard
 import tools.utils as utils
 import threads
 
+#######
+### Ad-hoc nn visuals
+#####
+
+def visualize_nn_output(raw, player=0):
+    # utils.progress_bar(t,total_steps),t-trajectory_start)
+    length = 30
+    blank = ' ' * length
+    pref = blank if player else ''
+    for prob_rtp, piece_value, piece in zip(*raw):
+        pi = prob_rtp[:,:,piece]
+        unif = np.ones_like(pi) / (pi.shape[0] * pi.shape[1])
+        entropy = utils.entropy(pi)
+        max_entropy = utils.entropy(unif)
+        entr_vis = utils.progress_bar(entropy,max_entropy, length=length)
+        print(pref + entr_vis, piece_value[0,0,piece])
+
+
 #####
 ##  This is just a script with a main-loop for evaluations.
 ##
@@ -71,6 +89,7 @@ Options:
     --argmax            Force evals to use argmax, regardless of project setting. [default: False]
     --gpu               Run on GPU. [default: False]
     --solo              Play like it's a 1-player game (only P1 plays) [default: False]
+    --wait              Wait on input before restarting
 '''
 run_settings = docopt.docopt(docoptstring)
 total_steps = int(run_settings["--steps"])
@@ -83,28 +102,28 @@ settings =      list(map(utils.load_settings,settingsfiles))
 #Wedge some settings in...
 assert utils.test_setting_compatibility(*settings), "Incompatible settings :("
 s = adjust_settings(settings[0].copy())
-frac, weights_str, debug, fast, reload_weights, solo, render, score_width = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], run_settings["--solo"], s["render"], int(run_settings["--width"])
+frac, weights_str, debug, fast, reload_weights, solo, render, score_width, wait = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], run_settings["--solo"], s["render"], int(run_settings["--width"]), run_settings["--wait"]
 
 with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': 1})) as session:
     n_envs = 1
     #Initialize env!
     env = s["env_vector_type"](
-                               n_envs,
-                               s["env_type"],
-                               settings=s,
-                               )
+        n_envs,
+        s["env_type"],
+        settings=s,
+    )
     all_agents, all_names, all_weights, name_count = list(), list(), list(), dict()
     #Initialize agents!
     for i, setting, weight in zip(range(len(settings)), settings, weights_str):
         setting = adjust_settings(setting)
         a = setting["agent_type"](
-                                    n_envs,
-                                    id=i,
-                                    mode=threads.WORKER,
-                                    sandbox=setting["env_type"](settings=setting),
-                                    session=session,
-                                    settings=setting,
-                                )
+            n_envs,
+            id=i,
+            mode=threads.WORKER,
+            sandbox=setting["env_type"](settings=setting),
+            session=session,
+            settings=setting,
+        )
         w = utils.weight_location(weight)
         a.load_weights(*w)
         all_agents.append(a)
@@ -135,8 +154,8 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
             env.envs[0].backend.states[1].field[:,:] = 0
 
         #Get action from agent
-        action_idx, action    = agent[current_player[0]].get_action(state, player=current_player[0], training=False, verbose=debug)
-        # action = env.get_random_action(player=current_player)
+        action_idx, action, raw = agent[current_player[0]].get_action(state, player=current_player[0], training=False, verbose=debug)
+        visualize_nn_output(raw, player=current_player)
 
         #Perform action
         reward, done = env.perform_action(action, player=current_player)
@@ -162,6 +181,8 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
                         game_score.declare_winner(name[p])
                 print(game_score.score_table(frac=frac))
                 print("{} Round ended. {} steps.".format(utils.progress_bar(t,total_steps),t-trajectory_start))
+                if wait:
+                    input('<enter> to start the next round')
                 env.reset(env=i)
                 #Prepare next round!
                 agent, name, weight = random_match(all_agents, all_names, all_weights) #change who's go it is!

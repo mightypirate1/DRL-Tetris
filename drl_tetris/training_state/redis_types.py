@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 import dill
 import logging
-from pathlib import Path
 
 import redis
+
+from drl_tetris.utils.scope import keyjoin
 
 cache = redis.Redis(host='redis', port=6379)
 logger = logging.getLogger(__name__)
@@ -20,14 +21,6 @@ logger = logging.getLogger(__name__)
 #####
 
 CLAIM_TIME = 3 # Number of seconds a flag is claimed for. (All workers need to have started in this ammount of time, and one iteration of the worker loop needs to be reliably shorter)
-
-### Path-like joins for keys
-def keyjoin(x,y):
-    if not x:
-        return y
-    if not y:
-        return x
-    return str(Path(x)/Path(y))
 
 class redis_obj(ABC):
     def __init__(self, key, scope=None, as_type=None, replacement=None, init=None):

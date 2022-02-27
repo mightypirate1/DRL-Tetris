@@ -45,7 +45,7 @@ class worker(runner):
         self.env = self.env_vector_type(
             self.n_games,
             self.env_type,
-            settings=self.settings
+            settings=self.settings,
         )
         self.worker_agent = self.worker_agent_type(
             self.n_games,
@@ -55,70 +55,73 @@ class worker(runner):
             mode=threads.WORKER,
         )
 
-    @logstamp(logger.info, on_exit=True)
-    def graceful_exit(self):
-        self.training_state.alive_flag.unset()
-
     def validation_artifact(self):
         artefact = [self.env.get_state(), self.worker_agent.export_weights()]
         return artefact  # This is the state we will perform validation on
 
-    def runner_validation(self, artefact):  # Successful recovery entails being able to reproduce the exact same actions from a state
+    def runner_validation(self, artefact):  # Successful recovery entails being able to reproduce the exact same nn outputs
         state, weights = artefact
         self.worker_agent.import_weights(weights)
         return self.worker_agent.get_action(
             state,
-            player=[0]*self.n_games,
-            raw=True,
-            )
+            player=[0]*len(state),
+            # player=[0]*self.n_games,
+            )[2]
+
+    @logstamp(logger.info, on_exit=True)
+    def graceful_exit(self):
+        self.training_state.alive_flag.unset()
 
     def run(self):
         with tf.Session(config=self.config) as session:
-            self.tb_writer = tb_writer("worker", session)
-            self.worker_agent.create_models(session)
-            self.validate_runner()
+            with tb_writer("worker", session) as self.tb_writer:
+                ### Initialize session
+                self.worker_agent.create_models(session)
+                self.validate_runner()
 
-            ### Run!
-            current_player = np.random.choice([i for i in range(self.n_players)], size=(self.n_games))
-            if not self.single_policy:
-                current_player *= 0
-            reset_list = [i for i in range(self.n_games)]
-            try:
-                while not self.received_interrupt:
-                    self.update_clock()
-                    current_weights_idx = self.update_weights()
+                ### Initialize main-loop variables
+                reset_list = [i for i in range(self.n_games)]
+                if not self.single_policy:
+                    current_player *= 0
+                current_player = np.random.choice(
+                    [i for i in range(self.n_players)],
+                    size=(self.n_games),
+                )
 
-                    # Who's turn, and what state do they see?
-                    current_player = 1 - current_player
-                    state = self.env.get_state()
+                ### Run!
+                try:
+                    while not self.received_interrupt:
+                        self.update_clock()
+                        current_weights_idx = self.update_weights()
 
-                    # What action do they want to perform?
-                    action_idx, action = self.worker_agent.get_action(state, player=current_player, training=True, random_action=current_weights_idx<1)
+                        # Who's turn, and what state do they see?
+                        current_player = 1 - current_player
+                        state = self.env.get_state()
 
-                    #Perform action!
-                    reward, done = self.env.perform_action(action, player=current_player)
-                    s_prime = self.env.get_state()
+                        # What action do they want to perform?
+                        action_idx, action, _ = self.worker_agent.get_action(state, player=current_player, training=True, random_action=current_weights_idx<1)
 
-                    #Record what just happened!
-                    experience = self.make_experience(state, action_idx, reward, s_prime, current_player, done)
-                    self.worker_agent.store_experience(experience)
+                        #Perform action!
+                        reward, done = self.env.perform_action(action, player=current_player)
+                        s_prime = self.env.get_state()
 
-                    #Render!
-                    #self.env.render() #unless turned off in settings
+                        #Record what just happened!
+                        experience = self.make_experience(state, action_idx, reward, s_prime, current_player, done)
+                        self.worker_agent.store_experience(experience)
 
-                    #If some game has reached termingal state, it's reset here. Agents also get a chance to update their internals...
-                    reset_list = self.reset_envs(done, reward, current_player)
-                    self.worker_agent.ready_for_new_round(training=True, env=reset_list)
+                        #If some game has reached termingal state, it's reset here. Agents also get a chance to update their internals...
+                        reset_list = self.reset_envs(done, reward, current_player)
+                        self.worker_agent.ready_for_new_round(training=True, env=reset_list)
 
-                    # Get data back and forth to the trainer!
-                    self.send_training_data()
+                        # Get data back and forth to the trainer!
+                        self.send_training_data()
 
-                    #Print
-                    self.print_stats()
+                        #Print
+                        self.print_stats()
 
-            except Exception as e:
-                logger.error(f"worker died")
-                raise e
+                except Exception as e:
+                    logger.error(f"worker died")
+                    raise e
 
     @timekeeper()
     def update_clock(self):

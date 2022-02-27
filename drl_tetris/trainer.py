@@ -57,28 +57,28 @@ class trainer(runner):
 
     def run(self):
         with tf.Session(config=self.config) as session:
-            # Initialize!
-            self.trainer_agent.create_models(session)
-            self.tb_writer = tb_writer(self.run_name, session)
-            # Restore weights
-            saved_weights_exists, saved_weights = self.training_state.weights.get()
-            if saved_weights_exists:
-                self.trainer_agent.import_weights(saved_weights)
+            with tb_writer(self.run_name, session) as self.tb_writer:
+                # Initialize!
+                self.trainer_agent.create_models(session)
+                # Restore weights
+                saved_weights_exists, saved_weights = self.training_state.weights.get()
+                if saved_weights_exists:
+                    self.trainer_agent.import_weights(saved_weights)
 
-            with self.tb_writer:
-                ### Run!
-                try:
-                    while not self.received_interrupt:
-                        self.load_worker_data()
-                        if self.do_training():
-                            self.transfer_weights()
-                            self.save_weights()
-                        self.update_stats()
-                except Exception as e:
-                    self.save_weights(
-                        idx=f"CRASH_t={self.training_state.trainer_clock.get()}"
-                    )
-                    raise e
+                with self.tb_writer:
+                    ### Run!
+                    try:
+                        while not self.received_interrupt:
+                            self.load_worker_data()
+                            if (stats := self.do_training())[0]:
+                                self.transfer_weights()
+                                self.save_weights()
+                                self.update_stats(stats)
+                    except Exception as e:
+                        self.save_weights(
+                            idx=f"CRASH_t={self.training_state.trainer_clock.get()}"
+                        )
+                        raise e
 
     @timekeeper()
     def load_worker_data(self):
@@ -90,15 +90,19 @@ class trainer(runner):
     @logstamp(logger.info, on_entry=True, on_exit=True)
     def do_training(self):
         if self.settings["single_policy"]:
-            n = self.trainer_agent.do_training()
+            stats = self.trainer_agent.do_training()
         else:
-            n  = self.trainer_agent.do_training(policy=0)
-            n += self.trainer_agent.do_training(policy=1)
+            # Implement this
+            raise NotImplementedError('implement')
+            n, stats0 = self.trainer_agent.do_training(policy=0)
+            m, stats1 = self.trainer_agent.do_training(policy=1)
+
+            # n += m
         # stats
         self.training_state.stats.update(
-            {'runner': {'n_samples_trained': n}},
+            {'runner': {'n_samples_trained': stats[0]}},
         )
-        return n
+        return stats
 
     @timekeeper()
     def transfer_weights(self):
@@ -126,15 +130,17 @@ class trainer(runner):
             length =  md["length"]
             loaded_samples += length
             trajectory_length = mix(float(avg_trajectory_length), length, alpha=0.05)
-            self.tb_writer.update({'trainer/trajectory_length': length})
+            self.tb_writer.update({'trainer/trajectory_length': length}, time=loaded_samples)
         self.training_state.stats.set("trajectory_length", trajectory_length)
         loaded_samples = self.training_state.stats.set('runner/n_samples_loaded', loaded_samples)
         self.training_state.alive_flag.set(expire=120)
 
-    def update_stats(self): # and print :-)
+    def update_stats(self, trainingresults): # and print :-)
         timestats = timekeeper.stats
         self.training_state.stats.update(timestats['time'], prefix='time')
         if (current_weights := self.training_state.trainer_weights_index.get()) > self.latest_printed_weights:
+            _, trainingstats = trainingresults
+            self.tb_writer.update(trainingstats, time=current_weights)
             statsdict = self.training_state.stats.get_all()
             timekeys = [(k.split('/')[-1],k) for k in statsdict.keys() if 'time' in k]
             currtimes = [timestats['time'].get(k1,0.) for k1,_ in timekeys]

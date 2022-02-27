@@ -28,7 +28,7 @@ class runner(ABC):
     def __init__(self, settings, me=""):
         self.received_interrupt = False
         self.settings = settings
-        self.training_state = training_state(me=me)
+        self.training_state = training_state(me=me, scope=settings['run-id'])
         signal.signal(signal.SIGINT, self.store_runner_state_and_exit)
         signal.signal(signal.SIGTERM, self.store_runner_state_and_exit)
         self.read_settings()
@@ -76,11 +76,6 @@ class runner(ABC):
         self.set_validation_artifact(validation_artifact)
         logger.info(f"{self.training_state.me}: ARTIFACT CHECKSUM: [{self.compute_checksum(validation_artifact)}]")
 
-        # ####### TODO: remove if validation proves reliable
-        # proof = self.runner_validation(validation_artifact)
-        # logger.info(f"{self.training_state.me}: PROOF CHECKSUM: [{self.compute_checksum(proof)}]")
-        # #######
-
         self.graceful_exit()
         self.received_interrupt = True
 
@@ -101,10 +96,6 @@ class runner(ABC):
         logger.info(f"target: [{targetchecksum}]")
         proof = self.runner_validation(artifact)
         checksum = self.compute_checksum(proof)
-
-        # TODO: remove if validation proves reliable
-        # logger.info(f"{self.training_state.me}: ARTIFACT CHECKSUM: [{self.compute_checksum(artifact)}]")
-        # logger.info(f"{self.training_state.me}: PROOF CHECKSUM: [{self.compute_checksum(proof)}]")
 
         logger.info(f"validation: [{checksum}]")
         if checksum == targetchecksum:  # If my result is equal to the stored target-result, it means I have successfully recovered runner-state
