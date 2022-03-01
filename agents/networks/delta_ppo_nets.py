@@ -5,7 +5,7 @@ import numpy as np
 import tools.utils as utils
 from agents.networks import network_utils as N
 from agents.networks.value_estimator import value_estimator
-from agents.networks.advantage_normalizer import adv_normalizer
+from agents.networks.compressor import compressor
 from agents.networks.network import network
 
 class delta_ppo_nets(network):
@@ -168,7 +168,7 @@ class delta_ppo_nets(network):
         r_saturation = tf.reduce_mean(tf.cast(tf.not_equal(r, clipped_r),tf.float32))
 
         advnorm = adv_normalizer(0.01, safety=2.0, clip_val=4.0)
-        if self.settings["normalize_advantages"]:
+        if self.settings["compress_advantages"]:
             advantages = advnorm(advantages)
 
         policy_loss = tf.minimum( r * advantages, clipped_r * advantages )
@@ -192,9 +192,9 @@ class delta_ppo_nets(network):
         self.output_as_stats( values, name='values')
         self.output_as_stats( target_values, name='target_values')
         self.output_as_stats( r_saturation, name='clip_saturation', only_mean=True)
-        self.output_as_stats( advnorm.a_mean, name='advantage_normalizer', only_mean=True)
-        self.output_as_stats( advnorm.a_max, name='advantage_normalizer_max', only_mean=True)
-        self.output_as_stats( advnorm.a_saturation, name='advantage_normalizer_saturation', only_mean=True)
+        self.output_as_stats( advnorm.a_mean, name='advantage_compressor', only_mean=True)
+        self.output_as_stats( advnorm.a_max, name='advantage_compressor_max', only_mean=True)
+        self.output_as_stats( advnorm.a_saturation, name='advantage_compressor_saturation', only_mean=True)
         self.output_as_stats( self.loss_tf, name='tot_loss', only_mean=True)
         self.output_as_stats( self.value_loss_tf, name='value_loss', only_mean=True)
         self.output_as_stats(-self.policy_loss_tf, name='policy_loss', only_mean=True)

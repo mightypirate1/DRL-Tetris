@@ -8,7 +8,7 @@ class network:
         #Basics
         self.settings = utils.parse_settings(settings)
         self.name = name
-        self.scope = tf.variable_scope("agent{}_{}".format(agent_id,name))
+        self.scope = tf.variable_scope("network")
         self.session = session
         self.worker_only = worker_only
         self.full_network = full_network

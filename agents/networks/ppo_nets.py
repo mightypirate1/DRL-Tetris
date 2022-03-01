@@ -5,8 +5,13 @@ import numpy as np
 import tools.utils as utils
 from agents.networks import network_utils as N
 from agents.networks.value_estimator import value_estimator
-from agents.networks.advantage_normalizer import adv_normalizer
+from agents.networks.compressor import compressor
 from agents.networks.network import network
+
+from logging import getLogger
+
+logger = getLogger(__name__)
+
 
 class ppo_nets(network):
     def __init__(self, agent_id, name, state_size, output_shape, session, k_step=1, settings=None, worker_only=False):
@@ -157,13 +162,26 @@ class ppo_nets(network):
         probability = tf.expand_dims(tf.reduce_sum(policy * rtp_mask, axis=[1,2,3]),1)
         values = tf.reduce_sum(values * p_mask, axis=[2,3])
 
+        #######
+        #######
+        ####### TODO: REMOVE THIS ONCE docker008 is not interesting (or restarted)
+        for key in ["compress_advantages", "compress_value_loss"]:
+            if key in self.settings:
+                if type(self.settings[key]) is bool:
+                    for _ in range(50):
+                        logger.info(f'REPLACED DEFAULT: {self.settings[key]} -> {dict()}')
+                    self.settings[key] = {}
+        #######
+        #######
+        #######
+
         #probability ratio
         r = tf.maximum(probability, e) / tf.maximum(old_probs, e)
         clipped_r = tf.clip_by_value( r, 1-clip_param, 1+clip_param )
         r_saturation = tf.reduce_mean(tf.cast(tf.not_equal(r, clipped_r),tf.float32))
-        advnorm = adv_normalizer(0.01, safety=2.0, clip_val=4.0)
-        if self.settings["normalize_advantages"]:
-            advantages = advnorm(advantages)
+        if "compress_advantages" in self.settings:
+            adv_compressor = compressor(**self.settings["compress_advantages"])
+            advantages = adv_compressor(advantages)
         policy_loss = tf.minimum( r * advantages, clipped_r * advantages )
 
         #entropy
@@ -175,11 +193,14 @@ class ppo_nets(network):
             entropy_floor = -eps*tf.math.log( eps/(n_actions-1) ) -(1-eps) * tf.log(1-eps)
             extra_entropy = -tf.nn.relu(entropy_floor - action_entropy)
             entropy_bonus += params["entropy_floor_loss"] * extra_entropy
-        if "weighted_entropy" in params:
-            entropy_bonus *= params["weighted_entropy"] * (max_entropy - entropy_bonus)
+        if "rescaled_entropy" in params:
+            entropy_bonus += params["rescaled_entropy"] * (max_entropy - entropy_bonus)
 
         #tally up
         self.value_loss_tf   =  c1 * tf.losses.mean_squared_error(values, target_values) #reduce loss
+        if "compress_value_loss" in self.settings:
+            val_compressor = compressor(**self.settings["compress_value_loss"])
+            self.value_loss_tf = val_compressor(self.value_loss_tf)
         self.policy_loss_tf  = -c2 * tf.reduce_mean(policy_loss) #increase expected advantages
         self.entropy_loss_tf = -c3 * tf.reduce_mean(entropy_bonus) #increase entropy
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net.variables])
@@ -187,22 +208,30 @@ class ppo_nets(network):
         training_ops = self.settings["optimizer"](learning_rate=params['lr']).minimize(self.loss_tf)
 
         #Stats: we like stats.
-        self.output_as_stats( action_entropy, name='entropy')
-        self.output_as_stats( entropy_bonus, name='entropy_bonus', only_mean=True)
-        self.output_as_stats( values, name='values')
-        self.output_as_stats( target_values, name='target_values')
-        self.output_as_stats( r_saturation, name='clip_saturation', only_mean=True)
-        self.output_as_stats( advnorm.a_mean, name='advantage_normalizer', only_mean=True)
-        self.output_as_stats( advnorm.a_max, name='advantage_normalizer_max', only_mean=True)
-        self.output_as_stats( advnorm.a_saturation, name='advantage_normalizer_saturation', only_mean=True)
-        self.output_as_stats( self.loss_tf, name='tot_loss', only_mean=True)
-        self.output_as_stats( self.value_loss_tf, name='value_loss', only_mean=True)
-        self.output_as_stats(-self.policy_loss_tf, name='policy_loss', only_mean=True)
-        self.output_as_stats(-self.entropy_loss_tf, name='entropy_loss', only_mean=True)
-        self.output_as_stats( self.regularizer_tf, name='reg_loss', only_mean=True)
+        self.output_as_stats( action_entropy, name='entropy/entropy')
+        self.output_as_stats( entropy_bonus, name='entropy/entropy_bonus', only_mean=True)
+        self.output_as_stats( values, name='misc/values')
+        self.output_as_stats( target_values, name='misc/target_values')
+        self.output_as_stats( r_saturation, name='misc/clip_saturation', only_mean=True)
+
+        if self.settings["compress_advantages"]:
+            self.output_as_stats( adv_compressor.x_mean, name='compressors/advantage/compressor', only_mean=True)
+            self.output_as_stats( adv_compressor.x_max, name='compressors/advantage/compressor_max', only_mean=True)
+            self.output_as_stats( adv_compressor.x_saturation, name='compressors/advantage/compressor_saturation', only_mean=True)
+
+        if self.settings["compress_value_loss"]:
+            self.output_as_stats( val_compressor.x_mean, name='compressors/valueloss/compressor', only_mean=True)
+            self.output_as_stats( val_compressor.x_max, name='compressors/valueloss/compressor_max', only_mean=True)
+            self.output_as_stats( val_compressor.x_saturation, name='compressors/valueloss/compressor_saturation', only_mean=True)
+
+        self.output_as_stats( self.loss_tf, name='losses/total_loss', only_mean=True)
+        self.output_as_stats( self.value_loss_tf, name='losses/value_loss', only_mean=True)
+        self.output_as_stats(-self.policy_loss_tf, name='losses/policy_loss', only_mean=True)
+        self.output_as_stats(-self.entropy_loss_tf, name='losses/entropy_loss', only_mean=True)
+        self.output_as_stats( self.regularizer_tf, name='losses/regularizer_loss', only_mean=True)
         for param_name in params:
-            self.output_as_stats( params[param_name], name='params/'+param_name, only_mean=True)
-        return [training_ops, advnorm.update_op]
+            self.output_as_stats( params[param_name], name='parameters/'+param_name, only_mean=True)
+        return [training_ops, adv_compressor.update_op, val_compressor.update_op]
 
     def create_targets(self, values):
         if self.settings["workers_computes_advantages"]:
