@@ -89,6 +89,7 @@ Options:
     --argmax            Force evals to use argmax, regardless of project setting. [default: False]
     --gpu               Run on GPU. [default: False]
     --solo              Play like it's a 1-player game (only P1 plays) [default: False]
+    --entropy           Visualize the entropy of each players action probability distribution
     --wait              Wait on input before restarting
 '''
 run_settings = docopt.docopt(docoptstring)
@@ -102,7 +103,7 @@ settings =      list(map(utils.load_settings,settingsfiles))
 #Wedge some settings in...
 assert utils.test_setting_compatibility(*settings), "Incompatible settings :("
 s = adjust_settings(settings[0].copy())
-frac, weights_str, debug, fast, reload_weights, solo, render, score_width, wait = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], run_settings["--solo"], s["render"], int(run_settings["--width"]), run_settings["--wait"]
+frac, weights_str, debug, fast, reload_weights, solo, render, score_width, wait, show_entropy = run_settings["--frac"], run_settings["<weights>"], run_settings["--debug"], run_settings["--fast"], run_settings["--reload"], run_settings["--solo"], s["render"], int(run_settings["--width"]), run_settings["--wait"], run_settings["--entropy"]
 
 with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'GPU': 1})) as session:
     n_envs = 1
@@ -155,7 +156,9 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
 
         #Get action from agent
         action_idx, action, raw = agent[current_player[0]].get_action(state, player=current_player[0], training=False, verbose=debug)
-        visualize_nn_output(raw, player=current_player)
+        
+        if show_entropy:
+            visualize_nn_output(raw, player=current_player)
 
         #Perform action
         reward, done = env.perform_action(action, player=current_player)

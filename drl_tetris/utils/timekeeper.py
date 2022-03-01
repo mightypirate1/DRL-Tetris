@@ -37,7 +37,7 @@ class timekeeper_type:
             'time': dict(self._time_stats),
             'latest': dict(self._last_tag),
             'current': dict(self._entered_tag),
-            }
+        }
     @property
     def last_tag(self):
         return self.last_tag
