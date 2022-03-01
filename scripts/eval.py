@@ -34,7 +34,7 @@ def visualize_nn_output(raw, player=0):
 ##  TODO: remake to use the code from the worker_thread!
 #####
 
-def adjust_settings(s):
+def adjust_settings(s, player=0):
     S = s.copy()
     if run_settings["--null"]:
         S["bar_null_moves"] = False
@@ -44,7 +44,7 @@ def adjust_settings(s):
         S["pieces"] = experiments.presets.presets["default"]["pieces"]
     if not run_settings["--res"]:
         S["render_screen_dims"] = experiments.presets.presets["default"]["render_screen_dims"]
-    if run_settings["--argmax"]:
+    if player < int(run_settings["--argmax"]):
         S["eval_distribution"] = "argmax"
     S["render"] = not run_settings["--no-rendering"]
     S["worker_net_on_cpu"] = not run_settings["--gpu"]
@@ -86,7 +86,7 @@ Options:
     --steps S           Number of steps [default: 5000]
     --frac              Print scoreboard with fractions instead of floats. [default: False]
     --width W           With of the score crosstable [default: 120]
-    --argmax            Force evals to use argmax, regardless of project setting. [default: False]
+    --argmax P          Force player [0,..P-1] to use use argmax, regardless of project setting. [default: 0]
     --gpu               Run on GPU. [default: False]
     --solo              Play like it's a 1-player game (only P1 plays) [default: False]
     --entropy           Visualize the entropy of each players action probability distribution
@@ -116,7 +116,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
     all_agents, all_names, all_weights, name_count = list(), list(), list(), dict()
     #Initialize agents!
     for i, setting, weight in zip(range(len(settings)), settings, weights_str):
-        setting = adjust_settings(setting)
+        setting = adjust_settings(setting, player=i)
         a = setting["agent_type"](
             n_envs,
             id=i,
@@ -155,8 +155,10 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
             env.envs[0].backend.states[1].field[:,:] = 0
 
         #Get action from agent
+        if current_player[0] == 0:
+            agent[0].eval_distribution = "argmax"
         action_idx, action, raw = agent[current_player[0]].get_action(state, player=current_player[0], training=False, verbose=debug)
-        
+
         if show_entropy:
             visualize_nn_output(raw, player=current_player)
 

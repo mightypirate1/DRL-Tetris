@@ -67,6 +67,7 @@ class resblock(base_architecture):
             for key in self.resblock_settings:
                 if key in self.settings["residual_block_settings"]:
                     self.resblock_settings[key].update(self.settings["residual_block_settings"][key])
+
 class resblock_kbd(resblock):
     def advantage_output_fcn(self, x):
         return blocks.keyboard_conv(x, self.n_rotations, self.n_pieces, activation=self.kbd_activation)

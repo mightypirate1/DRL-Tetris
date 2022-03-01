@@ -39,6 +39,7 @@ class ppo_nets(network):
                 self.pieces_training_tf     =  tf.placeholder(tf.uint8, (None, 1), name='piece')
                 self.probabilities_old_tf   =  tf.placeholder(tf.float32, (None, 1), name='probabilities')
                 self.target_value_tf, self.advantages_tf = self.create_targets(self.v_tf)
+
                 #params
                 self.params = {
                     'ppo_epsilon'        : tf.placeholder(tf.float32, shape=(), name='ppo_epsilon'),
@@ -50,6 +51,7 @@ class ppo_nets(network):
                     'rescaled_entropy'   : tf.placeholder(tf.float32, shape=(), name='c_rescaled_entropy'),
                     'lr'                 : tf.placeholder(tf.float32, shape=(), name='lr'),
                 }
+
                 self.training_ops  = self.create_training_ops(
                     self.pi_tf,
                     self.v_tf,
@@ -183,22 +185,24 @@ class ppo_nets(network):
         entropy_bonus = action_entropy = tf.reduce_sum(N.action_entropy(policy + e) * p_mask, axis=3)
         n_actions = self.n_rotations * self.n_translations
         max_entropy = utils.entropy(np.ones(n_actions)/n_actions)
+
         if "entropy_floor_loss" in params:
             eps = params["ppo_epsilon"]
             entropy_floor = -eps*tf.math.log( eps/(n_actions-1) ) -(1-eps) * tf.log(1-eps)
             extra_entropy = -tf.nn.relu(entropy_floor - action_entropy)
             entropy_bonus += params["entropy_floor_loss"] * extra_entropy
+
         if "rescaled_entropy" in params:
             entropy_bonus += params["rescaled_entropy"] * (max_entropy - entropy_bonus)
 
         #tally up
         self.value_loss_tf   =  c1 * tf.losses.mean_squared_error(values, target_values) #reduce loss
-        if "compress_value_loss" in self.settings:
-            val_compressor = compressor(**self.settings["compress_value_loss"])
-            self.value_loss_tf = val_compressor(self.value_loss_tf)
         self.policy_loss_tf  = -c2 * tf.reduce_mean(policy_loss) #increase expected advantages
         self.entropy_loss_tf = -c3 * tf.reduce_mean(entropy_bonus) #increase entropy
         self.regularizer_tf = self.settings["nn_regularizer"] * tf.add_n([tf.nn.l2_loss(v) for v in self.main_net.variables])
+        if "compress_value_loss" in self.settings:
+            val_compressor = compressor(**self.settings["compress_value_loss"])
+            self.value_loss_tf = val_compressor(self.value_loss_tf)
         self.loss_tf = self.value_loss_tf + self.policy_loss_tf + self.entropy_loss_tf + self.regularizer_tf
         training_ops = self.settings["optimizer"](learning_rate=params['lr']).minimize(self.loss_tf)
 
@@ -236,7 +240,7 @@ class ppo_nets(network):
             self.ref_net = self.main_net
         else:
             self.ref_net   = self.network_type(
-                 "reference-net",
+                 f"{self.network_name}/reference-net",
                  self.output_shape,
                  self.settings,
                  training=False,
@@ -253,7 +257,7 @@ class ppo_nets(network):
                 self.gamma,
                 self._lambda, # lambda is used for general advantage estimation (see paper for details...)
                 filter=self.estimator_filter, # ignore certain k-estimates for speed (optional)
-                truncate_aggregation=self.settings["value_estimator_params"]["truncate_aggregation"], # only do gae until en of episode
+                truncate_aggregation=self.settings["value_estimator_params"]["truncate_aggregation"], # only do gae until end of episode
             )
             self.reference_net_assign_list = self.create_weight_setting_ops(self.ref_net.variables)
             target_values_tf = self.estimator.output_tf

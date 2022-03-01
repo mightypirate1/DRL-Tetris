@@ -145,11 +145,10 @@ class sventon_agent_base:
                                                 )
 
     def import_weights(self, weight_list, seed=None): #As passed by the trainer's export_weights-fcn..
-        apply_noise = "parameter_noise" in self.settings
         models = sorted([x for x in self.model_dict])
         for m,w in zip(models, weight_list):
             model = self.model_dict[m]
-            model.set_weights(model.main_net_assign_list,w, seed=seed, apply_noise=apply_noise)
+            model.set_weights(model.main_net_assign_list,w, seed=seed)
 
     def export_weights(self):
         models = sorted([x for x in self.model_dict])

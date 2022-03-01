@@ -3,21 +3,21 @@ import numpy as np
 
 class value_estimator:
     def __init__(
-                self,
-                vec_sizes,
-                vis_sizes,
-                network,
-                rewards,
-                dones,
-                k,
-                gamma,
-                _lambda,
-                filter=None,
-                truncate_aggregation=False,
-                time_stamps=None,
-                time_stamp_gamma=1.0,
-                separate_piece_values=True,
-                ):
+        self,
+        vec_sizes,
+        vis_sizes,
+        network,
+        rewards,
+        dones,
+        k,
+        gamma,
+        _lambda,
+        filter=None,
+        truncate_aggregation=False,
+        time_stamps=None,
+        time_stamp_gamma=1.0,
+        separate_piece_values=True,
+    ):
         self._vec_sizes, self._vis_sizes = vec_sizes, vis_sizes
         self._network = network
         self._gamma = gamma
@@ -33,11 +33,11 @@ class value_estimator:
         self._vec_inputs = [tf.placeholder(tf.float32, (None, self._n_steps)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self._vec_sizes)]
         self._vis_inputs = [tf.placeholder(tf.float32, (None, self._n_steps)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self._vis_sizes)]
         self._value_estimator_tf = self._create_estimator(
-                                                            self._vec_inputs,
-                                                            self._vis_inputs,
-                                                            rewards,
-                                                            dones,
-                                                        )
+            self._vec_inputs,
+            self._vis_inputs,
+            rewards,
+            dones,
+        )
 
     def feed_dict(self, vec, vis):
         vec_dict = dict(zip(self._vec_inputs, map(self._filter_inputs,vec)))
