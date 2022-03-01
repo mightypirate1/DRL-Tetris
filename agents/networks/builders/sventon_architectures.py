@@ -63,9 +63,6 @@ class resblock(base_architecture):
         resb_default.update(self.settings["residual_block_settings"]["default"])
         self.resblock_settings = {"visual": resb_default.copy(), "visvec": resb_default.copy(), "adv_stream" : resb_default.copy(), "val_stream": val_resb_settings,}
 
-        #TIDY
-        self.resblock_settings["adv_stream"]["param_noiser"] = self.param_noiser
-
         if "residual_block_settings" in self.settings:
             for key in self.resblock_settings:
                 if key in self.settings["residual_block_settings"]:

@@ -27,7 +27,7 @@ class sventon_agent_base:
         self.id = id
         self.name = name
         self.mode = mode
-        logger.debug("name created! type={} mode={}".format(self.name,self.mode))
+
         #Parse settings
         self.settings = utils.parse_settings(settings)
         settings_ok, error = self.process_settings() #Checks so that the settings are not conflicting
@@ -36,6 +36,7 @@ class sventon_agent_base:
 
         #Provide some data-types for flavours!
         flavour = self.flavour = self.settings["sventon_flavour"]
+        self.piece_in_statevec = self.settings["state_processor_piece_in_statevec"] # what does this do?
         self.trajectory_type = dt.sventon_trajectory
         if flavour == "ppo":
             self.trainer_type = self.settings["trainer_type"]
@@ -49,24 +50,22 @@ class sventon_agent_base:
         #Some basic core functionality
         self.sandbox = sandbox.copy()
         self.unpack = state_unpack.unpacker(
-                                            self.sandbox.get_state(),
-                                            observation_mode='separate',
-                                            player_mode='separate',
-                                            state_from_perspective=True,
-                                            separate_piece=True,
-                                            piece_in_statevec=self.settings["state_processor_piece_in_statevec"],
-                                            )
+            self.sandbox.get_state(),
+            observation_mode='separate',
+            player_mode='separate',
+            state_from_perspective=True,
+            separate_piece=True,
+            piece_in_statevec=self.piece_in_statevec,
+        )
+
         #nn-shapes etc
         self.state_size = self.unpack.get_shapes()
         self.n_vec, self.n_vis = len(self.state_size[0]), len(self.state_size[1])
         self.n_rotations = 4
         self.n_translations = self.settings["game_size"][1]
-        self.piece_in_statevec = self.settings["state_processor_piece_in_statevec"]
         self.n_pieces = 7 if not self.piece_in_statevec else 1
         self.model_output_shape = [self.n_rotations, self.n_translations, self.n_pieces]
-        #
-        self.n_envs = 1
-        self.n_workers = 1
+
         #distrubutions
         self.eval_dist = self.settings["eval_distribution"]
         self.train_dist = self.settings["train_distribution"]
@@ -79,7 +78,7 @@ class sventon_agent_base:
         if session is not None:
             self.create_models(session)
         else:
-            logger.warning(f"tf.Session NOT provided. You will have to create agent-models manually wigh create_model_dict when you have one")
+            logger.warning(f"tf.Session NOT provided. You will have to create agent-models manually with 'create_model_dict' when you have one")
 
     def run_model(self, net, states, **kwargs):
         player = kwargs.pop('player')
@@ -97,10 +96,9 @@ class sventon_agent_base:
     def create_models(self,session):
         models = ["main_net"] if self.settings["single_policy"] else ["policy_0", "policy_1"]
         model_dict = {}
-        worker_only = self.mode == threads.WORKER
+        worker_only = (self.mode == threads.WORKER)
         for model in models:
             m = self.network_type(
-                self.id,
                 model,
                 self.state_size,
                 self.model_output_shape,
@@ -182,7 +180,7 @@ class sventon_agent_base:
             return False, "train_distribution"
         return True, None
 
-    #Pickling needed for multiprocessing...
+    # This makes pickling work...
     def __getstate__(self):
         d = self.__dict__.copy()
         d.pop("model_dict", None)

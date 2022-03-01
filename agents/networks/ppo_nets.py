@@ -14,22 +14,21 @@ logger = getLogger(__name__)
 
 
 class ppo_nets(network):
-    def __init__(self, agent_id, name, state_size, output_shape, session, k_step=1, settings=None, worker_only=False):
-        network.__init__(self, agent_id, name, state_size, output_shape, session, k_step=k_step, settings=settings, worker_only=worker_only)
+    def __init__(self, network_name, state_size, output_shape, session, k_step=1, settings=None, worker_only=False):
+        network.__init__(self, network_name, state_size, output_shape, session, k_step=k_step, settings=settings, worker_only=worker_only)
         #Build network!
         with self.scope as scope:
             self.vector_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='vector_input{}'.format(i)) for i,s in enumerate(self.state_size_vec)]
             self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
             self.training_tf = tf.placeholder(tf.bool, shape=())
             self.main_net  = self.network_type(
-                "main-net",
+                network_name,
                 self.output_shape,
                 self.settings,
                 full_network=(not worker_only or self.settings["workers_computes_advantages"]),
                 training=self.training_tf,
                 kbd_activation=N.action_softmax,
                 raw_outputs=True,
-                param_noiser=self.param_noiser,
             )
             self.v_tf, self.pi_tf = self.main_net(self.vector_inputs, self.visual_inputs)
             #
@@ -72,8 +71,6 @@ class ppo_nets(network):
         vector, visual = inputs
         run_list = [self.pi_tf, self.v_tf]
         feed_dict = {self.training_tf : False}
-        if self.param_noiser is not None:
-            feed_dict[self.param_noiser.disable_noise_tf] = disable_noise
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
         for idx, vis in enumerate(visual):
@@ -130,8 +127,6 @@ class ppo_nets(network):
             self.params['rescaled_entropy']    : rescaled_entropy,
             self.params['lr']                  : lr,
         }
-        if self.param_noiser is not None:
-            feed_dict[self.param_noiser.disable] = False
         _filter = lambda x : x[:,0,:] if unfiltered_inputs else lambda x : x
         feed_dict.update(dict(zip(self.vector_inputs, map(_filter,vector_states))))
         feed_dict.update(dict(zip(self.visual_inputs, map(_filter,visual_states))))

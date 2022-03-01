@@ -36,7 +36,6 @@ class sventon_agent(sventon_agent_base):
         #In any mode, we need a place to store transitions!
         self.current_trajectory = [self.trajectory_type() for _ in range(self.n_envs if self.settings["single_policy"] else 2*self.n_envs)]
         self.stored_trajectories = list()
-        self.action_entropy = 0
         self.theta = 0
 
         #If we do our own training, we prepare for that
