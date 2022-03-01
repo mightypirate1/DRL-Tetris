@@ -81,10 +81,8 @@ class worker(runner):
 
                 ### Initialize main-loop variables
                 reset_list = [i for i in range(self.n_games)]
-                if not self.single_policy:
-                    current_player *= 0
                 current_player = np.random.choice(
-                    [i for i in range(self.n_players)],
+                    [i for i in range(self.n_players if self.single_policy else 1)],
                     size=(self.n_games),
                 )
 
