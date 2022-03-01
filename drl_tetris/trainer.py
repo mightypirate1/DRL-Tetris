@@ -3,7 +3,6 @@ import time
 import os
 import logging
 
-from drl_tetris.training_state import training_state
 from drl_tetris.utils.timekeeper import timekeeper
 from drl_tetris.utils.math import mix
 from drl_tetris.utils.logging import logstamp
