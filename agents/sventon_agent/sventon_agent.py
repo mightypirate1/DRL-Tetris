@@ -63,7 +63,7 @@ class sventon_agent(sventon_agent_base):
         else:
             assert p_list[0] == p_list[-1], "{} ::: In dual-policy mode we require queries to be for one policy at a time... (for speed)".format(p_list)
             model = self.model_dict["policy_{}".format(p_list[0])]
-        model_eval_fcn, model_args, model_kwargs = self.model_runner(model), (state_vec,), {"player" : p_list, "disable_noise" : False}
+        model_eval_fcn, model_args, model_kwargs = self.model_runner(model), (state_vec,), {"player" : p_list}
 
         #Run model!
         action_eval, state_eval, pieces = raw = model_eval_fcn(*model_args,**model_kwargs)

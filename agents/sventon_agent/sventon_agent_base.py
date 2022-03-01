@@ -135,14 +135,14 @@ class sventon_agent_base:
         for net in self.model_dict:
             main_weights, ref_weights = input_models[net]
             self.model_dict[net].set_weights(
-                                             self.model_dict[net].main_net_assign_list,
-                                             main_weights,
-                                            )
+                self.model_dict[net].main_net_assign_list,
+                main_weights,
+            )
             if not self.model_dict[net].worker_only:
                 self.model_dict[net].set_weights(
-                                                 self.model_dict[net].reference_net_assign_list,
-                                                 ref_weights
-                                                )
+                    self.model_dict[net].reference_net_assign_list,
+                    ref_weights
+                )
 
     def import_weights(self, weight_list, seed=None): #As passed by the trainer's export_weights-fcn..
         models = sorted([x for x in self.model_dict])
