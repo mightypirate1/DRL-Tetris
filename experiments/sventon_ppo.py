@@ -2,22 +2,24 @@ import tensorflow.compat.v1 as tf
 from tools.parameter import *
 
 settings = {
-    "run-id" : "docker004",
+    "run-id" : "docker009",
     "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
 
     #Project
     "augment_data" : False,
-    "normalize_advantages" : True,
+    # docker008 is just cautious -
+    "compress_advantages" : {'lr':0.01, 'safety':3.0, 'clip_val':8.0, 'cautious':False,},
+    "compress_value_loss" : {'lr':0.01, 'safety':3.0, 'clip_val':8.0, 'cautious':False,},
     "n_step_value_estimates"    : 1,
 
     #RL-algo-settings
     "ppo_parameters" : {
-        'clipping_parameter' : 0.10,
-        'value_loss' : 0.4,
-        'policy_loss' : 1.4,
-        'entropy_loss' : 0.02,
+        'clipping_parameter' : 0.15,
+        'value_loss' : 0.01,
+        'policy_loss' : 0.8,
+        'entropy_loss' : 0.017,
         'entropy_floor_loss' : 0.0,
-        'rescaled_entropy' : 1.0,
+        'rescaled_entropy' : 0.0,
         # 'clipping_parameter' : 0.10,
         # 'value_loss' : 0.4,
         # 'policy_loss' : 0.9,
@@ -31,8 +33,8 @@ settings = {
     #Train parameters
     "value_lr"                  : 1e-5, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
 
-    # "gae_lambda"                : 0.85,
-    "gae_lambda"                : 0.98, #linear_parameter(2.0, final_val=0.0, time_horizon=2e8, max=0.85),
+    "gae_lambda"                : 0.85,
+    # "gae_lambda"                : 0.98, #linear_parameter(2.0, final_val=0.0, time_horizon=2e8, max=0.85),
     "n_samples_each_update"     : 2048,
     "minibatch_size"            : 64,
     "n_train_epochs_per_update" : 4,
