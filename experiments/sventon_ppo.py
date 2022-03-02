@@ -2,7 +2,7 @@ import tensorflow.compat.v1 as tf
 from tools.parameter import *
 
 settings = {
-    "run-id" : "docker009",
+    "run-id" : "docker010",
     "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
 
     #Project
@@ -17,7 +17,7 @@ settings = {
         'clipping_parameter' : 0.15,
         'value_loss' : 0.01,
         'policy_loss' : 0.8,
-        'entropy_loss' : 0.017,
+        'entropy_loss' : 0.015,
         'entropy_floor_loss' : 0.0,
         'rescaled_entropy' : 0.0,
         # 'clipping_parameter' : 0.10,
@@ -34,10 +34,12 @@ settings = {
     "value_lr"                  : 1e-5, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
 
     "gae_lambda"                : 0.85,
-    # "gae_lambda"                : 0.98, #linear_parameter(2.0, final_val=0.0, time_horizon=2e8, max=0.85),
+    "gamma"                     : 1.0,
+
     "n_samples_each_update"     : 2048,
     "minibatch_size"            : 64,
     "n_train_epochs_per_update" : 4,
+    "experience_replay_size"    : 2*10**4,
 
     #Architecture
     "residual_block_settings" : {
@@ -61,7 +63,8 @@ settings = {
     "n_envs_per_thread"    : 30,
     "worker_steps"         : total_steps // 3*40,
     #Misc
-    "render_screen_dims" : (1920,1080),
+    "render_screen_dims" : (960,1080),
+    # "render_screen_dims" : (1920,1080),
 }
 
 patches = [
