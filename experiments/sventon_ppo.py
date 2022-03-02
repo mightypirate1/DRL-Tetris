@@ -17,7 +17,7 @@ settings = {
         'clipping_parameter' : 0.15,
         'value_loss' : 0.01,
         'policy_loss' : 0.8,
-        'entropy_loss' : 0.015,
+        'entropy_loss' : 0.017,
         'entropy_floor_loss' : 0.0,
         'rescaled_entropy' : 0.0,
         # 'clipping_parameter' : 0.10,
@@ -28,17 +28,18 @@ settings = {
         # 'rescaled_entropy' : 0.0,
     },
 
-    "nn_regularizer" : 1e-4,
-    "resblock_dropout" : 0.15,
     #Train parameters
-    "value_lr"                  : 1e-5, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
+    "value_lr"                  : 7e-6, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
+    "n_samples_each_update"     : 2048,
+    "minibatch_size"            : 64,
+    "n_train_epochs_per_update" : 3,
 
     "gae_lambda"                : 0.85,
     "gamma"                     : 1.0,
 
-    "n_samples_each_update"     : 2048,
-    "minibatch_size"            : 64,
-    "n_train_epochs_per_update" : 4,
+    "nn_regularizer" : 1e-4,
+    "resblock_dropout" : 0.15,
+
     "experience_replay_size"    : 2*10**4,
 
     #Architecture
