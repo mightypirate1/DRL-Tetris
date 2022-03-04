@@ -137,6 +137,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False,device_count={'
         all_names.append(n)
         all_weights.append(w)
         print("registering:", w, "-> ", n)
+
     #Initialize run!
     trajectory_start, current_player = 0, np.array([1])
     s_prime = env.get_state()
