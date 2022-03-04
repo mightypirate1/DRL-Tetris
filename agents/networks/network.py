@@ -40,12 +40,12 @@ class network:
             assign_val_placeholder_tf = tf.placeholder(shape=shape, dtype=dtype)
             assign_op_tf = var.assign(assign_val_placeholder_tf)
             assign_placeholder_list.append(
-                                            {
-                                                "assign_op" : assign_op_tf,
-                                                "assign_val_placeholder" : assign_val_placeholder_tf,
-                                                "assign_variable_name" : var.name,
-                                            }
-                                          )
+              {
+                  "assign_op" : assign_op_tf,
+                  "assign_val_placeholder" : assign_val_placeholder_tf,
+                  "assign_variable_name" : var.name,
+              }
+            )
         return assign_placeholder_list
 
     def swap_networks(self):
