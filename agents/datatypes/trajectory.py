@@ -63,7 +63,15 @@ class sventon_trajectory(trajectory):
         v_mean  = a_int_data[:,2, np.newaxis]
         a_int_np[:,0] = probabilities
         if compute_advantages:
-            a_int_np[:,1:] = self.adv_and_targets(v_piece, v_mean, r, d, gamma=gamma_discount, gae_lambda=gae_lambda, concatenate=True)
+            a_int_np[:,1:] = self.adv_and_targets(
+                v_piece,
+                v_mean,
+                r,
+                d,
+                gamma=gamma_discount,
+                gae_lambda=gae_lambda,
+                concatenate=True
+            )
         a = (a_env_np, a_int_np)
         prios = 2*np.ones_like(r) #Very large prio :)
         data = (s,a,r,d)
@@ -94,19 +102,27 @@ class sventon_trajectory(trajectory):
         prios =  np.concatenate([prios, prios], axis=0)
         return data, prios
 
-    def adv_and_targets(self, v_mean, v_piece, r, d, gamma=0.98, gae_lambda=0.96, concatenate=False):
-        advantages = np.zeros(v_mean.shape)
+    def adv_and_targets(self, v_mean, v_piece, r, d, gamma=0.98, gae_lambda=0.96, gve_lambda=0.5, concatenate=False):
+        # assumes td1s, v_mean and v_piece
+        compute_advantages(lambda_value):
+            estimates =  np.zeros_like(td1s)
+            A, W = 0.0, 0.0
+            for i,td in reversed(list(enumerate(td1s))):
+                A *= (gamma * lambda_value)
+                W *= lambda_value
+                A += td
+                W += 1
+                estimates[i] = (A + v_mean[i] - v_piece[i]) / W #Adjusts the advantage so that the specific piece affects the advantage at current time step, while all other time steps sees it as the average piece value
+            return estimates
+
+
         v_next = np.zeros(v_mean.shape)
         v_next[:-1] = v_mean[1:]
         td1s = r + gamma * v_next * (1-d) - v_mean
-        A, W = 0.0, 0.0
-        for i,td in reversed(list(enumerate(td1s))):
-            A *= (gamma * gae_lambda)
-            W *= gae_lambda
-            A += td
-            W += 1
-            advantages[i] = (A + v_mean[i] - v_piece[i]) / W #Adjusts the advantage so that the specific piece affects the advantage at current time step, while all other time steps sees it as the average piece value
-        targets = v_piece + advantages
+        advantages       = compute_advantages(td1s, gae_lambda)
+        advantages_value = compute_advantages(td1s, gve_lambda)
+
+        targets = v_piece + advantages_value
         if not concatenate:
             return advantages, targets
         return np.concatenate([advantages, targets], axis=1)
