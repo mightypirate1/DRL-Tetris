@@ -104,7 +104,7 @@ class sventon_trajectory(trajectory):
 
     def adv_and_targets(self, v_mean, v_piece, r, d, gamma=0.98, gae_lambda=0.96, gve_lambda=0.4, concatenate=False):
         # assumes td1s, v_mean and v_piece
-        compute_advantages(lambda_value):
+        def compute_advantages(lambda_value):
             estimates =  np.zeros_like(td1s)
             A, W = 0.0, 0.0
             for i,td in reversed(list(enumerate(td1s))):
@@ -115,12 +115,11 @@ class sventon_trajectory(trajectory):
                 estimates[i] = (A + v_mean[i] - v_piece[i]) / W #Adjusts the advantage so that the specific piece affects the advantage at current time step, while all other time steps sees it as the average piece value
             return estimates
 
-
         v_next = np.zeros(v_mean.shape)
         v_next[:-1] = v_mean[1:]
         td1s = r + gamma * v_next * (1-d) - v_mean
-        advantages       = compute_advantages(td1s, gae_lambda)
-        advantages_value = compute_advantages(td1s, gve_lambda)
+        advantages       = compute_advantages(gae_lambda)
+        advantages_value = compute_advantages(gve_lambda)
 
         targets = v_piece + advantages_value
         if not concatenate:
