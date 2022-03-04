@@ -2,7 +2,7 @@ import tensorflow.compat.v1 as tf
 from tools.parameter import *
 
 settings = {
-    "run-id" : "docker010",
+    "run-id" : "docker011",
     "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
 
     #Project
@@ -15,9 +15,9 @@ settings = {
     #RL-algo-settings
     "ppo_parameters" : {
         'clipping_parameter' : 0.15,
-        'value_loss' : 0.01,
+        'value_loss' : 0.007,
         'policy_loss' : 0.8,
-        'entropy_loss' : 0.017,
+        'entropy_loss' : 0.013,
         'entropy_floor_loss' : 0.0,
         'rescaled_entropy' : 0.0,
         # 'clipping_parameter' : 0.10,
@@ -32,12 +32,12 @@ settings = {
     "value_lr"                  : 7e-6, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
     "n_samples_each_update"     : 2048,
     "minibatch_size"            : 64,
-    "n_train_epochs_per_update" : 3,
+    "n_train_epochs_per_update" : 4,
 
-    "gae_lambda"                : 0.85,
-    "gamma"                     : 1.0,
+    "gae_lambda"                : 0.65,
+    "gamma"                     : 0.98,
 
-    "nn_regularizer" : 1e-4,
+    "nn_regularizer" : 1e-5,
     "resblock_dropout" : 0.15,
 
     "experience_replay_size"    : 2*10**4,
