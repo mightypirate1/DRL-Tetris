@@ -25,7 +25,7 @@ signals = {
 
 class runner(ABC):
     @abstractmethod
-    def __init__(self, settings, me=""):
+    def __init__(self, settings, me=None):
         self.received_interrupt = False
         self.settings = settings
         self.training_state = training_state(me=me, scope=settings['run-id'])
@@ -91,6 +91,7 @@ class runner(ABC):
         found, artifact, targetchecksum = self.get_validation_artifact()
         logger.info("--------------------------------")
         if not found:
+            logger.info(self.training_state.validation_checksum)
             logger.info(f"no stored artifact")
             return True
         logger.info(f"target: [{targetchecksum}]")
@@ -107,7 +108,7 @@ class runner(ABC):
         validation_checksum = self.compute_checksum(validation_target)
         self.training_state.validation_artifact.set(artifact)
         self.training_state.validation_checksum.set(validation_checksum)
-        logger.info(f"validation_checksum: {validation_checksum}")
+        logger.info(self.training_state.validation_checksum)
 
     def get_validation_artifact(self):
         found_artifact, artifact = self.training_state.validation_artifact.get()

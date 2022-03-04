@@ -14,7 +14,7 @@ class training_state:
         init_weights = None  # this means do not overwrite any stored value for init_weights
         if me is None:
             init_weights = -1  # so forces re-load of weights
-            me = worker_scope(get_next_worker_id(scope=scope))
+            me = get_next_worker_id(scope=scope)
 
         ### Name & scope:
         self.me = me
@@ -43,9 +43,10 @@ class training_state:
 ### Cheese queue (place to go if you are a new worker to get a number that no one uses)
 def get_next_worker_id(scope=''):
     for id in range(1000):
-        candidate_scope = keyjoin(scope, f"worker-{id}")
+        worker_id = f"worker-{id}"
+        candidate_scope = keyjoin(scope, worker_id)
         candidate_flag = flag("alive", scope=candidate_scope)
         if (success := candidate_flag.claim()):
             logger.info(f'scope [{scope}] claimed')
-            return id
+            return worker_id
     raise IOError(f"creating too many workers!")
