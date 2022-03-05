@@ -103,8 +103,8 @@ class sventon_trajectory(trajectory):
         return data, prios
 
     def adv_and_targets(self, v_mean, v_piece, r, d, gamma=0.98, gae_lambda=0.96, gve_lambda=0.4, concatenate=False):
-        # assumes td1s, v_mean and v_piece
         def compute_advantages(lambda_value):
+            # assumes td1s, v_mean and v_piece
             estimates =  np.zeros_like(td1s)
             A, W = 0.0, 0.0
             for i,td in reversed(list(enumerate(td1s))):
