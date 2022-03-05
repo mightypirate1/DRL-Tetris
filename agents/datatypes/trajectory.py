@@ -115,6 +115,9 @@ class sventon_trajectory(trajectory):
                 estimates[i] = (A + v_mean[i] - v_piece[i]) / W #Adjusts the advantage so that the specific piece affects the advantage at current time step, while all other time steps sees it as the average piece value
             return estimates
 
+        ####### docker012 sees you for who you are, not your reference class
+        v_mean = v_piece
+
         v_next = np.zeros(v_mean.shape)
         v_next[:-1] = v_mean[1:]
         td1s = r + gamma * v_next * (1-d) - v_mean
