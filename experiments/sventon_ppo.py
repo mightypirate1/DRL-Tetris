@@ -2,7 +2,7 @@ import tensorflow.compat.v1 as tf
 from tools.parameter import *
 
 settings = {
-    "run-id" : "docker012",
+    "run-id" : "docker011-gve-lambda0.0",
     "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
 
     #Project
