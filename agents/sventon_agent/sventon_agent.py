@@ -128,6 +128,7 @@ class sventon_agent(sventon_agent_base):
                     "length"    : len(t),
                     "worker"    : self.id,
                     "packet_id" : self.send_count,
+                    "stats"     : t.stats,
                 }
                 self.stored_trajectories.append((metadata,data))
                 if self.mode is threads.STANDALONE:

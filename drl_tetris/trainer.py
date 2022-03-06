@@ -129,7 +129,17 @@ class trainer(runner):
             length =  md["length"]
             loaded_samples += length
             trajectory_length = mix(float(avg_trajectory_length), length, alpha=0.05)
-            self.tb_writer.update({'trainer/trajectory_length': length}, time=loaded_samples)
+            self.tb_writer.update({
+                    'trajectoreis/length'                           :  length,
+                    'trajectoreis/stats/td/mean'                    :  trajectory.stats['td/mean'],
+                    'trajectoreis/stats/td/variance'                :  trajectory.stats['td/variance'],
+                    'trajectoreis/stats/advantages/mean'            :  trajectory.stats['advantages/mean'],
+                    'trajectoreis/stats/advantages/variance'        :  trajectory.stats['advantages/variance'],
+                    'trajectoreis/stats/value_adjustments/mean'     :  trajectory.stats['value_adjustments/mean'],
+                    'trajectoreis/stats/value_adjustments/variance' :  trajectory.stats['value_adjustments/variance'],
+                },
+                time=loaded_samples
+            )
         self.training_state.stats.set("trajectory_length", trajectory_length)
         loaded_samples = self.training_state.stats.set('runner/n_samples_loaded', loaded_samples)
         self.training_state.alive_flag.set(expire=120)

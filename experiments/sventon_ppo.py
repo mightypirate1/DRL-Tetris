@@ -15,8 +15,8 @@ settings = {
     #RL-algo-settings
     "ppo_parameters" : {
         'clipping_parameter' : 0.15,
-        'value_loss' : 0.007,
-        'policy_loss' : 0.8,
+        'value_loss' : 0.005,
+        'policy_loss' : 0.9,
         'entropy_loss' : 0.013,
         'entropy_floor_loss' : 0.0,
         'rescaled_entropy' : 0.0,
@@ -29,13 +29,15 @@ settings = {
     },
 
     #Train parameters
-    "value_lr"                  : 7e-6, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
+    "value_lr"                  : 5e-6, # exp_parameter(3e-5, base=10.0, decay=2/2e8),
     "n_samples_each_update"     : 2048,
     "minibatch_size"            : 64,
     "n_train_epochs_per_update" : 4,
 
-    "gae_lambda"                : 0.96,
+    "gae_lambda"                : 0.65,
     "gamma"                     : 0.98,
+
+    "record-parameters-to-tb" : False,
 
     "nn_regularizer" : 1e-5,
     "resblock_dropout" : 0.15,
