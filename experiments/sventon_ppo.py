@@ -2,7 +2,7 @@ import tensorflow.compat.v1 as tf
 from tools.parameter import *
 
 settings = {
-    "run-id" : "docker011-gve-lambda0.0",
+    "run-id" : "docker013",
     "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
 
     #Project
@@ -34,7 +34,7 @@ settings = {
     "minibatch_size"            : 64,
     "n_train_epochs_per_update" : 4,
 
-    "gae_lambda"                : 0.65,
+    "gae_lambda"                : 0.96,
     "gamma"                     : 0.98,
 
     "nn_regularizer" : 1e-5,

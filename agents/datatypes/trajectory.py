@@ -1,5 +1,10 @@
 import numpy as np
+from logging import getLogger
+
 import tools.utils as utils
+
+logger = getLogger(__name__)
+
 
 class trajectory:
     def __init__(self):
@@ -121,6 +126,7 @@ class sventon_trajectory(trajectory):
         v_next = np.zeros(v_mean.shape)
         v_next[:-1] = v_mean[1:]
         td1s = r + gamma * v_next * (1-d) - v_mean
+
         advantages       = compute_advantages(gae_lambda)
         advantages_value = compute_advantages(gve_lambda)
 
