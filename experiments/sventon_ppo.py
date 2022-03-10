@@ -2,21 +2,21 @@ import tensorflow.compat.v1 as tf
 from tools.parameter import *
 
 settings = {
-    "run-id" : "docker014-20",
+    "run-id" : "docker015",
     "presets" : ["default", "sventon", "sventon_ppo", "resblock"],
 
     #Project
     "augment_data" : False,
     # docker008 is just cautious -
-    "compress_advantages" : {'lr':0.01, 'safety':3.0, 'clip_val':8.0, 'cautious':False,},
-    "compress_value_loss" : {'lr':0.01, 'safety':3.0, 'clip_val':8.0, 'cautious':False,},
+    "compress_advantages" : {'lr':0.005, 'safety':3.0, 'clip_val':8.0, 'cautious':False,},
+    "compress_value_loss" : {'lr':0.005, 'safety':3.0, 'clip_val':8.0, 'cautious':False,},
     "n_step_value_estimates"    : 1,
 
     #RL-algo-settings
     "ppo_parameters" : {
         'clipping_parameter' : 0.15,
         'value_loss' : 0.005,
-        'policy_loss' : 0.9,
+        'policy_loss' : 1.7,
         'entropy_loss' : 0.013,
         'entropy_floor_loss' : 0.0,
         'rescaled_entropy' : 0.0,
@@ -40,7 +40,7 @@ settings = {
     "record-parameters-to-tb" : False,
 
     "nn_regularizer" : 1e-5,
-    "resblock_dropout" : 0.15,
+    "resblock_dropout" : 0.25,
 
     "experience_replay_size"    : 2*10**4,
 
