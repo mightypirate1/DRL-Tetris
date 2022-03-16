@@ -24,8 +24,8 @@ def visualize_nn_output(raw, player=0):
         unif = np.ones_like(pi) / (pi.shape[0] * pi.shape[1])
         entropy = utils.entropy(pi)
         max_entropy = utils.entropy(unif)
-        entr_vis = utils.progress_bar(entropy,max_entropy, length=length)
-        print(pref + entr_vis, piece_value[0,0,piece])
+        entr_vis = utils.progress_bar(entropy, max_entropy, length=length)
+        print(pref + entr_vis, piece_value[0,0,piece].round(decimals=3))
 
 
 #####

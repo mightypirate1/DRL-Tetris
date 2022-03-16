@@ -20,7 +20,6 @@ class compressor:
         floor = tf.maximum(batch_mean, epsilon) if self.cautious else epsilon
         norm = tf.maximum(self.x_mean, floor)
         clip = tf.minimum(self.safety * self.x_max / self.x_mean, self.clip_val)
-        # clip = tf.minimum(            self.x_max / self.x_mean, self.safety) #I-Z07 used this line, with safety=3.0 # Really old code that should be forgotten?
 
         # Normalization
         x_normalized = X / norm
