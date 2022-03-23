@@ -30,8 +30,8 @@ class trainer(runner):
         self.run_name           = self.settings["run-id"]
 
     def set_runner_state(self, state):
-        self.create_runner_state()
         # [self.trainer_agent] = state
+        self.create_runner_state()
 
     def get_runner_state(self):
         return [self.trainer_agent]
