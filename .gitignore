@@ -114,6 +114,9 @@ data/models/*
 !data/models/demo_weights/*
 data/summaries/*
 !data/summaries/.gitkeep
+data/db/*
+!data/db/.gitkeep
+data/old/*
 #
 experiments/*
 #but some files here are included!
@@ -124,8 +127,6 @@ experiments/*
 !experiments/sventon_ppo.py
 !experiments/presets.py
 
-data/db/*
-!data/db/.gitkeep
 #
 *.pkl
 

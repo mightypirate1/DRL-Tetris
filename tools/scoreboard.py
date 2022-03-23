@@ -1,7 +1,7 @@
 from itertools import combinations, repeat
 
 def div_str(x,y):
-    return "{}".format(0.0 if y == 0 else x/y)
+    return "{}".format(0.0 if y == 0 else round(x/y, 4))
 def frac_str(x,y):
     return "{} / {}".format(x,y)
 

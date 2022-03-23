@@ -1,5 +1,6 @@
 import pickle
 import tools.utils as utils
+
 class settings_printer:
     def __init__(self, s):
         if type(s) not in [str, dict]:

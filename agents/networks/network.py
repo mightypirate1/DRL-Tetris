@@ -1,25 +1,19 @@
 import tensorflow.compat.v1 as tf
 import tools.utils as utils
-from agents.networks.param_noiser import param_noiser
 from agents.networks.builders import sventon_architectures as arch
 
 class network:
-    def __init__(self, agent_id, name, state_size, output_shape, session, k_step=1, settings=None, worker_only=False, full_network=True):
+    def __init__(self, network_name, state_size, output_shape, session, k_step=1, settings=None, worker_only=False, full_network=True):
         #Basics
         self.settings = utils.parse_settings(settings)
-        self.name = name
-        self.scope = tf.variable_scope("network")
+        self.network_name = network_name
+        self.scope = tf.variable_scope(f"network/{network_name}")
         self.session = session
         self.worker_only = worker_only
         self.full_network = full_network
         self.stats_tensors, self.debug_tensors = [], []
         assert len(output_shape) == 3, "expected 3D-actions"
         assert k_step > 0, "k_step AKA n_step_value_estimates has to be greater than 0!"
-
-        #Noise
-        self.param_noiser = None
-        if "parameter_noise" in self.settings:
-            self.param_noiser = param_noiser(**self.settings["parameter_noise"])
 
         #Shapes and params etc
         self.output_shape = self.n_rotations, self.n_translations, self.n_pieces = output_shape
@@ -46,12 +40,12 @@ class network:
             assign_val_placeholder_tf = tf.placeholder(shape=shape, dtype=dtype)
             assign_op_tf = var.assign(assign_val_placeholder_tf)
             assign_placeholder_list.append(
-                                            {
-                                                "assign_op" : assign_op_tf,
-                                                "assign_val_placeholder" : assign_val_placeholder_tf,
-                                                "assign_variable_name" : var.name,
-                                            }
-                                          )
+              {
+                  "assign_op" : assign_op_tf,
+                  "assign_val_placeholder" : assign_val_placeholder_tf,
+                  "assign_variable_name" : var.name,
+              }
+            )
         return assign_placeholder_list
 
     def swap_networks(self):
@@ -69,15 +63,13 @@ class network:
         ret = self.session.run(collection)
         return ret
 
-    def set_weights(self, assign_list, weights, apply_noise=False, seed=None):
+    def set_weights(self, assign_list, weights, seed=None):
         run_list = []
         feed_dict = {}
         for w,assign in zip(weights,assign_list):
             run_list.append(assign['assign_op'])
             feed_dict[assign['assign_val_placeholder']] = w
         self.session.run(run_list, feed_dict=feed_dict)
-        if apply_noise:
-            self.param_noiser.update_noise(self.session, seed=seed)
 
     def output_as_stats(self, tensor, name=None, only_mean=False):
         if name is None:
@@ -95,12 +87,3 @@ class network:
     def create_fixed_targets(self, Q, mask, target):
         _target = tf.reshape(target, [-1,1,1,1]) * mask
         return _target + (1-mask) * Q
-
-    def get_random_conv_layers(self,tensor, n):
-        _max = tensor.shape.as_list()[3]
-        if _max - n > 3:
-            start = np.random.choice(_max-n)
-            idxs = slice(start, start+3)
-        else:
-            idxs = slice(0,n)
-        return tensor[0,:,:,idxs]

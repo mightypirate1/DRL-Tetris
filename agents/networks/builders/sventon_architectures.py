@@ -63,13 +63,11 @@ class resblock(base_architecture):
         resb_default.update(self.settings["residual_block_settings"]["default"])
         self.resblock_settings = {"visual": resb_default.copy(), "visvec": resb_default.copy(), "adv_stream" : resb_default.copy(), "val_stream": val_resb_settings,}
 
-        #TIDY
-        self.resblock_settings["adv_stream"]["param_noiser"] = self.param_noiser
-
         if "residual_block_settings" in self.settings:
             for key in self.resblock_settings:
                 if key in self.settings["residual_block_settings"]:
                     self.resblock_settings[key].update(self.settings["residual_block_settings"][key])
+
 class resblock_kbd(resblock):
     def advantage_output_fcn(self, x):
         return blocks.keyboard_conv(x, self.n_rotations, self.n_pieces, activation=self.kbd_activation)

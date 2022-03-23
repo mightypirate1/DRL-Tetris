@@ -17,16 +17,15 @@ class delta_ppo_nets(network):
             self.visual_inputs          = [tf.placeholder(tf.float32, (None,)+s[1:], name='visual_input{}'.format(i)) for i,s in enumerate(self.state_size_vis)]
             self.training_tf = tf.placeholder(tf.bool, shape=())
             self.main_net  = self.network_type(
-                                               "main-net",
-                                               self.output_shape,
-                                               self.settings,
-                                               full_network=(not worker_only or self.settings["workers_computes_advantages"]),
-                                               training=self.training_tf,
-                                               # kbd_activation=N.action_softmax,
-                                               raw_outputs=True,
-                                               param_noiser=self.param_noiser,
-                                               advantage_activation_fcn=N.action_softmax,
-                                              )
+                "main-net",
+                self.output_shape,
+                self.settings,
+                full_network=(not worker_only or self.settings["workers_computes_advantages"]),
+                training=self.training_tf,
+                # kbd_activation=N.action_softmax,
+                raw_outputs=True,
+                advantage_activation_fcn=N.action_softmax,
+            )
             self.v_tf, _phi_tf = self.main_net(self.vector_inputs, self.visual_inputs)
             self.phi_tf = tf.clip_by_value(_phi_tf, 1e-6,1.0)
             #
@@ -40,25 +39,25 @@ class delta_ppo_nets(network):
                 self.target_value_tf, self.advantages_tf = self.create_targets(self.v_tf)
                 #params
                 self.params = {
-                                'ppo_epsilon'        : tf.placeholder(tf.float32, shape=(), name='ppo_epsilon'),
-                                'clipping_parameter' : tf.placeholder(tf.float32, shape=(), name='clipping_parameter'),
-                                'value_loss'         : tf.placeholder(tf.float32, shape=(), name='c_value_loss'),
-                                'policy_loss'        : tf.placeholder(tf.float32, shape=(), name='c_policy_loss'),
-                                'entropy_loss'       : tf.placeholder(tf.float32, shape=(), name='c_entropy_loss'),
-                                'impossibility_loss' : tf.placeholder(tf.float32, shape=(), name='c_impossibility_loss'),
-                                'lr'                 : tf.placeholder(tf.float32, shape=(), name='lr'),
-                                }
+                    'ppo_epsilon'        : tf.placeholder(tf.float32, shape=(), name='ppo_epsilon'),
+                    'clipping_parameter' : tf.placeholder(tf.float32, shape=(), name='clipping_parameter'),
+                    'value_loss'         : tf.placeholder(tf.float32, shape=(), name='c_value_loss'),
+                    'policy_loss'        : tf.placeholder(tf.float32, shape=(), name='c_policy_loss'),
+                    'entropy_loss'       : tf.placeholder(tf.float32, shape=(), name='c_entropy_loss'),
+                    'impossibility_loss' : tf.placeholder(tf.float32, shape=(), name='c_impossibility_loss'),
+                    'lr'                 : tf.placeholder(tf.float32, shape=(), name='lr'),
+                }
                 self.training_ops  = self.create_training_ops(
-                                                              self.phi_tf,
-                                                              self.v_tf,
-                                                              self.target_value_tf,
-                                                              self.advantages_tf,
-                                                              self.deltas_training_tf,
-                                                              self.delta_sums_training_tf,
-                                                              self.pieces_training_tf,
-                                                              self.probabilities_old_tf,
-                                                              self.params,
-                                                             )
+                    self.phi_tf,
+                    self.v_tf,
+                    self.target_value_tf,
+                    self.advantages_tf,
+                    self.deltas_training_tf,
+                    self.delta_sums_training_tf,
+                    self.pieces_training_tf,
+                    self.probabilities_old_tf,
+                    self.params,
+                )
 
             self.main_net_assign_list = self.create_weight_setting_ops(self.main_net.variables)
             self.variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
@@ -70,8 +69,6 @@ class delta_ppo_nets(network):
         vector, visual = inputs
         run_list = [self.phi_tf, self.v_tf]
         feed_dict = {self.training_tf : False}
-        if self.param_noiser is not None:
-            feed_dict[self.param_noiser.disable_noise_tf] = disable_noise
         for idx, vec in enumerate(vector):
             feed_dict[self.vector_inputs[idx]] = vec
         for idx, vis in enumerate(visual):
@@ -79,58 +76,56 @@ class delta_ppo_nets(network):
         return_values = self.session.run(run_list, feed_dict=feed_dict)
         return return_values
 
-    def train(  self,
-                vector_states,
-                visual_states,
-                deltas,
-                delta_sums,
-                pieces,
-                probabilities,
-                advantages,
-                target_vals,
-                rewards,
-                dones,
-                unfiltered_inputs=True,
-                #params
-                ppo_epsilon=0.0,
-                clipping_parameter=0.15,
-                value_loss=0.3,
-                policy_loss=1.0,
-                entropy_loss=0.0001,
-                entropy_floor_loss=1.0,
-                impossibility_loss=0.01,
-                #
-                lr=None,
-              ):
+    def train(
+        self,
+        vector_states,
+        visual_states,
+        deltas,
+        delta_sums,
+        pieces,
+        probabilities,
+        advantages,
+        target_vals,
+        rewards,
+        dones,
+        unfiltered_inputs=True,
+        #params
+        ppo_epsilon=0.0,
+        clipping_parameter=0.15,
+        value_loss=0.3,
+        policy_loss=1.0,
+        entropy_loss=0.0001,
+        entropy_floor_loss=1.0,
+        impossibility_loss=0.01,
+        lr=None,
+    ):
         run_list = [
-                    self.training_ops,
-                    self.stats_tensors,
-                    self.debug_tensors,
-                    self.visualization_tensors,
-                    ]
+            self.training_ops,
+            self.stats_tensors,
+            self.debug_tensors,
+            self.visualization_tensors,
+        ]
         if self.settings["workers_computes_advantages"]:
             val_and_adv_dict = { self.target_value_tf : target_vals[:,0,:], self.advantages_tf : advantages[:,0,:] }
         else:
             val_and_adv_dict = self.estimator.feed_dict(vector_states, visual_states)
         feed_dict = {
-                        self.pieces_training_tf : pieces[:,0,:],
-                        self.probabilities_old_tf : probabilities[:,0,:],
-                        self.deltas_training_tf : deltas[:,0,:],
-                        self.delta_sums_training_tf : delta_sums[:,0,:],
-                        self.rewards_tf : rewards,
-                        self.dones_tf : dones,
-                        self.training_tf : True,
-                        #params
-                        self.params['ppo_epsilon']         : ppo_epsilon,
-                        self.params['clipping_parameter']  : clipping_parameter,
-                        self.params['value_loss']          : value_loss,
-                        self.params['policy_loss']         : policy_loss,
-                        self.params['entropy_loss']        : entropy_loss,
-                        self.params['impossibility_loss']  : impossibility_loss,
-                        self.params['lr']                  : lr,
-                    }
-        if self.param_noiser is not None:
-            feed_dict[self.param_noiser.disable] = False
+            self.pieces_training_tf     : pieces[:,0,:],
+            self.probabilities_old_tf   : probabilities[:,0,:],
+            self.deltas_training_tf     : deltas[:,0,:],
+            self.delta_sums_training_tf : delta_sums[:,0,:],
+            self.rewards_tf             : rewards,
+            self.dones_tf               : dones,
+            self.training_tf            : True,
+            #params
+            self.params['ppo_epsilon']         : ppo_epsilon,
+            self.params['clipping_parameter']  : clipping_parameter,
+            self.params['value_loss']          : value_loss,
+            self.params['policy_loss']         : policy_loss,
+            self.params['entropy_loss']        : entropy_loss,
+            self.params['impossibility_loss']  : impossibility_loss,
+            self.params['lr']                  : lr,
+        }
         _filter = lambda x : x[:,0,:] if unfiltered_inputs else lambda x : x
         feed_dict.update(dict(zip(self.vector_inputs, map(_filter,vector_states))))
         feed_dict.update(dict(zip(self.visual_inputs, map(_filter,visual_states))))
@@ -141,17 +136,17 @@ class delta_ppo_nets(network):
         return zip(self.stats_tensors, stats), zip(self.visualization_tensors, vis)
 
     def create_training_ops(
-                            self,
-                            phi_all,
-                            values,
-                            target_values,
-                            advantages,
-                            deltas_training,
-                            delta_sums_training,
-                            pieces_training,
-                            old_probs,
-                            params,
-                            ):
+        self,
+        phi_all,
+        values,
+        target_values,
+        advantages,
+        deltas_training,
+        delta_sums_training,
+        pieces_training,
+        old_probs,
+        params,
+    ):
         clip_param, c1, c2, c3, c4, e = params["clipping_parameter"], params["value_loss"], params["policy_loss"], params["entropy_loss"], params["impossibility_loss"], 10**-6
         #current phi(a|s)
         p_mask = tf.reshape(tf.one_hot(pieces_training[:,:],  self.n_pieces),       (-1,  1,  1, self.n_pieces     ), name='p_mask')
@@ -214,25 +209,25 @@ class delta_ppo_nets(network):
             self.ref_net = self.main_net
         else:
             self.ref_net   = self.network_type(
-                                               "reference-net",
-                                               self.output_shape,
-                                               self.settings,
-                                               training=False,
-                                               kbd_activation=N.action_softmax,
-                                               raw_outputs=True
-                                              )
+                "reference-net",
+                self.output_shape,
+                self.settings,
+                training=False,
+                kbd_activation=N.action_softmax,
+                raw_outputs=True
+            )
             self.estimator = value_estimator(
-                                               self.state_size_vec,
-                                               self.state_size_vis,
-                                               self.ref_net,
-                                               self.rewards_tf,
-                                               self.dones_tf,
-                                               self.k_step,
-                                               self.gamma,
-                                               self._lambda, # lambda is used for general advantage estimation (see paper for details...)
-                                               filter=self.estimator_filter, # ignore certain k-estimates for speed (optional)
-                                               truncate_aggregation=self.settings["value_estimator_params"]["truncate_aggregation"], # only do gae until en of episode
-                                              )
+                self.state_size_vec,
+                self.state_size_vis,
+                self.ref_net,
+                self.rewards_tf,
+                self.dones_tf,
+                self.k_step,
+                self.gamma,
+                self._lambda, # lambda is used for general advantage estimation (see paper for details...)
+                filter=self.estimator_filter, # ignore certain k-estimates for speed (optional)
+                truncate_aggregation=self.settings["value_estimator_params"]["truncate_aggregation"], # only do gae until en of episode
+            )
             self.reference_net_assign_list = self.create_weight_setting_ops(self.ref_net.variables)
             target_values_tf = self.estimator.output_tf
             advantages_tf    = values - target_values_tf

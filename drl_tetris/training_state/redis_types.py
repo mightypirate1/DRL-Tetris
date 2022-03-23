@@ -40,6 +40,8 @@ class redis_obj(ABC):
         return x
     def decode(self, x):
         return x
+    def __repr__(self):
+        return f"{type(self).__name__}[{self._key}]:[{cache.get(self._key)}]"
 
 class entry(redis_obj):
     def encode(self, x):
@@ -76,6 +78,8 @@ class byte_block(entry):
         if not found and replacement:
                 return False, x
         return found, x
+    def __repr__(self):
+        return f"{type(self).__name__}[{self._key}]:[{len(cache.get(self._key))} bytes]"
 
 class queue(byte_block):
     def __init__(self, key, **kwargs):
@@ -100,6 +104,8 @@ class queue(byte_block):
     def pop_iter(self):
         while (found_data := self.pop())[0]: # found, data = found_data
             yield found_data[1]
+    def __repr__(self):
+        return f"{type(self).__name__}[{self._key}]:[{len(cache.llen(self._key))} items]"
 
 class clock(entry):
     def __init__(self, key, replacement=0, as_type=int, **kwargs):

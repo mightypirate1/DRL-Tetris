@@ -30,7 +30,8 @@ class trainer(runner):
         self.run_name           = self.settings["run-id"]
 
     def set_runner_state(self, state):
-        [self.trainer_agent] = state
+        # [self.trainer_agent] = state
+        self.create_runner_state()
 
     def get_runner_state(self):
         return [self.trainer_agent]
@@ -129,7 +130,17 @@ class trainer(runner):
             length =  md["length"]
             loaded_samples += length
             trajectory_length = mix(float(avg_trajectory_length), length, alpha=0.05)
-            self.tb_writer.update({'trainer/trajectory_length': length}, time=loaded_samples)
+            self.tb_writer.update({
+                    'trajectoreis/length'                           :  length,
+                    'trajectoreis/stats/td/mean'                    :  md['stats']['td/mean'],
+                    'trajectoreis/stats/td/variance'                :  md['stats']['td/variance'],
+                    'trajectoreis/stats/advantages/mean'            :  md['stats']['advantages/mean'],
+                    'trajectoreis/stats/advantages/variance'        :  md['stats']['advantages/variance'],
+                    'trajectoreis/stats/value_adjustments/mean'     :  md['stats']['value_adjustments/mean'],
+                    'trajectoreis/stats/value_adjustments/variance' :  md['stats']['value_adjustments/variance'],
+                },
+                time=loaded_samples
+            )
         self.training_state.stats.set("trajectory_length", trajectory_length)
         loaded_samples = self.training_state.stats.set('runner/n_samples_loaded', loaded_samples)
         self.training_state.alive_flag.set(expire=120)
@@ -141,7 +152,7 @@ class trainer(runner):
             _, trainingstats = trainingresults
             self.tb_writer.update(trainingstats, time=current_weights)
             statsdict = self.training_state.stats.get_all()
-            timekeys = [(k.split('/')[-1],k) for k in statsdict.keys() if 'time' in k]
+            timekeys  = [(k.split('/')[-1],k) for k in statsdict.keys() if 'time' in k]
             currtimes = [timestats['time'].get(k1,0.) for k1,_ in timekeys]
             tottimes  = [statsdict[k2] for _, k2 in timekeys]
             timestats_totals = [(k1,tt, ct) for (k1,_), tt, ct in zip(timekeys, tottimes, currtimes)]

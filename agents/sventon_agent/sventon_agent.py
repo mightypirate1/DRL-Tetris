@@ -36,7 +36,6 @@ class sventon_agent(sventon_agent_base):
         #In any mode, we need a place to store transitions!
         self.current_trajectory = [self.trajectory_type() for _ in range(self.n_envs if self.settings["single_policy"] else 2*self.n_envs)]
         self.stored_trajectories = list()
-        self.action_entropy = 0
         self.theta = 0
 
         #If we do our own training, we prepare for that
@@ -64,7 +63,7 @@ class sventon_agent(sventon_agent_base):
         else:
             assert p_list[0] == p_list[-1], "{} ::: In dual-policy mode we require queries to be for one policy at a time... (for speed)".format(p_list)
             model = self.model_dict["policy_{}".format(p_list[0])]
-        model_eval_fcn, model_args, model_kwargs = self.model_runner(model), (state_vec,), {"player" : p_list, "disable_noise" : False}
+        model_eval_fcn, model_args, model_kwargs = self.model_runner(model), (state_vec,), {"player" : p_list}
 
         #Run model!
         action_eval, state_eval, pieces = raw = model_eval_fcn(*model_args,**model_kwargs)
@@ -129,6 +128,7 @@ class sventon_agent(sventon_agent_base):
                     "length"    : len(t),
                     "worker"    : self.id,
                     "packet_id" : self.send_count,
+                    "stats"     : t.stats,
                 }
                 self.stored_trajectories.append((metadata,data))
                 if self.mode is threads.STANDALONE:

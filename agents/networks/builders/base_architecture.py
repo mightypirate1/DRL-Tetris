@@ -23,7 +23,6 @@ class base_architecture:
                 advantage_activation_fcn=None,
                 kbd_activation=None,
                 raw_outputs=False,
-                param_noiser=None,
                 ):
         self.name = name
         self.settings = settings
@@ -37,7 +36,6 @@ class base_architecture:
         self.n_used_pieces, self.used_pieces_mask_tf = self.create_used_pieces_mask()
         self.kbd_activation = kbd_activation
         self.raw_outputs = raw_outputs
-        self.param_noiser = param_noiser
         self.scope = tf.variable_scope(self.name, reuse=tf.AUTO_REUSE)
         self.initialize_variables()
     def initialize_variables(self):
@@ -54,13 +52,13 @@ class base_architecture:
                 return self.Q_V_A(*outputs)
     def Q_V_A(self, _V, _A):
         Q, V, A = N.qva_from_raw_streams(
-                                        _V,
-                                        self.advantage_range * _A,
-                                        mask=self.used_pieces_mask_tf,
-                                        n_used_pieces=self.n_used_pieces,
-                                        separate_piece_values=self.settings["separate_piece_values"],
-                                        mode=self.settings["advantage_type"]
-                                        )
+            _V,
+            self.advantage_range * _A,
+            mask=self.used_pieces_mask_tf,
+            n_used_pieces=self.n_used_pieces,
+            separate_piece_values=self.settings["separate_piece_values"],
+            mode=self.settings["advantage_type"]
+        )
         return Q, V, A
     def create_used_pieces_mask(self):
         assert self.n_pieces in [1,7]
